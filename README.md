@@ -160,10 +160,15 @@ than fail. `.github/workflows/ci.yml`.
 
 Tests worth knowing about:
 
-- `test_fucus_reaches_the_tagalaht_reference_range` — a regression guard on the only
+- `test_fucus_reaches_the_tagalaht_reference_range` — a loose guard on the only
   published anchor the SE Baltic parameterisation has: 4800–5200 g DW/m² per 6 m² cage
-  over an April–October cycle (OLAMUR D3.2). `mu_max` was tuned to hit it; if a change
-  moves this, re-check the parameters before widening the bound.
+  over an April–October cycle (OLAMUR D3.2). **The model does not currently meet it.**
+  It returns 3446 g DW/m², and the test asserts 3000–5200 — a floor 37% below the
+  published minimum. `mu_max` has never been fitted to the anchor; it carries its
+  initial value. `b_max` is set from the anchor's own upper bound, so the range is not
+  an independent check either. Re-sourcing the anchor and deciding what, if anything,
+  is fitted to it is package A0 of
+  `docs/superpowers/specs/2026-09-13-dst-data-layer-design.md`.
 - `test_pressure_is_never_folded_into_the_ranking` — the beside-never-merged rule, in
   executable form.
 - `test_bad_eutropy_input_does_not_break_the_assessment` — an unusable optional engine
