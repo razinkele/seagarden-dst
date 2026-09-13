@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Data layers are large and are rebuilt by the refresh tooling, not committed.
+# Their licences and refresh procedure are recorded in the repository; the bytes are
+# not. See specification section 6.
+data/rasters/
+data/vectors/
+*.tif
+*.nc
+*.zarr/
+
+# Local application state (registrations, saved scenarios) - never committed.
+# Specification section 10.
+*.sqlite
+*.sqlite3
+*.db
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Session tooling and local caches - not part of the deliverable.
+.remember/
+.benchmarks/
+screenshots/
+
+# Internal project documents. The proposal extract carries per-activity budget
+# lines from the in-force Application Form; it stays local. The functional
+# specification and README carry everything the code depends on.
+SeaGarden_DST_proposal_extract.md

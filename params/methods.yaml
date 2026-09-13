@@ -1,0 +1,93 @@
+# Cultivation methods - the WP3 A3.2 system taxonomy.
+#
+# The SeaGarden system is an ANCHORING UNIT (float, buoy/line) plus a CULTIVATION UNIT
+# (floating or sinking lines, rafts, mussel socks). These are the concrete "farming
+# methods and scales" the Application Form commits the tool to letting users compare.
+#
+# Depth and wave limits are engineering placeholders. Costs and labour are deliberately
+# left null: specification section 8.4 makes the viability module defensible only
+# because its coefficients come from what WP3 actually procures and pays. Fill them
+# from the real procurement records, not from catalogue prices.
+
+methods:
+  - key: mini_farm_kit
+    name: Mini-farm kit (A3.5)
+    anchoring_unit: single mooring with surface buoy
+    cultivation_unit: short seeded line
+    suits_groups: [macroalga]
+    min_depth_m: 2.0
+    max_depth_m: 10.0
+    max_significant_wave_m: 0.8
+    area_m2_per_unit: 6.0
+    capital_cost_eur_per_unit: null
+    deployment_person_days: null
+    harvest_person_days: null
+
+  - key: floating_longline
+    name: Floating longline
+    anchoring_unit: two-point mooring with marker buoys
+    cultivation_unit: floating seeded lines
+    suits_groups: [macroalga]
+    min_depth_m: 4.0
+    max_depth_m: 30.0
+    max_significant_wave_m: 1.5
+    area_m2_per_unit: 100.0
+    capital_cost_eur_per_unit: null
+    deployment_person_days: null
+    harvest_person_days: null
+
+  - key: sinking_longline
+    name: Sinking (submerged) longline
+    anchoring_unit: two-point mooring, submerged headline
+    cultivation_unit: submerged seeded lines
+    suits_groups: [macroalga]
+    min_depth_m: 6.0
+    max_depth_m: 30.0
+    max_significant_wave_m: 2.2
+    area_m2_per_unit: 100.0
+    capital_cost_eur_per_unit: null
+    deployment_person_days: null
+    harvest_person_days: null
+
+  - key: raft
+    name: Raft
+    anchoring_unit: multi-point mooring
+    cultivation_unit: suspended frames
+    suits_groups: [macroalga]
+    min_depth_m: 3.0
+    max_depth_m: 15.0
+    max_significant_wave_m: 1.0
+    area_m2_per_unit: 50.0
+    capital_cost_eur_per_unit: null
+    deployment_person_days: null
+    harvest_person_days: null
+
+  - key: mussel_socks
+    name: Mussel socks on longline
+    anchoring_unit: two-point mooring with marker buoys
+    cultivation_unit: suspended mussel socks
+    suits_groups: [shellfish]
+    min_depth_m: 5.0
+    max_depth_m: 25.0
+    max_significant_wave_m: 1.5
+    area_m2_per_unit: 100.0
+    capital_cost_eur_per_unit: null
+    deployment_person_days: null
+    harvest_person_days: null
+
+  - key: modular_pontoon
+    name: Floating modular pontoon
+    anchoring_unit: multi-point mooring, modular floats
+    cultivation_unit: combined lines and socks
+    suits_groups: [macroalga, shellfish]
+    min_depth_m: 3.0
+    max_depth_m: 20.0
+    max_significant_wave_m: 1.0
+    area_m2_per_unit: 80.0
+    capital_cost_eur_per_unit: null
+    deployment_person_days: null
+    harvest_person_days: null
+    source: >-
+      Built by KU (budget line 3.4) and Alles Alge (3.16); PP5 Kerteminde Seafarm
+      builds a comparable platform for seaweed and shellfish (3.32). Replace the
+      placeholders with the as-built specifications and costs.

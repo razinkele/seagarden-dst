@@ -1,0 +1,60 @@
+# Mytilus spp. - blue mussel
+#
+# "Mussels" are named throughout the SeaGarden Application Form. In the SE Baltic the
+# relevant mode is MITIGATION culture, not commercial: below about 16 psu individuals
+# stay small and are not food-grade, but yield per hectare is HIGHER because density
+# is optimised for nutrient removal rather than size. That is the intended mode here,
+# not a degraded version of commercial culture.
+#
+# Yield model and elemental fractions from OLAMUR D2.3 / Maar et al. 2023.
+# Carbon is reported as carbon in harvested biomass only - never sequestration.
+# See shellfish.carbon_note().
+
+key: mytilus
+scientific_name: Mytilus spp.
+common_name: Blue mussel
+group: shellfish
+in_application_form: true
+cultivation_window: [1, 12]   # annual harvest cycle
+
+shellfish_yield:
+  threshold_psu: 16.0
+  commercial_t_fw_ha_yr: [16.0, 18.0]
+  mitigation_t_fw_ha_yr: [20.0, 33.0]
+  density_coefficient: 1269.0
+  commercial_density_divisor: 3.15
+
+elemental:
+  basis: fresh_weight
+  dry_matter: 0.103
+  nitrogen: 0.0145
+  phosphorus: 0.00083
+  carbon: 0.0461          # shell carbon fraction of fresh weight
+
+calibration:
+  - region: DK-belt
+    tier: B
+    source: Maar et al. 2023 (doi:10.1038/s43247-023-01116-6)
+    calibrated_on: North Sea-Baltic transition zone
+  - region: DE-coastal
+    tier: B
+    source: Maar et al. 2023
+    calibrated_on: Western Baltic
+  - region: LT-coastal
+    tier: C
+    source: Maar et al. 2023
+    calibrated_on: North Sea-Baltic transition zone
+    note: >-
+      Mitigation-culture band extrapolated to Lithuanian salinities. Mussel biomass
+      in the eastern Baltic is low in absolute terms; carbon efficiency per unit
+      biomass is nevertheless high (Vaher et al. 2024). Present the efficiency
+      framing, not a sequestration claim.
+  - region: default
+    tier: C
+    source: Maar et al. 2023
+    calibrated_on: North Sea-Baltic transition zone
+
+notes: >-
+  IMTA planning heuristic (OLAMUR D2.3): an 8 ha mussel farm offsets the N and P
+  emissions of a standard finfish farm; 0.8 ha suffices for phosphorus alone with
+  low-P hydroxyapatite-binding feed pellets.

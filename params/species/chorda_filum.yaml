@@ -1,0 +1,58 @@
+# Chorda filum - sea lace
+#
+# The realistic Lithuanian candidate, and the species KU's own field and sporification
+# protocols are written for. It is NOT named in the Application Form and has NO
+# published growth model - neither OLAMUR nor ODSS carries one.
+#
+# The parameters below are a STRUCTURAL ANALOGUE of the Fucus formulation with
+# coefficients adjusted for an annual, fast-growing, filamentous brown alga. They are
+# a placeholder for fitting against WP3 A3.4 data and must not be presented as
+# anything else. Every region is tier C by construction.
+
+key: chorda_filum
+scientific_name: Chorda filum
+common_name: Sea lace
+group: macroalga
+in_application_form: false
+cultivation_window: [4, 8]   # April-August, annual life cycle
+
+growth:
+  mu_max: 0.095           # 1/day - between Fucus and Ulva
+  i_k: 100.0              # umol photons/m2/s
+  arrhenius_temp: 6500.0  # K
+  ref_temp_c: 15.0
+  upper_temp_c: 21.0
+  k_nitrate: 4.0          # umol N/L
+  loss_rate: 0.014        # 1/day
+  b_initial: 12.0         # g DW/m2
+  b_max: 1200.0           # g DW/m2
+
+salinity:
+  applies: false
+
+elemental:
+  basis: dry_weight
+  nitrogen: 0.016
+  phosphorus: 0.0020
+  carbon: 0.31
+
+calibration:
+  - region: default
+    tier: C
+    source: structural analogue of OLAMUR D3.2 (Fucus), coefficients assumed
+    note: >-
+      No published growth model exists for this species. Coefficients are assumed by
+      analogy, not fitted. Results are indicative of the shape of the seasonal curve,
+      not of its magnitude. Fit against WP3 A3.4 harvest data before any figure is
+      used in a deliverable.
+
+notes: >-
+  DECISION D1, taken 13 September 2026: Chorda ships in v1 with these assumed
+  analogue parameters. The reason is that it is the species KU will actually
+  cultivate on the Lithuanian coast, and a tool that omits the local candidate is
+  less useful than one that carries it honestly labelled. The cost is that the
+  headline Lithuanian species is the least modelled of the five, which is exactly
+  the over-confidence risk the calibration tiers exist to contain - so the tier C
+  status here is load-bearing, not decorative. It must not be promoted until the
+  coefficients are fitted to WP3 A3.4 harvest data, and the accompanying test
+  (test_chorda_ships_but_stays_uncalibrated) enforces that.

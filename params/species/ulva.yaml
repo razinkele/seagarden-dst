@@ -1,0 +1,51 @@
+# Ulva spp. - sea lettuce
+#
+# The only alga the SeaGarden Application Form names: A3.4 monitors dissolved nutrient
+# concentrations at the LT and DE pilot sites specifically "to estimate growth
+# conditions for the target greenalgae Ulva". It is therefore the species the project
+# is contractually committed to, and the one with the best prospect of reaching
+# calibration tier A from WP3 data.
+#
+# Parameters are literature priors pending that data. ODSS carries an Ulva growth
+# model, but its training set covers EE, FI, SE, DK and DE only.
+
+key: ulva
+scientific_name: Ulva spp.
+common_name: Sea lettuce
+group: macroalga
+in_application_form: true
+cultivation_window: [5, 9]   # May-September
+
+growth:
+  mu_max: 0.130           # 1/day - fast-growing opportunist
+  i_k: 95.0               # umol photons/m2/s
+  arrhenius_temp: 6800.0  # K
+  ref_temp_c: 15.0
+  upper_temp_c: 24.0
+  k_nitrate: 5.0          # umol N/L
+  loss_rate: 0.022        # 1/day - high fragmentation losses
+  b_initial: 10.0         # g DW/m2
+  b_max: 1500.0           # g DW/m2
+
+salinity:
+  applies: false          # euryhaline across the whole South Baltic range
+
+elemental:
+  basis: dry_weight
+  nitrogen: 0.030         # Ulva tissue N is markedly higher than kelp
+  phosphorus: 0.0025
+  carbon: 0.30
+
+calibration:
+  - region: default
+    tier: C
+    source: ODSS growth models (OLAMUR D2.3), literature priors
+    note: >-
+      No local calibration anywhere in the South Baltic. WP3 A3.4 monitors Ulva
+      growth conditions at the LT and DE pilots; those data are the intended route
+      to tier A in the M24-30 window.
+
+notes: >-
+  Highest tissue nitrogen of the shipped species, so Ulva tends to dominate
+  nutrient-removal comparisons per unit dry weight. Present that alongside its
+  shorter season and higher loss rate rather than on its own.

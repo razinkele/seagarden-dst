@@ -1,0 +1,74 @@
+# Saccharina latissima - sugar kelp
+#
+# Carried for completeness and for the Danish Great Belt pilot, and as the canonical
+# demonstration of calibration tier D.
+#
+# OLAMUR's salinity scaling returns a small positive yield at Lithuanian salinities
+# (under 25% of North Sea yield). Their own Tagalaht pilot found outright cultivation
+# FAILURE at 5.5-6.5 psu. A number and a finding disagree, so below the tolerance
+# floor the tool suppresses the number and shows the finding - see growth.contraindication
+# and specification section 5.3.
+
+key: saccharina_latissima
+scientific_name: Saccharina latissima
+common_name: Sugar kelp
+group: macroalga
+in_application_form: false
+cultivation_window: [1, 6]   # growth phase Jan-June; see notes on deployment
+
+growth:
+  mu_max: 0.055           # 1/day
+  i_k: 85.0               # umol photons/m2/s
+  arrhenius_temp: 6000.0  # K
+  ref_temp_c: 12.0
+  upper_temp_c: 18.0
+  k_nitrate: 3.5          # umol N/L
+  loss_rate: 0.008        # 1/day
+  b_initial: 15.0         # g DW/m2
+  b_max: 2000.0           # g DW/m2
+
+salinity:
+  applies: true
+  upper_psu: 25.0
+  lower_psu: 16.0
+  upper_divisor: 18.0
+  lower_divisor: 32.0
+  tolerance_floor_psu: 16.0
+
+max_yield_t_fw_ha: 18.4   # Danish sites above 16 psu, OLAMUR D2.3
+
+elemental:
+  basis: dry_weight
+  nitrogen: 0.010
+  phosphorus: 0.0017
+  carbon: 0.32
+
+calibration:
+  - region: DK-belt
+    tier: B
+    source: OLAMUR D2.3 / Maar et al. 2023
+    calibrated_on: Danish sites above 16 psu
+  - region: LT-coastal
+    tier: D
+    source: OLAMUR pilot finding, Tagalaht Bay
+    note: >-
+      Sugar kelp cultivation failed at 5.5-6.5 psu in OLAMUR's Estonian pilot.
+      The salinity scaling would return a small positive yield at Lithuanian
+      salinities; that number is not shown, because the observation contradicts it.
+      Fucus, Chorda or mitigation mussels are the appropriate choices here.
+  - region: PL-lagoon
+    tier: D
+    source: OLAMUR pilot finding, Tagalaht Bay
+    note: >-
+      Salinity in the Szczecin Lagoon is far below the demonstrated tolerance for
+      this species. Not cultivable.
+  - region: default
+    tier: C
+    source: OLAMUR D2.3 / Maar et al. 2023
+    calibrated_on: Danish sites above 16 psu
+
+notes: >-
+  Deployment in practice occurs the preceding autumn, so the true cultivation window
+  wraps the year boundary. The scaffold's forcing generator does not yet handle a
+  wrapping window; the January-June growth phase is modelled instead. Fix this
+  before the M24 prototype - it understates the early growth accumulated over winter.

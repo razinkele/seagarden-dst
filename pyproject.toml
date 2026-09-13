@@ -1,0 +1,79 @@
+[project]
+name = "seagarden-dst"
+version = "0.2.0.dev0"
+description = "SeaGarden Decision Support Tool — analytical core (A2.3 / D2.2)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "EUPL-1.2" }
+authors = [{ name = "Klaipeda University, Marine Research Institute" }]
+keywords = ["aquaculture", "Baltic Sea", "decision support", "nutrient removal", "macroalgae"]
+
+# Analytical core. Deliberately small: the tool must be reconstructible from this
+# repository alone in 2034, on no maintenance budget (specification section 1,
+# premise 2). numpy/scipy carry the growth ODE, pydantic validates the parameter
+# files at load rather than mid-analysis, and that is the whole of it.
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.11",
+  "pydantic>=2.6",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "pytest-cov>=4.1"]
+
+# Web app runtime. The core needs none of these.
+app = [
+  "shiny>=1.0",
+  "pandas>=2.1",     # scenario comparison tables
+]
+
+# Live spatial data layer (specification section 6). Not needed for the prototype,
+# which runs on the placeholder conditions in seagarden_dst.forcing.
+spatial = [
+  "rioxarray>=0.15",
+  "xarray>=2024.1",
+  "rasterio>=1.3",
+  "geopandas>=0.14",
+  "shapely>=2.0",
+  "pyproj>=3.6",
+  "shinywidgets>=0.3",
+  "ipyleaflet>=0.18",
+]
+
+# Optional sibling engines from the KU MRI estate. Both are imported lazily by their
+# adapters, and the app degrades to "not computed" without them — it never fails.
+# bowtiepy: MARBEFES Bayesian bow-tie (razinkele/bowtiepy)
+# EUTROPY:  calibrated 29-box Curonian Lagoon biogeochemical model (kaynarob/EUTROPY)
+engines = [
+  "bowtiepy @ git+https://github.com/razinkele/bowtiepy",
+]
+
+# Risk modules (specification section 8, decision D5). SIN1D only — SIN2D's Fortran
+# f2py extension is excluded on durability grounds.
+risk = ["py-pde>=0.33"]
+
+dev = ["pytest>=8", "pytest-cov>=4.1", "ruff>=0.3"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "app/tests"]
+pythonpath = ["src", "."]    # "." so `import app.*` resolves from the repo root
+markers = [
+  "engines: needs an optional sibling engine (bowtiepy, EUTROPY); deselected by default",
+  "e2e: boots the real app (slow); deselected by default — run with -m e2e",
+]
+addopts = "-m 'not engines and not e2e'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

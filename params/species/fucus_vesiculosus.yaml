@@ -1,0 +1,59 @@
+# Fucus vesiculosus - bladderwrack
+#
+# Parameters adapted from OLAMUR D3.2, which re-parameterised a Saccharina framework
+# for Fucus after sugar kelp failed at low salinity in Tagalaht Bay, Estonia
+# (5.5-6.5 psu). This is the first documented cultivation success in Baltic
+# low-salinity conditions and the closest published analogue for the SE Baltic.
+#
+# NOTE: no salinity term. OLAMUR found none was needed once the model was calibrated
+# for Baltic conditions - salinity was not limiting for Fucus once adapted. This is
+# stated explicitly on the tool's methods page because users expect a salinity term
+# and its absence otherwise reads as an omission.
+
+key: fucus_vesiculosus
+scientific_name: Fucus vesiculosus
+common_name: Bladderwrack
+group: macroalga
+in_application_form: false
+cultivation_window: [4, 10]   # April-October, the OLAMUR Tagalaht cycle
+
+growth:
+  mu_max: 0.090           # 1/day
+  i_k: 110.0              # umol photons/m2/s
+  arrhenius_temp: 6200.0  # K
+  ref_temp_c: 15.0
+  upper_temp_c: 22.0
+  k_nitrate: 3.0          # umol N/L
+  loss_rate: 0.006        # 1/day
+  b_initial: 20.0         # g DW/m2 seeded
+  b_max: 5200.0           # g DW/m2, upper Tagalaht reference harvest
+
+salinity:
+  applies: false
+
+elemental:
+  basis: dry_weight
+  nitrogen: 0.010
+  phosphorus: 0.0017
+  carbon: 0.32
+
+calibration:
+  - region: EE-coastal
+    tier: B
+    source: OLAMUR D3.2
+    calibrated_on: Tagalaht Bay, Estonia (5.5-6.5 psu)
+  - region: LT-coastal
+    tier: C
+    source: OLAMUR D3.2
+    calibrated_on: Tagalaht Bay, Estonia
+    note: >-
+      Transferred from an Estonian pilot at comparable salinity. No Lithuanian
+      calibration exists; promote to tier A once WP3 A3.4 data is available.
+  - region: default
+    tier: C
+    source: OLAMUR D3.2
+    calibrated_on: Tagalaht Bay, Estonia
+
+notes: >-
+  Reference yields for validation (OLAMUR D3.2, per 6 m2 cage, April-October):
+  4800-5200 g DW/m2, approximately 10-13 kg C, 1.4-3.4 kg N, 15-120 g P.

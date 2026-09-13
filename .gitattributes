@@ -1,0 +1,6 @@
+# Normalise line endings in the repository; check out native. Keeps a Windows-
+# authored tree from churning against the Linux server it has to run on to 2034.
+* text=auto
+*.py text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
