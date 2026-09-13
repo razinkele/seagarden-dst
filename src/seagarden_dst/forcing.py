@@ -153,9 +153,26 @@ def daily_forcing(
     with irradiance peaking at the solstice and nutrients drawn down through the
     growing season - enough structure for the growth model to behave sensibly, and
     explicitly a placeholder for the Copernicus climatologies of section 6.
+
+    A window whose end month precedes its start month wraps the year boundary - sugar
+    kelp is deployed in autumn and harvested the following early summer. Such a window
+    is handled by letting the day axis run past 365 rather than splicing two calendar
+    segments: the seasonal term has period 365.25, so day 370 is already the same point
+    in the season as day 5, and continuing the axis keeps the forcing continuous across
+    New Year and the axis monotone for the interpolation in `growth.simulate`.
+
+    One placeholder limitation is worth naming for wrapping windows: the nutrient
+    drawdown below is monotone over the window, so an October-June window peaks in
+    October, whereas Baltic DIN in fact peaks in January-February. The real seasonal
+    cycle arrives with the section 6 climatologies; until then this understates winter
+    nitrogen and with it the early growth.
     """
     start, end = window
-    days = np.arange(day_of_year(start, 1), day_of_year(end, 28) + 1, dtype=float)
+    first = day_of_year(start, 1)
+    last = day_of_year(end, 28)
+    if last < first:
+        last += 365
+    days = np.arange(first, last + 1, dtype=float)
 
     # Solstice-centred seasonal shape: 1 at midsummer (day 172), 0 at midwinter.
     season = 0.5 * (1.0 + np.cos(2.0 * np.pi * (days - 172.0) / 365.25))

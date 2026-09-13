@@ -10,6 +10,8 @@ from shiny import module, reactive, render, ui
 
 from seagarden_dst import SCALES, default_parameters
 
+from ._widgets import window_label
+
 PARAMS = default_parameters()
 SPECIES_CHOICES = {k: v.common_name for k, v in PARAMS.species.items()}
 AF_SPECIES = [k for k, v in PARAMS.species.items() if v.in_application_form]
@@ -69,7 +71,7 @@ def catalogue_server(input, output, session, state) -> None:  # noqa: A002
         rows = []
         for species in PARAMS.species.values():
             named = "yes" if species.in_application_form else "no"
-            window = f"months {species.cultivation_window[0]}-{species.cultivation_window[1]}"
+            window = window_label(species.cultivation_window)
             rows.append(
                 ui.tags.tr(
                     ui.tags.td(ui.tags.b(species.common_name)),

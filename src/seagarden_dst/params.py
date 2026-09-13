@@ -155,7 +155,11 @@ class SpeciesParams(BaseModel):
         description="Whether the AF names this species. Governs decision D1."
     )
     cultivation_window: tuple[int, int] = Field(
-        description="Deployment and harvest month, inclusive, 1-12"
+        description=(
+            "Deployment and harvest month, inclusive, 1-12. An end month earlier than "
+            "the start month wraps the year boundary - sugar kelp goes out in autumn "
+            "and comes in the following early summer."
+        )
     )
     growth: GrowthParams | None = None
     salinity: SalinityResponse | None = None
@@ -173,8 +177,12 @@ class SpeciesParams(BaseModel):
         start, end = v
         if not (1 <= start <= 12 and 1 <= end <= 12):
             raise ValueError("cultivation_window months must be in 1-12")
-        if start >= end:
-            raise ValueError("cultivation_window must not wrap the year boundary")
+        # A window that wraps the year boundary is legal - `forcing.daily_forcing`
+        # runs the day axis past 365 for it. A single month is not: once wrapping is
+        # allowed, (6, 6) could mean no days or every day, and the parameter file
+        # should not carry a value whose meaning has to be guessed.
+        if start == end:
+            raise ValueError("cultivation_window must span at least two months")
         return v
 
     def calibration_for(self, region: str) -> Calibration:

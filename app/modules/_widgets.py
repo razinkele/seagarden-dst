@@ -102,3 +102,21 @@ def calibration_legend() -> ui.Tag:
             )
         ),
     )
+
+
+_MONTHS = (
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+)
+
+
+def window_label(window: tuple[int, int]) -> str:
+    """Render a cultivation window as months.
+
+    "months 10-6" reads as a typo. A window whose end month precedes its start month
+    wraps the year boundary, and saying so is the difference between a user reading a
+    backwards range and reading an over-winter deployment.
+    """
+    start, end = window
+    span = f"{_MONTHS[start - 1]}\u2013{_MONTHS[end - 1]}"
+    return f"{span} (over winter)" if end < start else span
