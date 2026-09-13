@@ -1,7 +1,10 @@
 # Design — from prototype to the real data layer
 
-*SeaGarden DST, Activity A2.3. Written 13 September 2026 (≈M4). **Revision 3**, same
-day, after two rounds of multi-agent review. §11 records what changed and why.*
+*SeaGarden DST, Activity A2.3. Written 13 September 2026 (≈M4). **Revision 4**, same
+day, after three rounds of multi-agent review. §11 records what changed and why. Round 3
+judged the substance settled and recommended targeted edits rather than a fourth rewrite;
+this revision is those edits, plus §8.1's traceability pass. No further review round is
+planned — the next step is the implementation plan.*
 
 Companion to `SeaGarden_DST_functional_specification_v0.1.md`. That document says what
 the tool does and why; this says how the next block of engineering gets built, and in
@@ -84,17 +87,26 @@ one marginal, one out by an order of magnitude — cannot be produced by any sin
 factor. So re-sourcing the anchor (§3.1) may *not* resolve it, and the nitrogen
 discrepancy has to be recorded as unexplained until it is.
 
-**Recommendation:** amend spec §7.2 to describe what is implemented — fixed tissue
-fractions on harvested dry weight, from macroalgal stoichiometry (Atkinson & Smith-type;
-*Redfield is a plankton ratio and wrong for macroalgae*) — and record the nitrogen
-discrepancy in `params/species/fucus_vesiculosus.yaml` where it will be seen. Do not
-change the fractions to close the gap: 1.4–3.4 kg N per cage would need 4.7–11% N by dry
-weight, and *Fucus* literature values are 1–2.5%. Something is wrong with the
-comparison, not obviously with the fractions.
+**Part of the gap is now explained, and it is a defect rather than a basis error.**
+*Fucus*'s elemental block is **byte-identical to Saccharina's** — `nitrogen: 0.010`,
+`phosphorus: 0.0017`, `carbon: 0.32` — which
+`../Relevant projects/OLAMUR-solutions-for-SeaGarden.md` §3 labels explicitly as *"Kelp
+DM → 1% N, 0.17% P, 32% C"*. *Chorda* and *Ulva* each carry their own values, Ulva's with
+a comment noting its N is markedly higher than kelp. So *Fucus* is silently running on
+kelp's stoichiometry. Published *Fucus vesiculosus* tissue N is roughly 1.5–2.5% of dry
+weight; at 2% the nitrogen arm doubles to ≈0.6 kg and the gap narrows from 4.5–11× to
+about 2.3–5.5×. It does not close, so the anchor still needs re-sourcing — but "do not
+change the fractions", which revision 3 recommended, was wrong.
 
-**Fallback if D3.2 is unobtainable:** keep the fractions, mark the nitrogen arm
-"unreconciled — published figure not verifiable at source", and do not assert the
-N number as validated anywhere.
+**Recommendation:** (a) re-source *Fucus*'s three fractions from *Fucus* literature, or
+mark them explicitly `assumed: kelp values, not Fucus` as Chorda's coefficients are
+marked; (b) amend spec §7.2 to describe what is implemented — fixed tissue fractions on
+harvested dry weight, **not** Redfield, which is a plankton ratio and wrong for
+macroalgae; (c) record whatever gap remains in the Fucus YAML where it will be seen.
+
+**Fallback if D3.2 is unobtainable:** do (a) and (b) anyway — neither depends on it —
+mark the nitrogen arm "unreconciled, published figure not verifiable at source", and do
+not assert the N number as validated anywhere.
 
 **Why it matters:** nitrogen removed is compliance item 7, and
 `SpeciesOption.nitrogen_value` is the ranking's sort key.
@@ -119,16 +131,39 @@ The last two diverge by 49% because the trajectory peaks at 229 against `b_max` 
 the logistic term barely binds and scaling the ceiling does almost nothing until it
 does. The three readings span a factor of 5.6.
 
-**Recommendation:** post-multiply the harvest. It is what "scaling of maximum yield"
-most directly means, it keeps the rate a biological rate, and it is the only one of the
-three that degrades gracefully if `b_max` is later re-sourced (§3.1 item 2) — scaling a
-ceiling couples the salinity response to a parameter we already know is wrong. Confirm
-against OLAMUR D2.3's implementation before committing.
+**Resolved — the source is already in the repository, and none of the three readings is
+it.** `../Relevant projects/OLAMUR-solutions-for-SeaGarden.md` §3 records D2.3's actual
+implementation:
 
-**Fallback if D2.3 is unobtainable:** adopt the post-multiply reading, record it in spec
-§7.2 as a project decision rather than an inherited one, and mark the DK-belt entry
-tier C rather than B — because if no coefficient in the file is fitted to Danish data,
-B is not defensible either way. That re-examination is itself part of A0.
+> *"Sugar kelp: modelled purely as a function of salinity — `f_salinity = 1 (S≥25);
+> 1+(S−25)/18 (16≤S<25); S/32 (S<16)`, multiplied by a max yield of 18.4 t-FW/ha from
+> Danish >16 psu sites."*
+
+OLAMUR runs **no growth ODE for Saccharina at all.** It is a direct salinity-indexed
+yield model. So there is a fourth reading, and it is the published one:
+
+| reading | Saccharina at DK-belt |
+|---|---|
+| current — factor in the growth **rate** | 36.90 g DW/m² ≈ 3.1–3.7 t FW/ha |
+| post-multiply the **harvest** | 140.13 g DW/m² ≈ 11.7–14.0 t FW/ha |
+| scale **`b_max`** | 208.55 g DW/m² |
+| **OLAMUR D2.3 as published** | **f(18) × 18.4 = 0.611 × 18.4 = 11.24 t FW/ha** |
+
+**Decision, and it is a fork from spec §7.2 rather than an implementation of it.**
+Saccharina's yield comes from `f_salinity × max_yield_t_fw_ha`, not from the ODE. That
+makes `max_yield_t_fw_ha: 18.4` the model rather than dead data, and it means the ODE is
+not used for this species — which is coherent with spec §5.3's treatment of Saccharina as
+the worked tier D case rather than a species the tool models in detail.
+
+The post-multiply reading lands within 4% of the published figure, so either is
+defensible in practice; but the published one is what the source says, needs no
+justification, and makes the 18.4 parameter checkable. **Recommendation: implement the
+published form for Saccharina**, and note in spec §7.2 that the ODE governs the other
+three macroalgae.
+
+**The DK-belt entry should move from tier B to C regardless**, because no coefficient in
+the file is fitted to Danish data — a published yield figure from Danish sites is a
+literature prior, not a local calibration. That re-examination is part of A0.
 
 **Consequences to carry:** no macroalga file has `dry_matter`, so spec §7.1's committed
 `t FW ha⁻¹` output cannot be produced and `max_yield_t_fw_ha: 18.4` cannot be checked
@@ -142,11 +177,19 @@ it discharged. No source in spec §6, no field on `SiteConditions`, no model and
 package produces it.
 
 **Recommendation:** record it as a new decision in spec §11. Either add a tier-C proxy —
-HELCOM assessment products are already in spec §6's nutrient row and carry
-eutrophication-status indicators usable as assimilative capacity, with HELCOM PLC
-waterborne inputs as the load side — plus a `SiteConditions` field, **before package B
-fixes the variable list**; or record which named proxy discharges the item and agree it
-with the LP before D2.2. Either way spec §2 row 1 must point at what produces it.
+HELCOM assessment products are already in spec §6's nutrient row, with HELCOM PLC
+waterborne inputs as the load side — plus a `SiteConditions` field, **added to §6.1's
+variable table before package B measures against it**; or record which named proxy
+discharges the item and agree it with the LP before D2.2. Either way spec §2 row 1 must
+point at what produces it.
+
+**One caution, because the word is doing two jobs.** A HELCOM eutrophication-status class
+is not carrying capacity for extractive culture — for a mussel or seaweed farm the sign is
+inverted, since high nutrient status raises the yield and the nutrient-removal benefit
+rather than limiting the activity. Shipping eutrophication status under the label
+"carrying capacity" would re-display AF item 1 under item 4's name. If a proxy is adopted
+it must be labelled as what it is (nutrient status, or assimilative capacity for the water
+body) and the RCO116 claim in spec §2 written to match, not the other way round.
 
 `params.py`'s existing `carrying_capacity` is a cultivation-unit term and is not this.
 
@@ -378,10 +421,29 @@ din(day) = site.din_umol_l * (1.0 - 0.55 * season(day))
 ```
 
 `season(day)` is the existing solstice-centred term, 1 at midsummer and 0 at midwinter.
-This preserves the current 1.0 → 0.45 amplitude exactly, and puts nitrogen highest in
-winter and lowest at midsummer, which is the observed Baltic pattern (winter accumulation,
-spring-bloom drawdown) and the direction the old code had backwards for wrapping windows.
-It is a placeholder, **assumed rather than sourced**, and package D replaces it wholesale.
+It puts nitrogen highest in winter and lowest at midsummer, which is the observed Baltic
+pattern (winter accumulation, spring-bloom drawdown) and the direction the old code had
+backwards for wrapping windows. It is a placeholder, **assumed rather than sourced**, and
+package D replaces it wholesale.
+
+**It is not amplitude-preserving, and it lowers every yield.** Revisions 3 and earlier
+claimed it preserved the existing 1.0 → 0.45 amplitude exactly. It does so only over a
+full year: within any shipped window the season term never reaches 0, so over April–October
+the range is 0.450–0.891 rather than 0.450–1.000. Measured consequences at package A:
+
+| | before | after |
+|---|---|---|
+| *Fucus* at EE-coastal | 3446 g DW/m² | **2797** |
+| *Ulva* | — | −55% |
+| *Chorda* | — | −43% |
+
+2797 is **below the hard `assert 3000.0` at `tests/test_growth.py:69`**, and four
+growth-viability verdicts flip, including *Ulva* at LT-coastal. **Package A therefore
+resets that bound in the same pull request**, downward and with the new value stated in
+the test's docstring alongside the published range it still does not meet. §3.1's rule
+that A0 does not touch the assertion stands; A does, because A is what moves it. Without
+this the suite is red for the whole B → C → D stretch with a standing instruction not to
+fix it.
 
 ---
 
@@ -391,7 +453,7 @@ It is a placeholder, **assumed rather than sourced**, and package D replaces it 
 Revision 2 asserted the format was settled here and then named none — it is B's, together
 with resolution, and B reports sizes for candidate combinations.
 
-Everything else is fixed here, because four of the ten packages in §8 could not otherwise
+Everything else is fixed here, because four of the eleven packages in §8 could not otherwise
 have their first failing test written.
 
 ### 6.1 Variables, and the statistic for each
@@ -489,27 +551,36 @@ critical path for AF item 2's "maps of suitable sites", and no data-layer work m
 
 ## 8. Work packages
 
-Effort is indicative, totalling **6.6 PM**. It is drawn against spec §13's ~14.5 PM for
-the DST, itself funded from WP2 line 2.1 (€51,250) alongside KU's share of A2.1, A2.2,
-A2.4 and A2.5. Because §1's months are booked to A2.1/A2.2, these are a forward charge
-against A2.3's rows rather than a draw on them today. Note that C + D together (2.5 PM)
-exhaust spec §13's "data layer" (2 PM) and "terra port" (0.5 PM) rows in full.
+Effort is indicative, totalling **7.0 PM across eleven packages**. It is drawn against
+spec §13's ~14.5 PM for the DST, itself funded from WP2 line 2.1 (€51,250) alongside KU's
+share of A2.1, A2.2, A2.4 and A2.5. Because §1's months are booked to A2.1/A2.2, these
+are a forward charge against A2.3's rows rather than a draw on them today.
+
+**The data-layer row is over-subscribed.** B + C + C1 + D's non-port share come to 2.5 PM
+against spec §13's 2 PM "data layer" row; the "terra port" row (0.5 PM) is exactly met by
+D's port sub-item. With A0 (0.8), F2 (0.3) and G (0.1) having no row at all, **the spec
+§13 amendment to propose is 1.7 PM**. Revision 3 said these rows were exhausted "in full"
+and understated the overrun; the convention everywhere else in this document is to
+surface rather than absorb, and this row is now surfaced.
 
 | # | Package | Delivers | Depends on | Effort | Done when |
 |---|---|---|---|---|---|
-| **A0** | Modelling corrections (§3) | §2's three decisions recorded; anchors re-sourced; `b_max` re-based or marked assumed; tier D via `contraindication()`; floors + demonstrated ranges for all five species; thresholds to `params/`; `dry_matter` on four macroalgae; four false sentences corrected; two README stub rows added | §2 decisions | 0.6 PM *(no spec §13 row — propose amendment)* | Eight clauses, each a test or a diff: (1) nothing reportable below any floor; (2) `anchors:` block present with basis stated; (3) `b_max` sourced or marked `assumed`; (4) `0.35`/`0.5`/decline width absent from `.py`, identical values in `params/assessment.yaml`; (5) `dry_matter` on all four macroalgae and a test against `max_yield_t_fw_ha: 18.4`; (6) grep for "re-tune" and "3.61" returns nothing outside this document; (7) *Fucus* still tier C at LT-coastal; (8) README stub table has the two new rows |
+| **A0** | Modelling corrections (§3) | §2's three decisions recorded; anchors re-sourced; `b_max` re-based or marked assumed; tier D via `contraindication()`; floors + demonstrated ranges for all five species; thresholds to `params/`; `dry_matter` on four macroalgae; **the §2.2 salinity relocation**; **spec §7.2 amended per §2.1**; **the DK-belt tier re-examined**; **`Fucus` elemental fractions re-sourced**; four false sentences corrected; two README stub rows added | §2 decisions | 0.8 PM *(no spec §13 row — propose amendment)* | Fourteen clauses, each a test or a diff: (1) nothing reportable below any floor; (2) `anchors:` block present with basis stated; (3) `b_max` sourced or marked `assumed`; (4) `0.35`/`0.5`/decline width absent from `.py`, identical values in `params/assessment.yaml`; (5) `dry_matter` on all four macroalgae; (6) grep for "re-tune" and "3.61" returns nothing outside this document; (7) *Fucus* still tier C at LT-coastal; (8) README stub table has the two new rows; (9) `growth.py` no longer multiplies `salinity_factor` into `rate`, and Saccharina at DK-belt returns **11.24 t FW/ha** (= 0.611 × 18.4) per §2.2; (10) spec §7.2's Redfield sentence amended and the nitrogen gap recorded in the Fucus YAML; (11) *Fucus* elemental fractions no longer byte-identical to Saccharina's, or explicitly marked assumed-from-kelp; (12) the DK-belt calibration tier re-examined and the outcome recorded; (13) spec §14 carries a key-person row for the annual refresh; (14) `contraindication()`'s note distinguishes an observed floor from an assumed one — *Chorda* is the test case |
 | **A** | Forcing seam | `ForcingSource`; `PlaceholderForcing`; calendar-day indexing per §5.1; the `xfail` retired | A0 | 0.3 PM *(spec §13 "model core")* | Four call sites named in the PR; snapshot diff explained line by line |
 | **B** | Resolution + format spike | Artifact size at 2–3 resolutions × 2 candidate formats; valid-cell fraction distributions; daily-vs-monthly forcing comparison (§10.2) | — | 0.3 PM *(spec §13 "data layer")* | A committed measurement note in `docs/` with sizes, the daily/monthly delta, a valid-cell threshold on evidence, and a decision |
 | **C** | Refresh tooling | `refresh_layers.py`; manifest; Zenodo archive; runbook; source-probe job; test fixture | B | 1.0 PM *(spec §13 "data layer")* | Provenance test passes against the committed fixture; runbook followed end-to-end by someone else |
-| **D** | `GriddedForcing` | Artifact read; polygon query; aggregation per §6; `terra` port; calibration-domain layer; `SiteConditions` extensions; `conditions: SiteConditions \| None` + `unassessable` | B, C | 1.5 PM *(spec §13 "data layer" + "terra port")* | One fewer README stub row; port validated against Tagalaht and Maar et al.; a test that an unassessable site returns UNKNOWN and never a verdict |
+| **D** | `GriddedForcing` | Artifact read; polygon query; aggregation per §6; `terra` port; calibration-domain layer; `SiteConditions` extensions; `conditions: SiteConditions \| None` + `unassessable` | **A**, B, C | 1.5 PM *(spec §13 "data layer" + "terra port")* | One fewer README stub row; port validated against Tagalaht and Maar et al.; a test that an unassessable site returns UNKNOWN and never a verdict |
 | **D1** | Re-parameterisation | The fit deferred from A0, against real forcing; `test_growth.py:69` narrowed toward the published range | D | 0.5 PM *(spec §13 "calibration")* | Anchor met with the fitted parameters named, **or** the failure documented as a finding with the identifiability argument of §3.1 restated against real data |
 | **E** | Map and polygon drawing | `shinywidgets` + `ipyleaflet`; drawn geometry into the report; spec §10 instrumentation seam left in place | D | 1.5 PM *(spec §13 "siting module")* | One fewer README stub row; seam present though unwired |
-| **F1** | Human-use overlay | `assess_conflicts()` → overlap/adjacent/clear per named layer into `SiteContext.activities`/`.protection`. **Descriptive only; feeds no verdict** | — | 0.5 PM *(spec §13 "siting module")* | `activities` populated at every placeholder site; test that it changes no verdict; the human-use README stub row removed |
+| **C1** | Human-use vector build | The EMODnet/HELCOM/EEA GeoPackage of §6.4 — a second output of the refresh tooling, same manifest and DOI treatment | C | 0.2 PM *(spec §13 "data layer")* | GeoPackage present with per-layer provenance; provenance test covers it |
+| **F1** | Human-use overlay | `assess_conflicts()` → overlap/adjacent/clear per named layer into `SiteContext.activities`/`.protection`. **Descriptive only; feeds no verdict** | **C1** | 0.5 PM *(spec §13 "siting module")* | `activities` populated for a **committed fixture polygon** (no placeholder site has geometry); test that it changes no verdict; the human-use README stub row removed |
 | **F2** | Hard legal exclusions | `assess_legal` per jurisdiction, each exclusion traceable to a named record and its "verified on" date | **G** + GMU M12 content | 0.3 PM *(no spec §13 row)* | Absent record set still blocks with the GeoPackage present |
 | **G** | Regulatory record schema | Pydantic model per spec §9.1; empty record set; staleness display | — | 0.1 PM *(no spec §13 row)* | Schema plus one worked example record round-tripping in a test |
 
-**Critical path: §2 decisions → A0 → A; and B → C → D → E.** D1 branches off D and is not
-on the critical path. F1 and G are independent and absorb interruption. F2 cannot start
+**Critical path: §2 decisions → A0 → A → D → E**, with B → C feeding D in parallel.
+`GriddedForcing` implements the protocol package A creates, so D cannot precede A —
+revision 3 claimed B → C → D ran independently of A0/A, and that was false at D. D1
+branches off D and is not on the critical path. F1 and G are independent and absorb interruption. F2 cannot start
 before M12 whatever happens — revision 1 listed its dependency as C; it is G.
 
 **Why G stays early despite having no content.** GMU's €5,500 of legal expertise lands at
@@ -518,6 +589,60 @@ depends on whether a schema exists to hand them beforehand. Review challenged wh
 schema written before seeing legal content survives contact with it — fair, and the
 mitigation is that G ships the schema *and one worked example*, so the failure mode is a
 schema revised at M12 rather than a transcription project.
+
+---
+
+## 8.1 Traceability — every scoped item, decision and correction has an owner
+
+Three review rounds found the same defect class each time: something scoped in §1,
+decided in §2 or corrected in §3 that no §8 row's *Delivers* or *done-when* owned. Each
+rewrite fixed what the reviewer pointed at and the pointer moved. This table is the fix —
+it is checked before the implementation plan is written, and again whenever a row changes.
+
+| Where it is stated | Package that owns it | Checked by |
+|---|---|---|
+| §1 — data layer in scope | D | done-when: one fewer stub row |
+| §1 — map and polygon drawing | E | done-when: one fewer stub row |
+| §1 — human-use and exclusion vectors | C1 (build), F1 (consume), F2 (legal verdict) | F1 fixture-polygon test; F2 blocking test |
+| §1 — refresh tooling | C | provenance test against fixture; runbook followed by someone else |
+| §1 — regulatory record schema | G | worked example round-trips |
+| §1 — spec §5.4 panel deferred, recorded as a stub row | A0 | clause (8) |
+| §1 — spec §10 instrumentation seam | E | done-when: seam present though unwired |
+| §2.1 — elemental accounting fork | A0 | clauses (10), (11) |
+| §2.2 — salinity relocation | A0 | clause (9): 11.24 t FW/ha at DK-belt |
+| §2.2 — DK-belt tier re-examined | A0 | clause (12) |
+| §2.3 — carrying capacity | **decision only; no package until taken** | spec §11 entry, then §6.1's table before B |
+| §3.1 — anchors re-sourced, `b_max` re-based | A0 | clauses (2), (3) |
+| §3.1 — four false sentences corrected | A0 | clause (6) |
+| §3.1 — anchor guarded as a set | A0 | clause (2) records basis; assertions land with D1 |
+| §3.2 — tier D via `contraindication()` | A0 | clause (1) |
+| §3.3 — floors and demonstrated ranges | A0 | clause (1) floors; **ranges judged at review, no automated clause** |
+| §3.4 — thresholds to `params/` | A0 | clause (4) |
+| §5 — four call sites migrated | A | done-when: named in the PR |
+| §5.1 — DIN shape; anchor bound reset | A | done-when: bound reset with the new value in the docstring |
+| §6.2 — valid-cell threshold on evidence | B | measurement note |
+| §6.3 — locator, schema version, atomicity | D (read side), C (write side) | unrecognised-version fallback test |
+| §7 — `SiteConditions \| None` + `unassessable` | D | done-when: unassessable returns UNKNOWN |
+| §4.1 — Zenodo archive, runbook, source-probe | C | provenance test requires DOI or marker |
+| §4.1 — key-person row in spec §14 | **A0** | clause: spec §14 has the row |
+| §10.2 — daily-vs-monthly measured | B | measurement note |
+
+**Two rows are deliberately unowned and say so:** §2.3's carrying capacity, which cannot
+be scheduled before the decision is taken; and §3.3's demonstrated ranges, which are a
+scientific judgement per species and are reviewed rather than asserted by a test. Every
+other line has a package and a check.
+
+**One known tension to resolve in D, not now.** §7 row 3 forces tier C for a polygon
+outside every calibration domain, while §3.2 makes `contraindication()` the sole source of
+tier D. For a 2 psu sugar-kelp polygon with `region=None` those two rules disagree.
+`contraindication()` wins — a salinity finding does not stop applying because the polygon
+is unlocatable — and D's done-when carries the test.
+
+**One wording fix that belongs with it.** `contraindication()` currently returns the note
+*"cultivation failure has been observed at this salinity"* for **any** species below its
+floor. Once §3.3 gives assumed floors to four more species, that sentence asserts a
+finding nobody made. A0 makes the note conditional on whether the floor is observed or
+assumed; *Chorda* is the test case.
 
 ---
 
@@ -583,6 +708,44 @@ adversarially verified; 27 survived, 17 refuted. Revision 2 added package A0 and
 the snapshot behind it; recorded the two model forks as decisions; split package F;
 gave the open-data commitment a Zenodo route; specified interfaces; added effort figures;
 and corrected the false claim that `mu_max` had been tuned to the Tagalaht anchor.
+
+**Revision 3 → 4.** Round 3 found 9 prior findings still open and 14 new ones surviving
+an adversarial refuter briefed to be harsh (8 refuted) — down from 55, and every
+quantitative claim in revision 3 was independently recomputed and reproduced exactly. Its
+verdict: *converging on the numbers, churning on the bookkeeping*, with one recurring
+defect class — something scoped in §1, decided in §2 or corrected in §3 that no §8 row
+owned. Revision 4 is targeted edits, not a rewrite:
+
+- **§2.2 is resolved, and none of the three readings was right.** OLAMUR D2.3's actual
+  implementation is recorded in a file already in this repository: `f_salinity × 18.4 t
+  FW/ha`, a direct salinity-indexed yield model with **no growth ODE for Saccharina at
+  all**. The published figure at DK-belt is 11.24 t FW/ha. This is a fork from spec §7.2
+  rather than an implementation of it, and it makes `max_yield_t_fw_ha` the model instead
+  of dead data.
+- **§2.1's recommendation was wrong.** *Fucus*'s elemental fractions are byte-identical to
+  Saccharina's, which OLAMUR labels "Kelp DM". *Fucus* is silently running on kelp
+  stoichiometry; at a literature 2% N the nitrogen arm doubles and the gap narrows from
+  4.5–11× to ~2.3–5.5×. "Do not change the fractions" is replaced by "re-source them or
+  mark them assumed-from-kelp".
+- **§5.1's DIN formula is not amplitude-preserving and lowers every yield.** Measured:
+  *Fucus* 3446 → 2797 g DW/m², below the hard `assert 3000.0`; *Ulva* −55%; *Chorda* −43%;
+  four growth-viability verdicts flip. Package A now resets that bound in the same PR —
+  without which the suite is red for the whole B → C → D stretch under a standing
+  instruction not to fix it.
+- **Package D depends on A**, since `GriddedForcing` implements the protocol A creates.
+  Revision 3's claim that B → C → D ran independently was false at D.
+- **The human-use GeoPackage had no producer.** New package C1 builds it; F1 consumes it
+  and is tested against a committed fixture polygon, since no placeholder site has
+  geometry.
+- **A0 gained the salinity relocation and six more done-when clauses**, from eight to
+  fourteen. It is the package that most needs watching: it is now large.
+- **§8.1 added** — a traceability table mapping every §1 scope item, §2 decision and §3
+  correction to a package and a check, with the two deliberately unowned rows named as
+  such. This is the fix for the defect class, not another pass over the prose.
+- **Budget corrected:** 7.0 PM across eleven packages; the data-layer row is
+  over-subscribed by 0.5 PM and the amendment to propose is 1.7 PM, not 1.3.
+- **A caution on §2.3:** a HELCOM eutrophication-status class is not carrying capacity for
+  extractive culture — the sign is inverted — and must not be shipped under that label.
 
 **Revision 2 → 3.** Revision 2 was itself reviewed — a coverage pass over all 27 findings
 plus a fresh-eyes hunt for defects the revision introduced, adversarially refuted. Only 6
