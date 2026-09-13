@@ -14,7 +14,7 @@ scientific_name: Saccharina latissima
 common_name: Sugar kelp
 group: macroalga
 in_application_form: false
-cultivation_window: [1, 6]   # growth phase Jan-June; see notes on deployment
+cultivation_window: [10, 6]  # deployed in autumn, harvested early summer; wraps the year
 
 growth:
   mu_max: 0.055           # 1/day
@@ -68,7 +68,26 @@ calibration:
     calibrated_on: Danish sites above 16 psu
 
 notes: >-
-  Deployment in practice occurs the preceding autumn, so the true cultivation window
-  wraps the year boundary. The scaffold's forcing generator does not yet handle a
-  wrapping window; the January-June growth phase is modelled instead. Fix this
-  before the M24 prototype - it understates the early growth accumulated over winter.
+  The window runs October to June: deployed in autumn, harvested the following early
+  summer. It wraps the year boundary, which `forcing.daily_forcing` handles by running
+  the day axis past 365. It replaces a January-June stand-in that was there only
+  because the generator could not express a wrapping window.
+
+  That stand-in was annotated as understating the harvest. Measured, it does the
+  opposite: at DK-belt the real window returns 36.9 against 44.8 g DW/m2, about 18 per
+  cent LOWER. Two placeholder artefacts, neither of them a property of the window:
+  `loss_rate` is a constant, so below roughly 8 degrees the gross growth rate falls
+  under it and modelled biomass declines from October to January; and the placeholder
+  DIN drawdown is spread across the window rather than the calendar, so a longer window
+  arrives at spring with less nitrogen. Expect this number to move again when the
+  section 6 climatologies land and the growth coefficients are refitted against A3.4 -
+  the direction is not yet meaningful.
+
+  The two months are ASSUMED, not fitted - the same standing as the Chorda
+  coefficients. Neither the Application Form nor OLAMUR D2.3 states a deployment date
+  for the Danish sites; October-June is the conventional Baltic sugar kelp cycle.
+  Refine against PP5's as-deployed records from A3.4, and treat the exact start month
+  as uncertain to about a month in either direction.
+
+  This does not change the calibration tier. Tier describes how the growth
+  coefficients were fitted, not when the line went in the water.

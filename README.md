@@ -18,7 +18,7 @@ rather than built).
 ```bash
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e ".[app,dev]"
-pytest                                            # 76 tests
+pytest                                            # 85 tests
 shiny run app.app                                 # http://127.0.0.1:8000
 ```
 
@@ -143,13 +143,13 @@ layer returns `UNKNOWN`, which *blocks* the verdict rather than silently passing
 | Registration and usage logging | absent | §10; decision D4 due M18 |
 | Method costs and labour | `params/methods.yaml`, all `null` | WP3 procurement records |
 | *Chorda filum* growth parameters | `params/species/chorda_filum.yaml` | A3.4 harvest data. Decision D1 is taken — Chorda **ships** — but the coefficients are a structural analogue of Fucus, assumed rather than fitted, and tier C in every region. `test_chorda_ships_but_stays_uncalibrated` enforces that |
-| Sugar kelp cultivation window | `params/species/saccharina_latissima.yaml` | The real window wraps the year boundary; `forcing.daily_forcing` does not yet handle that. Fix before M24 |
+| Seasonal nutrient forcing | `forcing.daily_forcing` drawdown | The §6 climatologies. DIN is currently drawn down by position in the cultivation window rather than by calendar day, so two species at one site see different nitrogen on the same date. Fixing it moves the Tagalaht anchor, so the `mu_max` re-tune goes with it |
 | SeaGarden branding | `app/shell.py` | WP4's Communication folder |
 
 ## Testing
 
 ```bash
-pytest                     # core + app smoke, 76 tests
+pytest                     # core + app smoke, 85 tests
 pytest -m engines          # needs bowtiepy / EUTROPY installed
 ruff check .
 ```
@@ -172,6 +172,10 @@ Tests worth knowing about:
   not deleted, when the first parameter set is promoted to tier A.
 - `test_report_carries_the_site_label_and_the_caveats` — the report is where a caveat
   gets lost, so it is asserted.
+- `test_nutrient_forcing_is_a_property_of_the_site_not_the_query` — a strict `xfail`,
+  which is the point: when the seasonal forcing lands it XPASSes and *fails* the
+  suite, so the marker has to be removed deliberately rather than the finding quietly
+  evaporating.
 
 ## Licence and durability
 

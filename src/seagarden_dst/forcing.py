@@ -161,11 +161,13 @@ def daily_forcing(
     in the season as day 5, and continuing the axis keeps the forcing continuous across
     New Year and the axis monotone for the interpolation in `growth.simulate`.
 
-    One placeholder limitation is worth naming for wrapping windows: the nutrient
-    drawdown below is monotone over the window, so an October-June window peaks in
-    October, whereas Baltic DIN in fact peaks in January-February. The real seasonal
-    cycle arrives with the section 6 climatologies; until then this understates winter
-    nitrogen and with it the early growth.
+    One placeholder limitation is worth naming, because wrapping windows made it
+    consequential: the nutrient drawdown below is indexed by position in the window
+    rather than by calendar day. Nitrogen is therefore a property of the query and not
+    of the site - on 1 April at DK-belt this function returns 3.15, 3.61 or 5.00
+    umol N/L according to which window was asked for. The real seasonal cycle arrives
+    with the section 6 climatologies. Fixing it will move the Tagalaht growth anchor,
+    so the mu_max re-tune belongs to the same change.
     """
     start, end = window
     first = day_of_year(start, 1)

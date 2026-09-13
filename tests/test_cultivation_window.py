@@ -21,7 +21,13 @@ from pydantic import ValidationError
 
 from seagarden_dst import PLACEHOLDER_SITES, default_parameters
 from seagarden_dst.forcing import daily_forcing, day_of_year
+from seagarden_dst.growth import simulate
 from seagarden_dst.params import SpeciesParams
+
+
+@pytest.fixture(scope="module")
+def params():
+    return default_parameters()
 
 
 @pytest.fixture(scope="module")
@@ -104,3 +110,54 @@ def test_months_outside_the_calendar_are_still_rejected():
         _species((0, 6))
     with pytest.raises(ValidationError, match="1-12"):
         _species((10, 13))
+
+
+# --- what it exposed ------------------------------------------------------
+
+
+def test_the_autumn_deployment_window_ships(params):
+    """The species file must carry the real window, not the January stand-in."""
+    kelp = params.species["saccharina_latissima"]
+    assert kelp.cultivation_window == (10, 6)
+
+
+def test_the_trajectory_integrates_over_the_wrapping_window(params, site):
+    """The end-to-end path that used to raise IndexError."""
+    kelp = params.species["saccharina_latissima"]
+    trajectory = simulate(kelp, site)
+
+    assert trajectory.biomass.size == trajectory.days.size == 271
+    assert np.all(np.isfinite(trajectory.biomass))
+    assert trajectory.biomass[-1] > kelp.growth.b_initial
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "The placeholder DIN drawdown is indexed by position in the window rather "
+        "than by calendar day. Unblocked by the section 6 climatologies; see the "
+        "README's 'What is stubbed'. Fixing it moves the Tagalaht anchor, so the "
+        "mu_max re-tune travels with it."
+    ),
+)
+def test_nutrient_forcing_is_a_property_of_the_site_not_the_query(site):
+    """Two species at one site must see the same nitrogen on the same day.
+
+    They do not. On 1 April at DK-belt the site offers 3.15, 3.61 or 5.00 umol N/L
+    according to which species' window was asked about, because `daily_forcing`
+    spreads a fixed drawdown across however many days the window happens to contain.
+    Found while fixing the wrapping window, which made the discrepancy large enough
+    to change a published number - it is not caused by wrapping and predates it.
+
+    Strict xfail on purpose: when the seasonal forcing lands this XPASSes and fails
+    the suite, so the marker has to be removed deliberately rather than the finding
+    quietly evaporating.
+    """
+    days_wrapping, _, _, din_wrapping = daily_forcing(site, (10, 6))
+    days_plain, _, _, din_plain = daily_forcing(site, (1, 6))
+
+    april = day_of_year(4, 1)
+    under_wrapping = float(np.interp(april + 365, days_wrapping, din_wrapping))
+    under_plain = float(np.interp(april, days_plain, din_plain))
+
+    assert under_wrapping == pytest.approx(under_plain)
