@@ -1,0 +1,61 @@
+# Guards the regression tests that encode the tool's rules rather than its behaviour:
+# the Tagalaht growth anchor, "pressure is never folded into the ranking", "no South
+# Baltic species claims local calibration", and the caveats surviving into the report.
+# Those are the assertions a well-meaning refactor breaks silently.
+#
+# Python 3.11 is the floor declared in pyproject; 3.13 is what a server rebuilt years
+# from now will have. The tool has to be reconstructible from this repository alone,
+# on no maintenance budget, to May 2034 — so CI tests the span, not one interpreter.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[app,dev]"
+
+      # The optional engines are deliberately absent here. pyproject deselects the
+      # `engines` marker by default, so this run also proves the claim the adapters
+      # make: without bowtiepy or EUTROPY installed the assessment still completes.
+      - name: Tests
+        run: pytest -q
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pipx install ruff
+      - run: ruff check --output-format=github .

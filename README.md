@@ -1,5 +1,7 @@
 # SeaGarden Decision Support Tool
 
+[![CI](https://github.com/razinkele/seagarden-dst/actions/workflows/ci.yml/badge.svg)](https://github.com/razinkele/seagarden-dst/actions/workflows/ci.yml)
+
 Prototype for **Deliverable D2.2** — *Decision-Support Tool prototype and functional
 specification* — of the Interreg South Baltic project **SeaGarden**
 (STHB.02.02-IP.01-0006/25), Activity A2.3, led by Klaipėda University.
@@ -151,6 +153,10 @@ pytest                     # core + app smoke, 76 tests
 pytest -m engines          # needs bowtiepy / EUTROPY installed
 ruff check .
 ```
+
+CI runs both on every push and pull request, on Python 3.11 and 3.13, with the
+optional engines absent — so the run also proves that the adapters degrade rather
+than fail. `.github/workflows/ci.yml`.
 
 Tests worth knowing about:
 
