@@ -6,6 +6,7 @@
       },
       "ranked": [
         {
+          "carbon": 1246.56704,
           "constraints": [
             [
               "Physical feasibility",
@@ -30,11 +31,13 @@
           ],
           "harvest": 4021.183999,
           "nitrogen": 80.42368,
+          "phosphorus": 8.042368,
           "species": "fucus_vesiculosus",
           "tier": "C",
           "unit": "kg DW"
         },
         {
+          "carbon": 122.165,
           "constraints": [
             [
               "Physical feasibility",
@@ -59,11 +62,13 @@
           ],
           "harvest": 2650.0,
           "nitrogen": 38.425,
+          "phosphorus": 2.1995,
           "species": "mytilus",
           "tier": "B",
           "unit": "kg FW"
         },
         {
+          "carbon": 231.276031,
           "constraints": [
             [
               "Physical feasibility",
@@ -88,11 +93,13 @@
           ],
           "harvest": 770.920104,
           "nitrogen": 23.127603,
+          "phosphorus": 1.9273,
           "species": "ulva",
           "tier": "C",
           "unit": "kg DW"
         },
         {
+          "carbon": 245.468001,
           "constraints": [
             [
               "Physical feasibility",
@@ -117,6 +124,7 @@
           ],
           "harvest": 791.832263,
           "nitrogen": 12.669316,
+          "phosphorus": 1.583665,
           "species": "chorda_filum",
           "tier": "C",
           "unit": "kg DW"
@@ -127,6 +135,7 @@
       "excluded": {},
       "ranked": [
         {
+          "carbon": 1128.194972,
           "constraints": [
             [
               "Physical feasibility",
@@ -151,11 +160,13 @@
           ],
           "harvest": 3639.338619,
           "nitrogen": 72.786772,
+          "phosphorus": 7.278677,
           "species": "fucus_vesiculosus",
           "tier": "C",
           "unit": "kg DW"
         },
         {
+          "carbon": 78.37,
           "constraints": [
             [
               "Physical feasibility",
@@ -180,11 +191,13 @@
           ],
           "harvest": 1700.0,
           "nitrogen": 24.65,
+          "phosphorus": 1.411,
           "species": "mytilus",
           "tier": "B",
           "unit": "kg FW"
         },
         {
+          "carbon": 150.474144,
           "constraints": [
             [
               "Physical feasibility",
@@ -209,11 +222,13 @@
           ],
           "harvest": 501.58048,
           "nitrogen": 15.047414,
+          "phosphorus": 1.253951,
           "species": "ulva",
           "tier": "C",
           "unit": "kg DW"
         },
         {
+          "carbon": 160.835464,
           "constraints": [
             [
               "Physical feasibility",
@@ -238,11 +253,13 @@
           ],
           "harvest": 518.824076,
           "nitrogen": 8.301185,
+          "phosphorus": 1.037648,
           "species": "chorda_filum",
           "tier": "C",
           "unit": "kg DW"
         },
         {
+          "carbon": 35.982222,
           "constraints": [
             [
               "Physical feasibility",
@@ -267,6 +284,7 @@
           ],
           "harvest": 112.444444,
           "nitrogen": 1.124444,
+          "phosphorus": 0.191156,
           "species": "saccharina_latissima",
           "tier": "C",
           "unit": "kg DW"
@@ -279,6 +297,7 @@
       },
       "ranked": [
         {
+          "carbon": 1068.362506,
           "constraints": [
             [
               "Physical feasibility",
@@ -303,11 +322,13 @@
           ],
           "harvest": 3446.330664,
           "nitrogen": 68.926613,
+          "phosphorus": 6.892661,
           "species": "fucus_vesiculosus",
           "tier": "B",
           "unit": "kg DW"
         },
         {
+          "carbon": 122.165,
           "constraints": [
             [
               "Physical feasibility",
@@ -332,11 +353,13 @@
           ],
           "harvest": 2650.0,
           "nitrogen": 38.425,
+          "phosphorus": 2.1995,
           "species": "mytilus",
           "tier": "C",
           "unit": "kg FW"
         },
         {
+          "carbon": 138.42965,
           "constraints": [
             [
               "Physical feasibility",
@@ -361,11 +384,13 @@
           ],
           "harvest": 461.432167,
           "nitrogen": 13.842965,
+          "phosphorus": 1.15358,
           "species": "ulva",
           "tier": "C",
           "unit": "kg DW"
         },
         {
+          "carbon": 149.435029,
           "constraints": [
             [
               "Physical feasibility",
@@ -390,6 +415,7 @@
           ],
           "harvest": 482.04848,
           "nitrogen": 7.712776,
+          "phosphorus": 0.964097,
           "species": "chorda_filum",
           "tier": "C",
           "unit": "kg DW"
@@ -402,6 +428,7 @@
       },
       "ranked": [
         {
+          "carbon": 1158.288535,
           "constraints": [
             [
               "Physical feasibility",
@@ -426,11 +453,13 @@
           ],
           "harvest": 3736.414629,
           "nitrogen": 74.728293,
+          "phosphorus": 7.472829,
           "species": "fucus_vesiculosus",
           "tier": "C",
           "unit": "kg DW"
         },
         {
+          "carbon": 122.165,
           "constraints": [
             [
               "Physical feasibility",
@@ -455,11 +484,13 @@
           ],
           "harvest": 2650.0,
           "nitrogen": 38.425,
+          "phosphorus": 2.1995,
           "species": "mytilus",
           "tier": "C",
           "unit": "kg FW"
         },
         {
+          "carbon": 177.524315,
           "constraints": [
             [
               "Physical feasibility",
@@ -484,11 +515,13 @@
           ],
           "harvest": 591.747717,
           "nitrogen": 17.752432,
+          "phosphorus": 1.479369,
           "species": "ulva",
           "tier": "C",
           "unit": "kg DW"
         },
         {
+          "carbon": 188.075598,
           "constraints": [
             [
               "Physical feasibility",
@@ -513,6 +546,7 @@
           ],
           "harvest": 606.695478,
           "nitrogen": 9.707128,
+          "phosphorus": 1.213391,
           "species": "chorda_filum",
           "tier": "C",
           "unit": "kg DW"
@@ -525,6 +559,7 @@
       },
       "ranked": [
         {
+          "carbon": 1221.439488,
           "constraints": [
             [
               "Physical feasibility",
@@ -549,11 +584,13 @@
           ],
           "harvest": 3940.12738,
           "nitrogen": 78.802548,
+          "phosphorus": 7.880255,
           "species": "fucus_vesiculosus",
           "tier": "C",
           "unit": "kg DW"
         },
         {
+          "carbon": 122.165,
           "constraints": [
             [
               "Physical feasibility",
@@ -578,11 +615,13 @@
           ],
           "harvest": 2650.0,
           "nitrogen": 38.425,
+          "phosphorus": 2.1995,
           "species": "mytilus",
           "tier": "C",
           "unit": "kg FW"
         },
         {
+          "carbon": 214.865175,
           "constraints": [
             [
               "Physical feasibility",
@@ -607,11 +646,13 @@
           ],
           "harvest": 716.21725,
           "nitrogen": 21.486517,
+          "phosphorus": 1.790543,
           "species": "ulva",
           "tier": "C",
           "unit": "kg DW"
         },
         {
+          "carbon": 228.661996,
           "constraints": [
             [
               "Physical feasibility",
@@ -636,6 +677,7 @@
           ],
           "harvest": 737.619343,
           "nitrogen": 11.801909,
+          "phosphorus": 1.475239,
           "species": "chorda_filum",
           "tier": "C",
           "unit": "kg DW"
