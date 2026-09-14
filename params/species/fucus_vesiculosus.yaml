@@ -23,6 +23,9 @@ growth:
   arrhenius_temp: 6200.0  # K
   ref_temp_c: 15.0
   upper_temp_c: 22.0
+  upper_temp_decline_c: 3.0   # ASSUMED. Width of the Gaussian decline above upper_temp_c;
+                              # no source fits this value - it shapes how fast growth
+                              # falls off once temperature exceeds the optimum.
   k_nitrate: 3.0          # umol N/L
   loss_rate: 0.006        # 1/day
   b_initial: 20.0         # g DW/m2 seeded

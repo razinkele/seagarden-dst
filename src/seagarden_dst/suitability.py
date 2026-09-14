@@ -25,7 +25,7 @@ from enum import StrEnum
 from .calibration import Tier
 from .forcing import SiteConditions
 from .growth import contraindication, harvest_biomass
-from .params import MethodParams, SpeciesParams
+from .params import MethodParams, SpeciesParams, default_parameters
 
 
 class Verdict(StrEnum):
@@ -114,7 +114,11 @@ def assess_physical(site: SiteConditions, method: MethodParams) -> Constraint:
     return Constraint("Physical feasibility", Verdict.SUITABLE, "Depth and exposure workable.")
 
 
-def assess_environment(site: SiteConditions, species: SpeciesParams) -> Constraint:
+def assess_environment(
+    site: SiteConditions,
+    species: SpeciesParams,
+    salinity_factor_floor: float = default_parameters().assessment.salinity_factor_floor,
+) -> Constraint:
     contra = contraindication(species, site)
     if contra is not None:
         return Constraint(
@@ -124,7 +128,7 @@ def assess_environment(site: SiteConditions, species: SpeciesParams) -> Constrai
         )
     if species.salinity is not None and species.salinity.applies:
         factor = species.salinity.factor(site.salinity_psu)
-        if factor < 0.35:
+        if factor < salinity_factor_floor:
             return Constraint(
                 "Environmental tolerance",
                 Verdict.MARGINAL,
@@ -140,9 +144,9 @@ def assess_growth(
     site: SiteConditions,
     species: SpeciesParams,
     method: MethodParams,
-    floor_kg_dw_per_m2: float = 0.5,
+    floor_kg_dw_per_m2: float = default_parameters().assessment.yield_floor_kg_dw_per_m2,
 ) -> Constraint:
-    """Growth viability against a user-set yield floor.
+    """Growth viability against a yield floor.
 
     Shellfish are handled by the banded yield model rather than the ODE, so they
     return SUITABLE here and are constrained by environment and law instead.
@@ -164,7 +168,7 @@ def assess_growth(
             "Growth viability",
             Verdict.MARGINAL,
             f"Predicted {per_m2:.2f} kg DW/m2 is below the {floor_kg_dw_per_m2:g} "
-            f"kg DW/m2 floor set for this assessment.",
+            f"kg DW/m2 default floor.",
         )
     tier_note = " (literature prior)" if harvest.calibration.tier is Tier.C else ""
     return Constraint(
@@ -196,7 +200,7 @@ def assess(
     species: SpeciesParams,
     method: MethodParams,
     permitting_layer: object | None = None,
-    yield_floor_kg_dw_per_m2: float = 0.5,
+    yield_floor_kg_dw_per_m2: float = default_parameters().assessment.yield_floor_kg_dw_per_m2,
 ) -> Suitability:
     """Full suitability assessment for one species x method x site."""
     if species.group not in method.suits_groups:

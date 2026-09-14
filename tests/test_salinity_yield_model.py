@@ -86,3 +86,20 @@ def test_salinity_indexed_yield_itself_is_not_reportable_below_the_floor(params)
     yield_fw = salinity_indexed_yield(kelp, site)
     assert not yield_fw.calibration.is_reportable
     assert yield_fw.calibration.tier.value == "D"
+
+
+def test_salinity_indexed_yield_zeroes_the_value_when_contraindicated(params):
+    """`harvest_biomass` already zeroes a contraindicated pairing. `salinity_indexed_yield`
+    is the other function that can produce this figure and must not disagree with it:
+    before this, it returned the raw computed value (6.325 at DE-coastal) with tier D
+    attached. The non-reportable contract was technically met either way, because
+    `Quantity.__str__` suppresses the value - but a tier-D Quantity carrying a usable
+    number is exactly the trap the tier apparatus exists to remove, for anyone who reads
+    `.value` without checking `is_reportable` first.
+    """
+    kelp = params.species["saccharina_latissima"]
+    site = PLACEHOLDER_SITES["DE-coastal"]
+
+    yield_fw = salinity_indexed_yield(kelp, site)
+    assert not yield_fw.calibration.is_reportable
+    assert yield_fw.value == 0.0

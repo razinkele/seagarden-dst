@@ -34,6 +34,38 @@ def test_methods_load(params):
     assert params.methods["mini_farm_kit"].area_m2_per_unit == 6.0
 
 
+def test_assessment_thresholds_are_data_not_code():
+    """Specification 1's premise is that coefficients live in params/. These three decide
+    suitability verdicts and lived in Python defaults."""
+    import inspect
+
+    from seagarden_dst import suitability
+
+    source = inspect.getsource(suitability)
+    assert "0.35" not in source, "salinity factor floor still hard-coded"
+    assert "= 0.5" not in source, "yield floor still hard-coded"
+
+    assessment = default_parameters().assessment
+    assert assessment.salinity_factor_floor == 0.35
+    assert assessment.yield_floor_kg_dw_per_m2 == 0.5
+
+
+def test_the_yield_floor_message_does_not_claim_the_user_set_it():
+    """Specification 5.2 says the floor is user-set. No user can set it. Until package E
+    plumbs a control, the text must say 'default' rather than 'set for this assessment'."""
+    import inspect
+
+    from seagarden_dst import suitability
+
+    assert "set for this assessment" not in inspect.getsource(suitability)
+
+
+def test_upper_temp_decline_is_data_not_a_hard_coded_constant(params):
+    """The supra-optimal decline width lived as a bare `3.0` inside `f_temperature`."""
+    for key in ("chorda_filum", "fucus_vesiculosus", "ulva"):
+        assert params.species[key].growth.upper_temp_decline_c == 3.0
+
+
 def test_application_form_species_are_flagged(params):
     """Ulva and mussels are the species the AF actually names."""
     named = {k for k, v in params.species.items() if v.in_application_form}

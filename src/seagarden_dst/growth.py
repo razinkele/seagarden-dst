@@ -39,13 +39,16 @@ def f_temperature(
     arrhenius_temp: float,
     ref_temp_c: float,
     upper_temp_c: float | None = None,
+    upper_temp_decline_c: float = 3.0,
 ) -> np.ndarray | float:
     """Arrhenius temperature correction, DEB-style.
 
         c_T = exp(T_A/T_ref - T_A/T)
 
     with an optional decline above `upper_temp_c` so that the model does not predict
-    unbounded growth in a warming summer.
+    unbounded growth in a warming summer. `upper_temp_decline_c` sets the width of
+    that decline and comes from the species parameter file - see
+    `GrowthParams.upper_temp_decline_c`.
     """
     t = np.asarray(temp_c, dtype=float) + KELVIN
     t_ref = ref_temp_c + KELVIN
@@ -53,7 +56,7 @@ def f_temperature(
     if upper_temp_c is not None:
         t_upper = upper_temp_c + KELVIN
         excess = np.clip(t - t_upper, 0.0, None)
-        correction = correction * np.exp(-((excess / 3.0) ** 2))
+        correction = correction * np.exp(-((excess / upper_temp_decline_c) ** 2))
     return correction
 
 
@@ -105,7 +108,10 @@ def simulate(
 
     f_i = np.asarray(f_irradiance(par, g.i_k), dtype=float)
     f_t = np.asarray(
-        f_temperature(temp, g.arrhenius_temp, g.ref_temp_c, g.upper_temp_c), dtype=float
+        f_temperature(
+            temp, g.arrhenius_temp, g.ref_temp_c, g.upper_temp_c, g.upper_temp_decline_c
+        ),
+        dtype=float,
     )
     f_n = np.asarray(f_nitrate(din, g.k_nitrate), dtype=float)
 
@@ -153,11 +159,20 @@ def salinity_indexed_yield(species: SpeciesParams, site: SiteConditions) -> Quan
     layer up. Enforcing it a second time in the one other function that can produce
     this figure is the same reasoning as commit 751de41 ("Resolve tier D where the
     number is produced, not only where it is orchestrated").
+
+    A contraindicated pairing also zeroes the value, matching `harvest_biomass`: a
+    tier D `Quantity` must not carry a usable figure for anyone who reads `.value`
+    without first checking `is_reportable` - that is exactly the leak the tier
+    apparatus exists to close.
     """
     if species.salinity is None or species.max_yield_t_fw_ha is None:
         raise ValueError(f"{species.key} has no salinity-indexed yield model")
 
-    calibration = contraindication(species, site) or species.calibration_for(site.region)
+    contra = contraindication(species, site)
+    if contra is not None:
+        return Quantity(value=0.0, unit="t FW/ha", calibration=contra)
+
+    calibration = species.calibration_for(site.region)
     factor = species.salinity.factor(site.salinity_psu)
     return Quantity(
         value=factor * species.max_yield_t_fw_ha,

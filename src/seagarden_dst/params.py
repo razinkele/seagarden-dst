@@ -43,6 +43,14 @@ class GrowthParams(BaseModel):
     upper_temp_c: float | None = Field(
         default=None, description="Temperature above which growth declines, degrees C"
     )
+    upper_temp_decline_c: float = Field(
+        default=3.0,
+        gt=0,
+        description=(
+            "Width, degrees C, of the Gaussian decline above upper_temp_c. ASSUMED - "
+            "no source fits this value."
+        ),
+    )
     k_nitrate: float = Field(
         gt=0, description="Half-saturation constant for nitrate, Holling type II, umol N/L"
     )
@@ -348,11 +356,23 @@ class MethodParams(BaseModel):
     source: str = "placeholder - to be replaced with WP3 procurement figures"
 
 
+class AssessmentParams(BaseModel):
+    """Thresholds that decide a suitability verdict - specification section 5.2.
+
+    Both fields are ASSUMED - no source fits either of them. See
+    `params/assessment.yaml` for what each one binds and how tightly.
+    """
+
+    salinity_factor_floor: float = 0.35
+    yield_floor_kg_dw_per_m2: float = 0.5
+
+
 class ParameterSet(BaseModel):
     """Everything loaded from params/."""
 
     species: dict[str, SpeciesParams]
     methods: dict[str, MethodParams]
+    assessment: AssessmentParams
 
     def species_for_group(self, group: str) -> list[SpeciesParams]:
         return [s for s in self.species.values() if s.group == group]
@@ -381,7 +401,11 @@ def load_parameters(root: Path | str | None = None) -> ParameterSet:
             parsed_method = MethodParams.model_validate(entry)
             methods[parsed_method.key] = parsed_method
 
-    return ParameterSet(species=species, methods=methods)
+    assessment_path = base / "assessment.yaml"
+    assessment_raw = yaml.safe_load(assessment_path.read_text(encoding="utf-8"))
+    assessment = AssessmentParams.model_validate(assessment_raw)
+
+    return ParameterSet(species=species, methods=methods, assessment=assessment)
 
 
 @lru_cache(maxsize=1)

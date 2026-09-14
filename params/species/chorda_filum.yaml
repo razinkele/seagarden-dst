@@ -22,6 +22,8 @@ growth:
   arrhenius_temp: 6500.0  # K
   ref_temp_c: 15.0
   upper_temp_c: 21.0
+  upper_temp_decline_c: 3.0   # ASSUMED, by analogy with Fucus like every other
+                              # coefficient in this file - no source fits this value.
   k_nitrate: 4.0          # umol N/L
   loss_rate: 0.014        # 1/day
   b_initial: 12.0         # g DW/m2
