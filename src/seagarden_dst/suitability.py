@@ -117,8 +117,14 @@ def assess_physical(site: SiteConditions, method: MethodParams) -> Constraint:
 def assess_environment(
     site: SiteConditions,
     species: SpeciesParams,
-    salinity_factor_floor: float = default_parameters().assessment.salinity_factor_floor,
+    salinity_factor_floor: float | None = None,
 ) -> Constraint:
+    """`salinity_factor_floor=None` (the default) resolves `default_parameters()` here,
+    inside the call, rather than once at import time - so a params/ recalibration
+    reaches the next call that takes the default, not just the next process start.
+    """
+    if salinity_factor_floor is None:
+        salinity_factor_floor = default_parameters().assessment.salinity_factor_floor
     contra = contraindication(species, site)
     if contra is not None:
         return Constraint(
@@ -144,13 +150,18 @@ def assess_growth(
     site: SiteConditions,
     species: SpeciesParams,
     method: MethodParams,
-    floor_kg_dw_per_m2: float = default_parameters().assessment.yield_floor_kg_dw_per_m2,
+    floor_kg_dw_per_m2: float | None = None,
 ) -> Constraint:
     """Growth viability against a yield floor.
 
     Shellfish are handled by the banded yield model rather than the ODE, so they
     return SUITABLE here and are constrained by environment and law instead.
+
+    `floor_kg_dw_per_m2=None` (the default) resolves `default_parameters()` here,
+    inside the call, rather than once at import time - see `assess_environment`.
     """
+    if floor_kg_dw_per_m2 is None:
+        floor_kg_dw_per_m2 = default_parameters().assessment.yield_floor_kg_dw_per_m2
     if species.group != "macroalga":
         return Constraint(
             "Growth viability", Verdict.SUITABLE, "Assessed by the banded yield model."
@@ -200,9 +211,13 @@ def assess(
     species: SpeciesParams,
     method: MethodParams,
     permitting_layer: object | None = None,
-    yield_floor_kg_dw_per_m2: float = default_parameters().assessment.yield_floor_kg_dw_per_m2,
+    yield_floor_kg_dw_per_m2: float | None = None,
 ) -> Suitability:
-    """Full suitability assessment for one species x method x site."""
+    """Full suitability assessment for one species x method x site.
+
+    `yield_floor_kg_dw_per_m2=None` is passed straight through to `assess_growth`,
+    which resolves the default itself - see its docstring.
+    """
     if species.group not in method.suits_groups:
         return Suitability(
             species_key=species.key,

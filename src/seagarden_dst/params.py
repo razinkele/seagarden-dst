@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .calibration import Calibration, Tier
 
@@ -361,10 +361,25 @@ class AssessmentParams(BaseModel):
 
     Both fields are ASSUMED - no source fits either of them. See
     `params/assessment.yaml` for what each one binds and how tightly.
+
+    No defaults: this model is always constructed from `assessment.yaml`
+    (`load_parameters()` reads it unconditionally), and a default here would let a
+    missing or misspelled key load "successfully" while silently keeping the
+    Python-side value - defeating the entire point of moving these thresholds into
+    data. `extra="forbid"` is deliberately confined to this one model in this file:
+    these two fields are the only ones in the whole parameter tree whose sole reason
+    to exist is operator recalibration of a verdict threshold, so a typo here must
+    fail loudly and name itself. The other models carry many physical-model
+    constants that are shared, rarely edited per-site, and already default
+    sensibly (`None`, or a documented placeholder) when a species file omits them;
+    extending `extra="forbid"` to them is a separate, larger decision this task
+    does not make.
     """
 
-    salinity_factor_floor: float = 0.35
-    yield_floor_kg_dw_per_m2: float = 0.5
+    model_config = ConfigDict(extra="forbid")
+
+    salinity_factor_floor: float
+    yield_floor_kg_dw_per_m2: float
 
 
 class ParameterSet(BaseModel):

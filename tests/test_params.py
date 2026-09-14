@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
-from seagarden_dst import PLACEHOLDER_SITES, default_parameters
+from seagarden_dst import PLACEHOLDER_SITES, default_parameters, load_parameters
 from seagarden_dst.calibration import Tier
 from seagarden_dst.growth import simulate
 
@@ -64,6 +65,95 @@ def test_upper_temp_decline_is_data_not_a_hard_coded_constant(params):
     """The supra-optimal decline width lived as a bare `3.0` inside `f_temperature`."""
     for key in ("chorda_filum", "fucus_vesiculosus", "ulva"):
         assert params.species[key].growth.upper_temp_decline_c == 3.0
+
+
+def _minimal_param_tree(tmp_path, assessment_text: str):
+    """A bare `params/`-shaped tree with only what `load_parameters()` requires: a
+    (possibly empty) `species/` directory and an `assessment.yaml`. `methods.yaml` is
+    optional and left out. Isolated in `tmp_path`, never touching the real `params/`.
+    """
+    (tmp_path / "species").mkdir()
+    (tmp_path / "assessment.yaml").write_text(assessment_text, encoding="utf-8")
+    return tmp_path
+
+
+def test_a_misspelled_assessment_key_raises_and_names_it(tmp_path):
+    """assessment.yaml is the one file whose sole purpose is operator recalibration of
+    a verdict threshold. A misspelled key must fail loudly and say which key, not load
+    "successfully" while silently keeping the Python-side value - that silent fallback
+    was FINDING 1 of the first review round, reproduced with `salinity_factor_flor:
+    0.999999` loading OK and resolving to the old 0.35."""
+    root = _minimal_param_tree(
+        tmp_path,
+        "salinity_factor_flor: 0.999999\nyield_floor_kg_dw_per_m2: 0.5\n",
+    )
+    with pytest.raises(ValidationError) as excinfo:
+        load_parameters(root=root)
+    assert "salinity_factor_flor" in str(excinfo.value)
+
+
+def test_a_missing_assessment_key_raises_at_load(tmp_path):
+    """A required field silently defaulting is exactly what let the misspelling above
+    load without complaint. With no default, an absent key must fail at load."""
+    root = _minimal_param_tree(tmp_path, "salinity_factor_floor: 0.35\n")
+    with pytest.raises(ValidationError):
+        load_parameters(root=root)
+
+
+def test_the_default_salinity_floor_is_resolved_per_call_not_frozen_at_import(monkeypatch):
+    """`assess_environment`'s floor used to default to a value read from `params/` once,
+    at import of `suitability.py`. Recalibrating `assessment.yaml` and reloading could
+    never reach a running process - FINDING 2 of the first review round.
+
+    Saccharina at DK-belt is not contraindicated and its salinity factor there is
+    ~0.611 (OLAMUR's piecewise form: 1 + (18-25)/18). Against the shipped floor
+    (0.35) that clears the constraint (SUITABLE); against an implausibly high floor
+    it must not (MARGINAL). Swapping in a full copy of the shipped tree with only
+    `salinity_factor_floor` changed, then clearing the cache, is the only way to
+    observe "the next call that takes the default sees a new value" without reaching
+    into the function's own closure/defaults.
+    """
+    import seagarden_dst.params as params_module
+    from seagarden_dst.suitability import Verdict, assess_environment
+
+    site = PLACEHOLDER_SITES["DK-belt"]
+
+    params_module.default_parameters.cache_clear()
+    try:
+        shipped = params_module.default_parameters()
+        kelp = shipped.species["saccharina_latissima"]
+        assert assess_environment(site, kelp).verdict is Verdict.SUITABLE, (
+            "baseline assumption broken: re-check the DK-belt salinity factor"
+        )
+    finally:
+        params_module.default_parameters.cache_clear()
+
+    real_load_parameters = params_module.load_parameters
+
+    def _load_with_raised_floor(root: object | None = None) -> object:
+        real = real_load_parameters(root=root)
+        raised = params_module.AssessmentParams(
+            salinity_factor_floor=0.999999,
+            yield_floor_kg_dw_per_m2=real.assessment.yield_floor_kg_dw_per_m2,
+        )
+        return params_module.ParameterSet(
+            species=real.species, methods=real.methods, assessment=raised
+        )
+
+    monkeypatch.setattr(params_module, "load_parameters", _load_with_raised_floor)
+    params_module.default_parameters.cache_clear()
+    try:
+        recalibrated = params_module.default_parameters()
+        assert recalibrated.assessment.salinity_factor_floor == pytest.approx(0.999999)
+
+        kelp = recalibrated.species["saccharina_latissima"]
+        after = assess_environment(site, kelp)
+        assert after.verdict is Verdict.MARGINAL, (
+            "assess_environment still used a floor frozen at import, not the reloaded one"
+        )
+    finally:
+        monkeypatch.undo()
+        params_module.default_parameters.cache_clear()
 
 
 def test_application_form_species_are_flagged(params):
