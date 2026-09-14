@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -77,6 +78,22 @@ class SalinityResponse(BaseModel):
         default=None,
         description="Salinity below which cultivation is contraindicated (tier D), psu",
     )
+    floor_basis: Literal["observed", "assumed"] = Field(
+        default="assumed",
+        description=(
+            "Whether tolerance_floor_psu rests on an observed cultivation failure or is "
+            "assumed. Governs what contraindication() is allowed to tell the user: only "
+            "an observed floor may be reported as a finding (specification 7.4, tier D)."
+        ),
+    )
+    demonstrated_salinity_range: tuple[float, float] | None = Field(
+        default=None,
+        description=(
+            "Salinity range the parameters were actually established in. Provenance that "
+            "widens the displayed band; NOT a tier D trigger - extrapolation beyond it is "
+            "tier B or C per specification 7.4."
+        ),
+    )
 
     def factor(self, salinity_psu: float) -> float:
         if not self.applies:
@@ -122,6 +139,26 @@ class ShellfishYield(BaseModel):
     )
     commercial_density_divisor: float = Field(
         default=3.15, description="Commercial density is this factor lower than mitigation"
+    )
+    tolerance_floor_psu: float | None = Field(
+        default=None,
+        description="Salinity below which cultivation is contraindicated (tier D), psu",
+    )
+    floor_basis: Literal["observed", "assumed"] = Field(
+        default="assumed",
+        description=(
+            "Whether tolerance_floor_psu rests on an observed cultivation failure or is "
+            "assumed. Governs what contraindication() is allowed to tell the user: only "
+            "an observed floor may be reported as a finding (specification 7.4, tier D)."
+        ),
+    )
+    demonstrated_salinity_range: tuple[float, float] | None = Field(
+        default=None,
+        description=(
+            "Salinity range the parameters were actually established in. Provenance that "
+            "widens the displayed band; NOT a tier D trigger - extrapolation beyond it is "
+            "tier B or C per specification 7.4."
+        ),
     )
 
 
@@ -211,6 +248,19 @@ class SpeciesParams(BaseModel):
             source="unspecified",
             note="No calibration statement for this region.",
         )
+
+    def salinity_floor(self) -> tuple[float, str] | None:
+        """The salinity below which this species is contraindicated, and whether that
+        floor is observed or assumed. Resolved in one place because two parallel
+        resolution rules are how tier D came to leak in the first place."""
+        if self.salinity is not None and self.salinity.tolerance_floor_psu is not None:
+            return self.salinity.tolerance_floor_psu, self.salinity.floor_basis
+        if (
+            self.shellfish_yield is not None
+            and self.shellfish_yield.tolerance_floor_psu is not None
+        ):
+            return self.shellfish_yield.tolerance_floor_psu, self.shellfish_yield.floor_basis
+        return None
 
 
 class MethodParams(BaseModel):

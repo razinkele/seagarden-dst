@@ -65,3 +65,40 @@ def test_the_dynamic_rule_and_the_produced_tier_agree(params):
                 f"{species.key} at {site.region}: contraindication() says D, "
                 f"the harvest path says {quantity.calibration.tier.value}"
             )
+
+
+def test_every_species_has_a_lower_salinity_bound(params):
+    """The Szczecin Lagoon is 2.0 psu. Nothing shipped is cultivable there."""
+    lagoon = PLACEHOLDER_SITES["PL-lagoon"]
+    for species in params.species.values():
+        contra = contraindication(species, lagoon)
+        assert contra is not None, (
+            f"{species.key} returns a confident yield at {lagoon.salinity_psu} psu"
+        )
+
+
+def test_an_assumed_floor_does_not_claim_an_observation(params):
+    """`contraindication()` said 'cultivation failure has been observed at this salinity'
+    for every species below its floor. For four of five that asserts a finding nobody
+    made. Chorda is the test case: its coefficients are a structural analogue of Fucus
+    and nothing about it has been observed anywhere."""
+    chorda = params.species["chorda_filum"]
+    lagoon = PLACEHOLDER_SITES["PL-lagoon"]
+
+    assert chorda.salinity is not None
+    assert chorda.salinity.floor_basis == "assumed"
+
+    note = (contraindication(chorda, lagoon).note or "").lower()
+    assert "observed" not in note
+    assert "assumed" in note
+
+    # Kelp's own registry carries an explicit tier D entry at PL-lagoon and at
+    # LT-coastal (the OLAMUR Tagalaht finding, verbatim) - contraindication() returns
+    # early on that static note before ever reaching the dynamic salinity-floor path,
+    # so it cannot exercise floor_basis. DE-coastal (11.0 psu) has no such entry, falls
+    # back to the "default" tier C registration, and is below the 16 psu floor - it
+    # reaches the dynamic path this test is actually about.
+    kelp = params.species["saccharina_latissima"]
+    de_coastal = PLACEHOLDER_SITES["DE-coastal"]
+    assert kelp.salinity.floor_basis == "observed"
+    assert "observed" in (contraindication(kelp, de_coastal).note or "").lower()

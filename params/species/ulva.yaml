@@ -29,6 +29,10 @@ growth:
 
 salinity:
   applies: false          # euryhaline across the whole South Baltic range
+  tolerance_floor_psu: 2.5
+  floor_basis: assumed          # Ulva is broadly euryhaline; 2.5 psu is a conservative
+                                 # placeholder, not a demonstrated limit. Refine against A3.4.
+  demonstrated_salinity_range: [5.0, 20.0]
 
 elemental:
   basis: dry_weight

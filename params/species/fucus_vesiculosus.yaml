@@ -30,6 +30,11 @@ growth:
 
 salinity:
   applies: false
+  tolerance_floor_psu: 4.0
+  floor_basis: assumed          # Fucus vesiculosus persists into the Bothnian Bay at
+                                 # 3-4 psu but with sharply reduced growth. No cultivation
+                                 # trial below 4 psu is known to us. Refine against A3.4.
+  demonstrated_salinity_range: [5.5, 6.5]   # OLAMUR Tagalaht pilot
 
 elemental:
   basis: dry_weight

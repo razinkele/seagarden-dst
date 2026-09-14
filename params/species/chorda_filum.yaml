@@ -29,6 +29,11 @@ growth:
 
 salinity:
   applies: false
+  tolerance_floor_psu: 4.0
+  floor_basis: assumed          # Assumed from Fucus, like every other Chorda coefficient
+                                 # in this file. Nothing here is fitted. See D1 in the
+                                 # specification's open decisions.
+  demonstrated_salinity_range: null
 
 elemental:
   basis: dry_weight

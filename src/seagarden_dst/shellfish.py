@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .calibration import Quantity, Tier
+from .calibration import Quantity
 from .forcing import SiteConditions
 from .growth import contraindication
 from .params import SpeciesParams
@@ -133,7 +133,3 @@ def carbon_note() -> str:
         "shell-heavy, so they are carbon-efficient per unit biomass even though total "
         "yield is low - that efficiency framing is the defensible one."
     )
-
-
-def is_contraindicated(species: SpeciesParams, site: SiteConditions) -> bool:
-    return species.calibration_for(site.region).tier is Tier.D

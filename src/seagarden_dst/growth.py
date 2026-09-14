@@ -171,23 +171,33 @@ def contraindication(species: SpeciesParams, site: SiteConditions) -> Calibratio
     scaling returns a small positive yield while their own pilot found outright
     cultivation failure. A number and a finding disagree, and the tool shows both -
     see specification section 5.3.
+
+    The salinity floor itself is resolved through `species.salinity_floor()` alone,
+    whether it lives on `SalinityResponse` (macroalgae) or `ShellfishYield` (Mytilus,
+    which has no salinity block at all) - one resolution path, not two that could
+    silently disagree.
     """
     calibration = species.calibration_for(site.region)
     if calibration.tier is Tier.D:
         return calibration
-    if (
-        species.salinity is not None
-        and species.salinity.tolerance_floor_psu is not None
-        and site.salinity_psu < species.salinity.tolerance_floor_psu
-    ):
-        return Calibration(
-            tier=Tier.D,
-            region=site.region,
-            source=calibration.source,
-            note=(
-                f"Below {species.salinity.tolerance_floor_psu:g} psu the model returns a "
-                f"positive yield, but cultivation failure has been observed at this "
-                f"salinity. Treat as not cultivable here."
-            ),
-        )
+    floor = species.salinity_floor()
+    if floor is not None:
+        floor_psu, floor_basis = floor
+        if site.salinity_psu < floor_psu:
+            if floor_basis == "observed":
+                detail = "cultivation failure has been observed at this salinity"
+            else:
+                detail = (
+                    "the floor is assumed - no cultivation trial at this salinity is "
+                    "known to us"
+                )
+            return Calibration(
+                tier=Tier.D,
+                region=site.region,
+                source=calibration.source,
+                note=(
+                    f"Below {floor_psu:g} psu the model returns a positive yield, but "
+                    f"{detail}. Treat as not cultivable here."
+                ),
+            )
     return None
