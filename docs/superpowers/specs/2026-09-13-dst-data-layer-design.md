@@ -72,13 +72,19 @@ carbon fixed at 32% of dry weight."* The word *Redfield* appears exactly once in
 repository, in that sentence. `GrowthTrajectory` carries one state variable, and
 `nutrients.from_harvest` applies flat tissue fractions after the fact.
 
-Against the published Tagalaht figures, computing every arm from the same dry weight:
+Against the published Tagalaht figures, computing every arm from the same published dry
+weight — a fraction-consistency check against OLAMUR's own numbers, not a run of
+`simulate()`. (That is a different question, `Anchor.reconciles`, answered per-arm in the
+YAML's `anchors:` block; the two need not agree, and today they do not.) The table below
+is kept in step with the `notes:` block in `params/species/fucus_vesiculosus.yaml`, which
+carries this arithmetic on both the kelp fractions Fucus originally shipped with and the
+Fucus-specific fractions that replaced them:
 
-| arm | from shipped fractions | published (spec §7.2) | verdict |
-|---|---|---|---|
-| phosphorus | 49.0–53.0 g | 15–120 g | inside |
-| carbon | 9.22–9.98 kg | 10–13 kg | just below, overlapping only at the top |
-| nitrogen | 0.288–0.312 kg | 1.4–3.4 kg | **4.5–11× low** |
+| arm | previously (kelp fractions, byte-copied from Saccharina) | now shipped (Fucus-specific, assumed) | published (spec §7.2) | verdict |
+|---|---|---|---|---|
+| phosphorus | 49.0–53.0 g | 57.6–62.4 g | 15–120 g | inside, both ways |
+| carbon | 9.22–9.98 kg | 8.93–9.67 kg | 10–13 kg | still marginally below |
+| nitrogen | 0.288–0.312 kg | 0.576–0.624 kg | 1.4–3.4 kg | narrows from **4.5–11× low** to **2.3–5.5× low** |
 
 **Revision 2 concluded the published figure was misread on the wrong basis. That
 conclusion does not survive its own arithmetic**: a basis error is a single
@@ -243,8 +249,9 @@ a single published range is a scaling convention, not a calibration.
    this document) — see §5.1.
 5. **Guard the anchor as a set** — dry weight, carbon and phosphorus per cage, with
    nitrogen asserted only once §2.1 is resolved. Carbon currently fails the set guard
-   (9.22–9.98 against 10–13 kg), so "assert the arms that reconcile" is today true of
-   phosphorus alone, and A0 must say so rather than implying three clean arms.
+   (8.93–9.67 against 10–13 kg, fraction consistency against the published dry weight —
+   §2.1), so "assert the arms that reconcile" is today true of phosphorus alone, and A0
+   must say so rather than implying three clean arms.
 
 Any actual re-parameterisation moves to package D1, *after* the forcing it would be
 fitted against is real.
@@ -317,7 +324,8 @@ observed/assumed distinction is carried in the note the user reads, not in the t
 A0 therefore adds `tolerance_floor_psu` to all five species (and to `ShellfishYield`),
 sourced where possible and flagged assumed where not, as Chorda's coefficients are; and
 adds `demonstrated_salinity_range` as *provenance that widens the displayed band*, never
-as a tier D trigger. No spec §7.4 amendment is needed, which is the point.
+as a tier D trigger. The specification's tier D row (§7.4) has since been amended to
+name the floor mechanism explicitly; the table above now matches it.
 
 ### 3.4 Assessment thresholds are hard-coded against the spec's own rule
 
