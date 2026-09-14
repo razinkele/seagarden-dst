@@ -89,3 +89,21 @@ def test_macroalgae_are_on_dry_weight_and_shellfish_on_fresh(params):
         else:
             assert species.elemental.basis == "fresh_weight"
             assert species.elemental.dry_matter is not None
+
+
+def test_fucus_does_not_silently_carry_kelp_stoichiometry():
+    """Fucus's elemental fractions were byte-identical to Saccharina's, which OLAMUR
+    labels 'Kelp DM'. Either they are sourced to Fucus, or they say they are assumed."""
+    params = default_parameters()
+    fucus = params.species["fucus_vesiculosus"]
+    kelp = params.species["saccharina_latissima"]
+
+    identical = (
+        fucus.elemental.nitrogen == kelp.elemental.nitrogen
+        and fucus.elemental.phosphorus == kelp.elemental.phosphorus
+        and fucus.elemental.carbon == kelp.elemental.carbon
+    )
+    assert not identical, (
+        "Fucus is running on kelp stoichiometry. Re-source the fractions, or mark them "
+        "assumed_from and say so."
+    )

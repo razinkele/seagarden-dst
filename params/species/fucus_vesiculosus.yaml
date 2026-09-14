@@ -38,9 +38,20 @@ salinity:
 
 elemental:
   basis: dry_weight
-  nitrogen: 0.010
-  phosphorus: 0.0017
-  carbon: 0.32
+  nitrogen: 0.020         # ASSUMED. Was byte-identical to Saccharina's (1.0%, OLAMUR
+                          # D2.3 "Kelp DM"), copied across and never marked. 2.0% is a
+                          # mid-range guess spanning the 1.5-2.5% DW reported for Fucus
+                          # vesiculosus in Baltic literature - not fitted, not sourced.
+                          # The source to verify against: Lehvo, Back & Kiirikki (2001),
+                          # "Growth of Fucus vesiculosus L. (Phaeophyta) in the Northern
+                          # Baltic Proper: Energy and Nitrogen Storage in a Seasonal
+                          # Environment", Botanica Marina 44(4), doi:10.1515/bot.2001.044.
+                          # That paper is closed access and has NOT been read - its
+                          # numbers are not behind this value. Do not treat this as
+                          # sourced until someone has actually read it. Refine against A3.4.
+  phosphorus: 0.0020      # ASSUMED, same provenance caveat as nitrogen above.
+  carbon: 0.31            # ASSUMED. Fucus is slightly lower in C than kelp; 31% DW
+                          # taken as a mid-range guess, not fitted.
 
 calibration:
   - region: EE-coastal
@@ -62,3 +73,14 @@ calibration:
 notes: >-
   Reference yields for validation (OLAMUR D3.2, per 6 m2 cage, April-October):
   4800-5200 g DW/m2, approximately 10-13 kg C, 1.4-3.4 kg N, 15-120 g P.
+
+  The nitrogen arm of the Tagalaht anchor does not reconcile. Computing every arm from
+  the published dry weight, under the kelp fractions this file previously carried (1.0%
+  N, 0.17% P, 32% C), gives P 49-53 g against a published 15-120 g (inside), C 9.22-9.98
+  kg against 10-13 kg (marginally below), and N against a published 1.4-3.4 kg that is
+  several times higher than these fractions produce. A single basis error would move all
+  three arms together and does not explain this pattern. Correcting the kelp fractions
+  above narrows the nitrogen gap (with the new fractions, N becomes 0.58-0.62 kg, P
+  57.6-62.4 g still inside, C 8.93-9.67 kg still marginally below) but does not close it.
+  Treat the published N figure as unreconciled until it is re-sourced from OLAMUR D3.2
+  with its basis stated.

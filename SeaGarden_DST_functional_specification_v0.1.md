@@ -242,7 +242,10 @@ dB/dt = μ_max · f(I) · f(T) · f(N) · B  −  losses(B)
 - **f(T)** — temperature, Arrhenius-type, DEB-style
 - **f(N)** — nitrate limitation, Holling type II
 - **No explicit salinity term.** OLAMUR found none was needed once the model was calibrated for Baltic conditions: salinity was not limiting for *Fucus* once adapted. This is an important and slightly counter-intuitive inheritance and should be stated explicitly in the tool's methods page, because users will expect a salinity term and its absence looks like an omission.
-- Nitrogen and phosphorus reserves tracked via Redfield ratio; **carbon fixed at 32% of dry weight**.
+- Nitrogen, phosphorus and carbon are fixed tissue fractions applied to harvested dry
+  weight, per species, from macroalgal stoichiometry — not Redfield, which is a plankton
+  ratio. There is no internal nutrient reserve pool; the growth model carries a single
+  state variable. Introducing a quota model is a structural change and is not scheduled.
 
 Implementation: the seasonal trajectory is integrated with `scipy.integrate.solve_ivp` over the cultivation window, driven by the site's forcing climatology (§6) resampled to daily steps. All rate coefficients come from the parameter YAML (§7.4), never from the code.
 
