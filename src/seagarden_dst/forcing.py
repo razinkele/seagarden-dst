@@ -5,14 +5,15 @@ climatology. In the delivered tool they are read from the curated layers of
 specification section 6 (Copernicus reanalysis, EMODnet, HELCOM) for a drawn
 polygon, via the optional `spatial` extra.
 
-The interface between the two is deliberately narrow - `SiteConditions` and
-`daily_forcing()` - so that swapping the stub for the real data layer touches
-nothing in `growth`, `shellfish`, `nutrients` or `suitability`.
+The interface between the two is deliberately narrow - `SiteConditions` and the
+two-method `ForcingSource` protocol - so that swapping the stub for the real data
+layer touches nothing in `growth`, `shellfish`, `nutrients` or `suitability`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
@@ -195,3 +196,40 @@ def daily_forcing(
     din = site.din_umol_l * drawdown
 
     return days, par, temperature, din
+
+
+@runtime_checkable
+class ForcingSource(Protocol):
+    """Where site conditions and seasonal forcing come from.
+
+    The interface is deliberately narrow - two methods - because swapping the
+    placeholder for the section 6 data layer must touch nothing in growth, shellfish,
+    nutrients or suitability.
+    """
+
+    def conditions_for(self, region: str) -> SiteConditions: ...
+
+    def daily_forcing(
+        self, site: SiteConditions, window: tuple[int, int]
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: ...
+
+
+class PlaceholderForcing:
+    """The scaffold's invented conditions. Not measurements - see PLACEHOLDER_SITES."""
+
+    def conditions_for(self, region: str) -> SiteConditions:
+        if region not in PLACEHOLDER_SITES:
+            raise KeyError(f"No placeholder conditions for region {region!r}")
+        return PLACEHOLDER_SITES[region]
+
+    def daily_forcing(
+        self, site: SiteConditions, window: tuple[int, int]
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        return daily_forcing(site, window)
+
+
+#: The scaffold's forcing source. `growth.simulate`, `growth.harvest_biomass` and
+#: `contracts.SiteContext.from_region` all take a `ForcingSource` defaulting to this,
+#: so the section 6 data layer substitutes a `GriddedForcing` at the boundary without
+#: any of those callers changing.
+DEFAULT_FORCING: ForcingSource = PlaceholderForcing()

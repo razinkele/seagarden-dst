@@ -23,7 +23,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 from .calibration import Calibration, Quantity, Tier
-from .forcing import SiteConditions, daily_forcing
+from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
 from .params import SpeciesParams
 
 KELVIN = 273.15
@@ -94,17 +94,21 @@ def simulate(
     species: SpeciesParams,
     site: SiteConditions,
     max_step_days: float = 1.0,
+    forcing: ForcingSource = DEFAULT_FORCING,
 ) -> GrowthTrajectory:
     """Integrate the seasonal growth trajectory with `scipy.integrate.solve_ivp`.
 
     All rate coefficients come from the species parameter file. Nothing here is
     hard-coded, so recalibration against WP3 A3.4 data is a parameter edit.
+
+    `forcing` defaults to the scaffold's placeholder; the data layer substitutes a
+    `ForcingSource` of its own without this function changing.
     """
     if species.growth is None:
         raise ValueError(f"{species.key} has no growth parameters (not a macroalga?)")
 
     g = species.growth
-    days, par, temp, din = daily_forcing(site, species.cultivation_window)
+    days, par, temp, din = forcing.daily_forcing(site, species.cultivation_window)
 
     f_i = np.asarray(f_irradiance(par, g.i_k), dtype=float)
     f_t = np.asarray(
@@ -185,6 +189,7 @@ def harvest_biomass(
     species: SpeciesParams,
     site: SiteConditions,
     area_m2: float,
+    forcing: ForcingSource = DEFAULT_FORCING,
 ) -> Quantity:
     """Harvested dry biomass over one cultivation cycle, in kg DW.
 
@@ -196,6 +201,9 @@ def harvest_biomass(
     `calibration_for()` so that the dynamic salinity rule and the per-region registry
     cannot disagree. Enforcing it here rather than only in `api.assess_site` is
     deliberate: this is the function that produces the number.
+
+    `forcing` is threaded through to `simulate()` for the ODE branch below; the
+    salinity-indexed branch never integrates the ODE, so it never touches it.
     """
     contra = contraindication(species, site)
     if contra is not None:
@@ -208,7 +216,7 @@ def harvest_biomass(
         kg = fresh_t_per_ha * species.elemental.dry_matter * 1000.0 * (area_m2 / 10_000.0)
         return Quantity(value=kg, unit="kg DW", calibration=calibration)
 
-    trajectory = simulate(species, site)
+    trajectory = simulate(species, site, forcing=forcing)
     kg = trajectory.final_biomass * area_m2 / 1000.0
     return Quantity(value=kg, unit="kg DW", calibration=calibration)
 
