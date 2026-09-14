@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from .calibration import Quantity, Tier
 from .forcing import SiteConditions
+from .growth import contraindication
 from .params import SpeciesParams
 
 
@@ -67,6 +68,15 @@ def harvest(
     The yield band is carried through as the low/high of the returned Quantity rather
     than collapsed to a midpoint, because the band *is* the state of knowledge.
     """
+    contra = contraindication(species, site)
+    if contra is not None:
+        return ShellfishHarvest(
+            mode=culture_mode(species, site),
+            fresh_weight=Quantity(value=0.0, unit="kg FW", calibration=contra),
+            dry_matter_kg=0.0,
+            density_kg_m3=0.0,
+        )
+
     sy = species.shellfish_yield
     if sy is None:
         raise ValueError(f"{species.key} has no shellfish yield parameters")

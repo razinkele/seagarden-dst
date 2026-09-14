@@ -148,11 +148,17 @@ def harvest_biomass(
     Returns a Quantity so the calibration tier travels with the number. A
     contraindicated combination (tier D) returns a zero-valued Quantity whose
     calibration is not reportable - callers must show the note, not the number.
-    """
-    calibration = species.calibration_for(site.region)
-    if calibration.tier is Tier.D:
-        return Quantity(value=0.0, unit="kg DW", calibration=calibration)
 
+    The tier is resolved through `contraindication()` rather than through
+    `calibration_for()` so that the dynamic salinity rule and the per-region registry
+    cannot disagree. Enforcing it here rather than only in `api.assess_site` is
+    deliberate: this is the function that produces the number.
+    """
+    contra = contraindication(species, site)
+    if contra is not None:
+        return Quantity(value=0.0, unit="kg DW", calibration=contra)
+
+    calibration = species.calibration_for(site.region)
     trajectory = simulate(species, site)
     kg = trajectory.final_biomass * area_m2 / 1000.0
     return Quantity(value=kg, unit="kg DW", calibration=calibration)
