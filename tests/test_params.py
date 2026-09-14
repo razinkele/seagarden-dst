@@ -107,3 +107,31 @@ def test_fucus_does_not_silently_carry_kelp_stoichiometry():
         "Fucus is running on kelp stoichiometry. Re-source the fractions, or mark them "
         "assumed_from and say so."
     )
+
+
+def test_the_tagalaht_anchor_is_data_with_a_stated_basis():
+    """The only published anchor the SE Baltic parameterisation has lived in prose in two
+    documents and a test docstring, with its basis unstated - which is why the nitrogen
+    arm could be out by several times without anyone being able to say against what."""
+    fucus = default_parameters().species["fucus_vesiculosus"]
+    assert fucus.anchors, "Fucus carries no anchors block"
+
+    quantities = {a.quantity for a in fucus.anchors}
+    assert {"dry_weight", "carbon", "nitrogen", "phosphorus"} <= quantities
+
+    for anchor in fucus.anchors:
+        assert anchor.basis, f"{anchor.quantity} anchor has no stated basis"
+        assert anchor.source
+        assert anchor.low <= anchor.high
+
+
+def test_b_max_is_not_read_off_the_anchor_it_is_validated_against():
+    """b_max = 5200 was the anchor's own upper bound, so the model could not overshoot
+    the range it is checked against. Either it is independently sourced, or it says it
+    is assumed - silence is what made the circularity invisible."""
+    fucus = default_parameters().species["fucus_vesiculosus"]
+    anchor = next(a for a in fucus.anchors if a.quantity == "dry_weight")
+    if fucus.growth.b_max == anchor.high:
+        assert fucus.growth.b_max_basis == "assumed_from_anchor", (
+            "b_max equals the anchor's upper bound and does not say so"
+        )

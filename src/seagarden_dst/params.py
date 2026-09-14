@@ -51,6 +51,14 @@ class GrowthParams(BaseModel):
     b_max: float | None = Field(
         default=None, description="Carrying capacity of the cultivation unit, g DW/m2"
     )
+    b_max_basis: str | None = Field(
+        default=None,
+        description=(
+            "Where b_max comes from. 'assumed_from_anchor' means it is the "
+            "validation anchor's own upper bound, so the model cannot overshoot the "
+            "range it is checked against - not an independent source."
+        ),
+    )
 
 
 class SalinityResponse(BaseModel):
@@ -188,6 +196,27 @@ class CalibrationEntry(BaseModel):
         )
 
 
+class Anchor(BaseModel):
+    """A published measurement the parameterisation is checked against.
+
+    Anchors are data rather than prose because the basis is what makes them usable: a
+    figure quoted per cage means something different from the same figure per square
+    metre, and the Tagalaht nitrogen arm could not be reconciled precisely because
+    nobody had written the basis down.
+    """
+
+    quantity: Literal["dry_weight", "carbon", "nitrogen", "phosphorus"]
+    low: float
+    high: float
+    unit: str
+    basis: str = Field(description="Per cage or per m2, DW or FW, cage area, cycle length")
+    source: str
+    reconciles: bool = Field(
+        default=True,
+        description="False where the model cannot currently reproduce this arm.",
+    )
+
+
 class SpeciesParams(BaseModel):
     """One species parameter set."""
 
@@ -222,6 +251,7 @@ class SpeciesParams(BaseModel):
         ),
     )
     calibration: list[CalibrationEntry]
+    anchors: list[Anchor] | None = None
     notes: str | None = None
 
     @model_validator(mode="after")

@@ -27,6 +27,12 @@ growth:
   loss_rate: 0.006        # 1/day
   b_initial: 20.0         # g DW/m2 seeded
   b_max: 5200.0           # g DW/m2, upper Tagalaht reference harvest
+  b_max_basis: assumed_from_anchor   # This is the anchor's own upper bound, so the model
+                                     # cannot overshoot the range it is validated
+                                     # against. Re-source from A3.2 as-built line
+                                     # loading, or from a standing-stock ceiling in the
+                                     # Fucus literature. Until then the dry-weight anchor
+                                     # is not an independent check.
 
 salinity:
   applies: false
@@ -73,6 +79,39 @@ calibration:
     tier: C
     source: OLAMUR D3.2
     calibrated_on: Tagalaht Bay, Estonia
+
+anchors:
+  # From specification 7.2 and ../Relevant projects/OLAMUR-solutions-for-SeaGarden.md:19.
+  # The basis below is TRANSCRIBED FROM THOSE SUMMARIES, not read from OLAMUR D3.2
+  # itself. Re-source from D3.2 and correct if it differs - the nitrogen arm in
+  # particular does not reconcile; see the notes: block below for the arithmetic and
+  # why a basis error alone does not explain the pattern.
+  - quantity: dry_weight
+    low: 4800.0
+    high: 5200.0
+    unit: g DW/m2
+    basis: per 6 m2 cage, April-October cycle
+    source: OLAMUR D3.2, Tagalaht Bay
+  - quantity: carbon
+    low: 10.0
+    high: 13.0
+    unit: kg C
+    basis: per 6 m2 cage, April-October cycle
+    source: OLAMUR D3.2, Tagalaht Bay
+    reconciles: false        # see notes: below for the arithmetic
+  - quantity: nitrogen
+    low: 1.4
+    high: 3.4
+    unit: kg N
+    basis: per 6 m2 cage, April-October cycle
+    source: OLAMUR D3.2, Tagalaht Bay
+    reconciles: false        # several times below; see notes: below for the arithmetic
+  - quantity: phosphorus
+    low: 15.0
+    high: 120.0
+    unit: g P
+    basis: per 6 m2 cage, April-October cycle
+    source: OLAMUR D3.2, Tagalaht Bay
 
 notes: >-
   Reference yields for validation (OLAMUR D3.2, per 6 m2 cage, April-October):
