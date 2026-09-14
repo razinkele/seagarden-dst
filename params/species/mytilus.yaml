@@ -33,7 +33,7 @@ shellfish_yield:
   # all: Ulva's 2.5 psu floor, the lowest of the five, is still above 2.0. assess_site
   # at PL-lagoon now returns an empty ranked list and all five species excluded with
   # a tier D note. That is a real behavioural change from before this task, and it is
-  # intended - see task-2-report.md.
+  # intended: nothing shipped is cultivable in the lagoon at 2.0 psu.
 
 elemental:
   basis: fresh_weight
