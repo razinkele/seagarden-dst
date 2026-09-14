@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from seagarden_dst import default_parameters
+from seagarden_dst import PLACEHOLDER_SITES, default_parameters
 from seagarden_dst.calibration import Tier
+from seagarden_dst.growth import simulate
+
+# Every anchor's `basis` string reads "per 6 m2 cage, April-October cycle" (OLAMUR
+# D3.2, Tagalaht Bay). Parsing that free-text field for the area would be more
+# fragile than naming the number once, here, next to where it is used.
+FUCUS_ANCHOR_CAGE_M2 = 6.0
 
 
 @pytest.fixture(scope="module")
@@ -134,4 +140,30 @@ def test_b_max_is_not_read_off_the_anchor_it_is_validated_against():
     if fucus.growth.b_max == anchor.high:
         assert fucus.growth.b_max_basis == "assumed_from_anchor", (
             "b_max equals the anchor's upper bound and does not say so"
+        )
+
+
+def test_every_anchor_flag_matches_what_the_model_actually_produces():
+    """`reconciles` must be derived, not declared.
+
+    The dry-weight flag was wrong on the first attempt precisely because nothing
+    recomputed it. A flag a human maintains by hand, in a file inviting edits to the
+    fractions it depends on, is a claim waiting to go stale. `reconciles` answers one
+    specific question - does *this tool's model output* land inside the published
+    range - not whether the elemental fractions are mutually consistent with each
+    other (that is a different check, computed in this file's `notes:` block).
+    """
+    fucus = default_parameters().species["fucus_vesiculosus"]
+    modelled = simulate(fucus, PLACEHOLDER_SITES["EE-coastal"]).final_biomass
+    actual = {
+        "dry_weight": modelled,
+        "carbon": modelled * FUCUS_ANCHOR_CAGE_M2 * fucus.elemental.carbon / 1000.0,
+        "nitrogen": modelled * FUCUS_ANCHOR_CAGE_M2 * fucus.elemental.nitrogen / 1000.0,
+        "phosphorus": modelled * FUCUS_ANCHOR_CAGE_M2 * fucus.elemental.phosphorus,
+    }
+    for anchor in fucus.anchors:
+        inside = anchor.low <= actual[anchor.quantity] <= anchor.high
+        assert anchor.reconciles == inside, (
+            f"{anchor.quantity}: model gives {actual[anchor.quantity]:.4g} {anchor.unit} "
+            f"against {anchor.low}-{anchor.high}, so reconciles should be {inside}"
         )

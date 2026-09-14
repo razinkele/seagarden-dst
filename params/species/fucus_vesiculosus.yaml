@@ -83,35 +83,41 @@ calibration:
 anchors:
   # From specification 7.2 and ../Relevant projects/OLAMUR-solutions-for-SeaGarden.md:19.
   # The basis below is TRANSCRIBED FROM THOSE SUMMARIES, not read from OLAMUR D3.2
-  # itself. Re-source from D3.2 and correct if it differs - the nitrogen arm in
-  # particular does not reconcile; see the notes: block below for the arithmetic and
-  # why a basis error alone does not explain the pattern.
+  # itself. Re-source from D3.2 and correct if it differs.
+  #
+  # `reconciles` asks one specific question per arm: does simulate()'s own final
+  # biomass, scaled by this species' elemental fractions, land inside the published
+  # range below? It does NOT ask whether the fractions are mutually consistent with
+  # each other given the published dry weight alone - that is a different question,
+  # computed throughout this file's notes: block, and the two do not always agree.
   - quantity: dry_weight
     low: 4800.0
     high: 5200.0
     unit: g DW/m2
     basis: per 6 m2 cage, April-October cycle
     source: OLAMUR D3.2, Tagalaht Bay
+    reconciles: false        # model gives 3446 g DW/m2, ~28% below the 4800 g floor
   - quantity: carbon
     low: 10.0
     high: 13.0
     unit: kg C
     basis: per 6 m2 cage, April-October cycle
     source: OLAMUR D3.2, Tagalaht Bay
-    reconciles: false        # see notes: below for the arithmetic
+    reconciles: false        # model gives 6.41 kg (3446 g/m2 x 6 m2 x 0.31), below
   - quantity: nitrogen
     low: 1.4
     high: 3.4
     unit: kg N
     basis: per 6 m2 cage, April-October cycle
     source: OLAMUR D3.2, Tagalaht Bay
-    reconciles: false        # several times below; see notes: below for the arithmetic
+    reconciles: false        # model gives 0.41 kg (3446 g/m2 x 6 m2 x 0.020), far below
   - quantity: phosphorus
     low: 15.0
     high: 120.0
     unit: g P
     basis: per 6 m2 cage, April-October cycle
     source: OLAMUR D3.2, Tagalaht Bay
+    # reconciles defaults to true: model gives 41.4 g (3446 g/m2 x 6 m2 x 0.0020), inside
 
 notes: >-
   Reference yields for validation (OLAMUR D3.2, per 6 m2 cage, April-October):
