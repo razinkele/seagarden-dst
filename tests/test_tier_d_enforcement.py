@@ -21,11 +21,20 @@ def params():
 
 
 def _below_floor(species):
-    """Placeholder sites where this species' salinity floor is breached."""
-    floor = species.salinity.tolerance_floor_psu if species.salinity else None
+    """Placeholder sites where this species' salinity floor is breached.
+
+    Routed through `salinity_floor()` rather than reading `species.salinity` directly:
+    for a species whose floor lives only on `shellfish_yield` (Mytilus),
+    `species.salinity` is `None` and a direct read would silently return `[]` - a test
+    built on that would pass while asserting nothing. `salinity_floor()` is the one
+    resolution path Ruling 2 exists to enforce; a helper that bypasses it reintroduces
+    the "two resolution rules" problem in the test layer instead of the production one.
+    """
+    floor = species.salinity_floor()
     if floor is None:
         return []
-    return [s for s in PLACEHOLDER_SITES.values() if s.salinity_psu < floor]
+    floor_psu, _basis = floor
+    return [s for s in PLACEHOLDER_SITES.values() if s.salinity_psu < floor_psu]
 
 
 def test_nothing_is_reportable_below_its_salinity_floor(params):
@@ -102,3 +111,42 @@ def test_an_assumed_floor_does_not_claim_an_observation(params):
     de_coastal = PLACEHOLDER_SITES["DE-coastal"]
     assert kelp.salinity.floor_basis == "observed"
     assert "observed" in (contraindication(kelp, de_coastal).note or "").lower()
+
+
+def test_a_curated_tier_d_entry_requires_an_observed_floor(params):
+    """Guards the ordering in `contraindication()`, which is deliberate and stays.
+
+    `contraindication()` checks the static, per-region `calibration_for()` registry
+    BEFORE `salinity_floor()`, and that order is correct: a curated, human-written
+    finding for a specific region should always outrank a generic salinity threshold,
+    not the other way around - reversing it would let a placeholder floor override
+    documented evidence.
+
+    But that ordering means a static tier D `CalibrationEntry` bypasses the whole
+    `floor_basis` mechanism this task built: `contraindication()` returns the static
+    note verbatim without ever calling `salinity_floor()`. Today every shipped tier D
+    entry belongs to Saccharina, whose floor is `observed`, so no note is mismatched.
+    Nothing stops a future maintainer from adding a curated tier D entry, worded as an
+    observation, for a species whose floor is merely `assumed` - and contraindication()
+    would show that over-claiming note straight through, since the static path never
+    checks it.
+
+    This test is the guard: any species carrying a tier D calibration entry must
+    resolve an `observed` salinity floor. Add a tier D entry to an assumed-floor
+    species and this goes red instead of the note quietly over-claiming.
+    """
+    for species in params.species.values():
+        if not any(entry.tier is Tier.D for entry in species.calibration):
+            continue
+        floor = species.salinity_floor()
+        assert floor is not None, (
+            f"{species.key} has a tier D calibration entry but salinity_floor() "
+            "resolves to None - a curated tier D finding needs a floor to back it"
+        )
+        _, basis = floor
+        assert basis == "observed", (
+            f"{species.key} has a tier D calibration entry but its salinity floor "
+            f"basis is {basis!r}, not 'observed' - contraindication() will show this "
+            "species' static tier D note without ever checking floor_basis, so an "
+            "assumed floor here means the note can claim an observation nobody made"
+        )
