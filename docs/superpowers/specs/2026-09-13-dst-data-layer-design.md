@@ -307,8 +307,12 @@ own primary site — and would break the passing
 
 | trigger | tier | basis |
 |---|---|---|
-| Below `tolerance_floor_psu` — a *local finding* of cultivation failure | **D** | spec §7.4's own definition |
+| Below `tolerance_floor_psu` — a floor — observed or assumed — of cultivation failure | **D** | spec §7.4's own definition |
 | Outside `demonstrated_salinity_range` — extrapolation | **B or C**, with the distance from the demonstrated range named in the note | spec §7.4 rows B and C |
+
+Anything short of tier D puts a confident-looking number back at 2.0 psu, which is the
+defect section 3.3 exists to remove, and a siting tool should fail safe; the
+observed/assumed distinction is carried in the note the user reads, not in the tier.
 
 A0 therefore adds `tolerance_floor_psu` to all five species (and to `ShellfishYield`),
 sourced where possible and flagged assumed where not, as Chorda's coefficients are; and
