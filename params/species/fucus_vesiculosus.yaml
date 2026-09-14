@@ -49,8 +49,10 @@ elemental:
   basis: dry_weight
   nitrogen: 0.020         # ASSUMED. Was byte-identical to Saccharina's (1.0%, OLAMUR
                           # D2.3 "Kelp DM"), copied across and never marked. 2.0% is a
-                          # mid-range guess spanning the 1.5-2.5% DW reported for Fucus
-                          # vesiculosus in Baltic literature - not fitted, not sourced.
+                          # mid-range guess spanning a 1.5-2.5% DW range RECALLED for
+                          # Fucus vesiculosus in Baltic literature - the range itself is
+                          # unattributed recall, not a read source, exactly like the
+                          # point value it spans: not fitted, not sourced, either end.
                           # The source to verify against: Lehvo, Back & Kiirikki (2001),
                           # "Growth of Fucus vesiculosus L. (Phaeophyta) in the Northern
                           # Baltic Proper: Energy and Nitrogen Storage in a Seasonal
@@ -59,8 +61,10 @@ elemental:
                           # numbers are not behind this value. Do not treat this as
                           # sourced until someone has actually read it. Refine against A3.4.
   phosphorus: 0.0020      # ASSUMED, same provenance caveat as nitrogen above.
-  carbon: 0.31            # ASSUMED. Fucus is slightly lower in C than kelp; 31% DW
-                          # taken as a mid-range guess, not fitted.
+  carbon: 0.31            # ASSUMED, same provenance caveat as nitrogen above: recalled,
+                          # not read from Lehvo, Back & Kiirikki (2001) or any other
+                          # source. Fucus is slightly lower in C than kelp; 31% DW taken
+                          # as a mid-range guess, not fitted.
   dry_matter: 0.17        # ASSUMED. Fucoid brown algae are typically 15-20% DM of
                           # fresh weight; 17% is a mid-range guess, not fitted. Needed
                           # only so the tool can produce the spec 7.1 t FW/ha figure
@@ -91,13 +95,15 @@ anchors:
   # `reconciles` asks one specific question per arm: does simulate()'s own final
   # biomass, scaled by this species' elemental fractions, land inside the published
   # range below? It does NOT ask whether the fractions are mutually consistent with
-  # each other given the published dry weight alone - that is a different question,
-  # computed throughout this file's notes: block, and the two do not always agree.
+  # each other given the published dry weight alone - that is a different question.
+  # See the FRACTION-CONSISTENCY CHECK in this file's notes: block below, which
+  # answers that second question; it is a companion to this record, not a duplicate
+  # or a contradiction of it.
   - quantity: dry_weight
     low: 4800.0
     high: 5200.0
     unit: g DW/m2
-    basis: per 6 m2 cage, April-October cycle
+    basis: areal density (g DW/m2), not a cage total; April-October cycle
     source: OLAMUR D3.2, Tagalaht Bay
     reconciles: false        # model gives 3446 g DW/m2, ~28% below the 4800 g floor
   - quantity: carbon
@@ -123,16 +129,24 @@ anchors:
     # reconciles defaults to true: model gives 41.4 g (3446 g/m2 x 6 m2 x 0.0020), inside
 
 notes: >-
+  FRACTION-CONSISTENCY CHECK - a different question from `anchors[].reconciles`
+  above, not a second copy of it. That flag asks whether simulate()'s modelled
+  biomass lands inside each published range; this note asks whether this file's own
+  elemental fractions are internally consistent with the published dry weight and
+  the other published arms, purely as arithmetic on OLAMUR's numbers, with
+  simulate() uninvolved. The two questions need not agree, and here they do not.
+
   Reference yields for validation (OLAMUR D3.2, per 6 m2 cage, April-October):
   4800-5200 g DW/m2, approximately 10-13 kg C, 1.4-3.4 kg N, 15-120 g P.
 
-  The nitrogen arm of the Tagalaht anchor does not reconcile. Computing every arm from
-  the published dry weight, under the kelp fractions this file previously carried (1.0%
-  N, 0.17% P, 32% C), gives P 49-53 g against a published 15-120 g (inside), C 9.22-9.98
-  kg against 10-13 kg (marginally below), and N against a published 1.4-3.4 kg that is
-  several times higher than these fractions produce. A single basis error would move all
-  three arms together and does not explain this pattern. Correcting the kelp fractions
-  above narrows the nitrogen gap (with the new fractions, N becomes 0.58-0.62 kg, P
-  57.6-62.4 g still inside, C 8.93-9.67 kg still marginally below) but does not close it.
-  Treat the published N figure as unreconciled until it is re-sourced from OLAMUR D3.2
-  with its basis stated.
+  Scaling the published dry weight by this file's elemental fractions does not square
+  with the published nitrogen range. Computing every arm from the published dry
+  weight, under the kelp fractions this file previously carried (1.0% N, 0.17% P, 32%
+  C), gives P 49-53 g against a published 15-120 g (inside), C 9.22-9.98 kg against
+  10-13 kg (marginally below), and N against a published 1.4-3.4 kg that is several
+  times higher than these fractions produce. A single basis error would move all
+  three arms together and does not explain this pattern. Correcting the kelp
+  fractions above narrows the nitrogen gap (with the new fractions, N becomes
+  0.58-0.62 kg, P 57.6-62.4 g still inside, C 8.93-9.67 kg still marginally below)
+  but does not close it. Treat the published N figure as unreconciled-by-fractions
+  until it is re-sourced from OLAMUR D3.2 with its basis stated.

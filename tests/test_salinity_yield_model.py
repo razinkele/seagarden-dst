@@ -2,8 +2,11 @@
 
 The salinity factor scales a maximum yield of 18.4 t FW/ha from Danish sites above
 16 psu. The repository previously multiplied that factor into the growth rate of a
-logistic ODE instead, which is a different model: at DK-belt the two differ by a factor
-of 3.8, and a third reading (scaling b_max) differs from the second by 49%.
+logistic ODE instead, which is a different model: at DK-belt the shipped before-and-
+after move is 112.44 / 36.90 = 3.05x, not the 3.8x once floated by comparing two
+hypothetical, never-shipped readings against each other (140.13 g DW/m2 post-
+multiplying the harvest, 208.55 scaling b_max instead - those two differ from each
+other by 49%, which is a fact about the road not taken, not about this move).
 """
 
 from __future__ import annotations

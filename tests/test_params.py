@@ -9,9 +9,11 @@ from seagarden_dst import PLACEHOLDER_SITES, default_parameters, load_parameters
 from seagarden_dst.calibration import Tier
 from seagarden_dst.growth import simulate
 
-# Every anchor's `basis` string reads "per 6 m2 cage, April-October cycle" (OLAMUR
-# D3.2, Tagalaht Bay). Parsing that free-text field for the area would be more
-# fragile than naming the number once, here, next to where it is used.
+# The carbon, nitrogen and phosphorus anchors' `basis` strings read "per 6 m2 cage,
+# April-October cycle" (OLAMUR D3.2, Tagalaht Bay); dry_weight's differs because it
+# is an areal density (g DW/m2), not a cage total, so it needs no such multiplier
+# below. Parsing free text for the area would be more fragile than naming the number
+# once, here, next to where it is used.
 FUCUS_ANCHOR_CAGE_M2 = 6.0
 
 
@@ -108,10 +110,12 @@ def test_the_default_salinity_floor_is_resolved_per_call_not_frozen_at_import(mo
     Saccharina at DK-belt is not contraindicated and its salinity factor there is
     ~0.611 (OLAMUR's piecewise form: 1 + (18-25)/18). Against the shipped floor
     (0.35) that clears the constraint (SUITABLE); against an implausibly high floor
-    it must not (MARGINAL). Swapping in a full copy of the shipped tree with only
-    `salinity_factor_floor` changed, then clearing the cache, is the only way to
+    it must not (MARGINAL). Monkeypatching `load_parameters` itself - wrapping the
+    real loader and substituting only `salinity_factor_floor` in the returned
+    `ParameterSet` - then clearing `default_parameters`'s cache is what lets us
     observe "the next call that takes the default sees a new value" without reaching
-    into the function's own closure/defaults.
+    into the function's own closure/defaults or writing a second on-disk parameter
+    tree.
     """
     import seagarden_dst.params as params_module
     from seagarden_dst.suitability import Verdict, assess_environment

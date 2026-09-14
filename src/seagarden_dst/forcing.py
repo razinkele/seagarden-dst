@@ -164,10 +164,15 @@ def daily_forcing(
     One placeholder limitation is worth naming, because wrapping windows made it
     consequential: the nutrient drawdown below is indexed by position in the window
     rather than by calendar day. Nitrogen is therefore a property of the query and not
-    of the site - on 1 April at DK-belt this function returns 3.15, 3.61 or 5.00
-    umol N/L according to which window was asked for. The real seasonal cycle arrives
-    with the section 6 climatologies. Fixing it will move the Tagalaht growth anchor,
-    so the mu_max re-tune belongs to the same change.
+    of the site - on 1 April at DK-belt this function returns 3.15 umol N/L for the
+    Oct-Jun window and 5.00 for the April-start windows: two values, not three, for
+    the windows that reach this function. Mytilus ships cultivation_window [1, 12]
+    and would give 4.3144 on the same date, but never reaches this function -
+    shellfish have no growth: block and are handled outside `growth.simulate`. The
+    real seasonal cycle arrives with the section 6 climatologies. Fixing it moves the
+    modelled yields; mu_max has never been fitted to the anchor - it carries its
+    initial value, and b_max is set from the anchor's own upper bound, so the anchor
+    is not an independent check either.
     """
     start, end = window
     first = day_of_year(start, 1)

@@ -143,7 +143,7 @@ layer returns `UNKNOWN`, which *blocks* the verdict rather than silently passing
 | Registration and usage logging | absent | §10; decision D4 due M18 |
 | Method costs and labour | `params/methods.yaml`, all `null` | WP3 procurement records |
 | *Chorda filum* growth parameters | `params/species/chorda_filum.yaml` | A3.4 harvest data. Decision D1 is taken — Chorda **ships** — but the coefficients are a structural analogue of Fucus, assumed rather than fitted, and tier C in every region. `test_chorda_ships_but_stays_uncalibrated` enforces that |
-| Seasonal nutrient forcing | `forcing.daily_forcing` drawdown | The §6 climatologies. DIN is currently drawn down by position in the cultivation window rather than by calendar day, so two species at one site see different nitrogen on the same date. Fixing it moves the Tagalaht anchor, so the `mu_max` re-tune goes with it |
+| Seasonal nutrient forcing | `forcing.daily_forcing` drawdown | The §6 climatologies. DIN is currently drawn down by position in the cultivation window rather than by calendar day, so two species at one site see different nitrogen on the same date. Fixing it moves the modelled yields; `mu_max` has never been fitted to the anchor, and `b_max` is set from the anchor's own upper bound, so the anchor is not an independent check either |
 | SeaGarden branding | `app/shell.py` | WP4's Communication folder |
 
 ## Testing
