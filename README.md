@@ -18,7 +18,7 @@ rather than built).
 ```bash
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e ".[app,dev]"
-pytest                                            # 85 tests
+pytest                                            # 106 passed, 1 xfailed
 shiny run app.app                                 # http://127.0.0.1:8000
 ```
 
@@ -144,12 +144,14 @@ layer returns `UNKNOWN`, which *blocks* the verdict rather than silently passing
 | Method costs and labour | `params/methods.yaml`, all `null` | WP3 procurement records |
 | *Chorda filum* growth parameters | `params/species/chorda_filum.yaml` | A3.4 harvest data. Decision D1 is taken — Chorda **ships** — but the coefficients are a structural analogue of Fucus, assumed rather than fitted, and tier C in every region. `test_chorda_ships_but_stays_uncalibrated` enforces that |
 | Seasonal nutrient forcing | `forcing.daily_forcing` drawdown | The §6 climatologies. DIN is currently drawn down by position in the cultivation window rather than by calendar day, so two species at one site see different nitrogen on the same date. Fixing it moves the modelled yields; `mu_max` has never been fitted to the anchor, and `b_max` is set from the anchor's own upper bound, so the anchor is not an independent check either |
+| Scenario comparison panel (spec §5.4) | `scenarios.compare()` exists in the core; no UI caller anywhere in `app/` | Deferred past the data-layer work (`docs/superpowers/specs/2026-09-13-dst-data-layer-design.md` §8) |
+| Human-use conflict screening (spec §5.1) | `SiteContext.activities` and `.protection` exist, defined in `contracts.py`; read nowhere | The EMODnet/HELCOM human-use vectors (§6) |
 | SeaGarden branding | `app/shell.py` | WP4's Communication folder |
 
 ## Testing
 
 ```bash
-pytest                     # core + app smoke, 85 tests
+pytest                     # core + app smoke, 106 passed, 1 xfailed
 pytest -m engines          # needs bowtiepy / EUTROPY installed
 ruff check .
 ```
@@ -168,7 +170,13 @@ Tests worth knowing about:
   initial value. `b_max` is set from the anchor's own upper bound, so the range is not
   an independent check either. Re-sourcing the anchor and deciding what, if anything,
   is fitted to it is package A0 of
-  `docs/superpowers/specs/2026-09-13-dst-data-layer-design.md`.
+  `docs/superpowers/specs/2026-09-13-dst-data-layer-design.md`. Commit `6d36187`'s
+  message says fixing the forcing "moves the Tagalaht anchor that mu_max was tuned to
+  hit" and cites a 3.61 umol N/L figure; both are superseded — that commit message is
+  published history and cannot be corrected, but `mu_max` has never been fitted to the
+  anchor (above), and the corrected account, including the retired figure, lives in
+  `forcing.py`'s docstring, `tests/test_cultivation_window.py`'s xfail reason, and
+  `docs/superpowers/specs/2026-09-13-dst-data-layer-design.md` §3.1.
 - `test_pressure_is_never_folded_into_the_ranking` — the beside-never-merged rule, in
   executable form.
 - `test_bad_eutropy_input_does_not_break_the_assessment` — an unusable optional engine
