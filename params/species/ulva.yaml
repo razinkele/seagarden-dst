@@ -39,6 +39,11 @@ elemental:
   nitrogen: 0.030         # Ulva tissue N is markedly higher than kelp
   phosphorus: 0.0025
   carbon: 0.30
+  dry_matter: 0.12        # ASSUMED. Thin-thalloid green algae such as Ulva typically
+                          # run 10-15% DM of fresh weight, lower than the brown algae
+                          # above; 12% is a mid-range guess, not fitted. Needed only so
+                          # the tool can produce the spec 7.1 t FW/ha figure from this
+                          # species' dry-weight harvest. Refine against A3.4.
 
 calibration:
   - region: default

@@ -16,6 +16,10 @@ group: macroalga
 in_application_form: false
 cultivation_window: [10, 6]  # deployed in autumn, harvested early summer; wraps the year
 
+yield_model: salinity_indexed   # OLAMUR D2.3's published form. The growth: block below
+                                # is retained for reference and is NOT used to produce
+                                # the harvest for this species.
+
 growth:
   mu_max: 0.055           # 1/day
   i_k: 85.0               # umol photons/m2/s
@@ -45,12 +49,21 @@ elemental:
   nitrogen: 0.010
   phosphorus: 0.0017
   carbon: 0.32
+  dry_matter: 0.10        # ASSUMED. Saccharina DM is typically 10-12% of fresh weight;
+                          # OLAMUR publishes a dry-matter figure for mussels but not for
+                          # kelp. Only affects the DW conversion, not the 18.4 t FW/ha
+                          # anchor the model is checked against. Refine against A3.4.
 
 calibration:
   - region: DK-belt
-    tier: B
+    tier: C
     source: OLAMUR D2.3 / Maar et al. 2023
     calibrated_on: Danish sites above 16 psu
+    note: >-
+      Moved from tier B to C: no coefficient in this file is fitted to Danish data.
+      18.4 t FW/ha is a published yield figure from Danish sites, which makes it a
+      literature prior applied at the site it was measured, not a local calibration -
+      "local" would mean fitted to a SeaGarden pilot, which does not exist here.
   - region: LT-coastal
     tier: D
     source: OLAMUR pilot finding, Tagalaht Bay

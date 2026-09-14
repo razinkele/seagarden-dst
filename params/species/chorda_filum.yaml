@@ -40,6 +40,10 @@ elemental:
   nitrogen: 0.016
   phosphorus: 0.0020
   carbon: 0.31
+  dry_matter: 0.15        # ASSUMED by analogy with Fucus, like every other Chorda
+                          # coefficient in this file - nothing here is fitted. Needed
+                          # only so the tool can produce the spec 7.1 t FW/ha figure
+                          # from this species' dry-weight harvest. Refine against A3.4.
 
 calibration:
   - region: default

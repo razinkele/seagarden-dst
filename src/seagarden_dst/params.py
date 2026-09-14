@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .calibration import Calibration, Tier
 
@@ -118,7 +118,14 @@ class ElementalFractions(BaseModel):
     phosphorus: float = Field(ge=0, le=1, description="Mass fraction P")
     carbon: float = Field(ge=0, le=1, description="Mass fraction C")
     dry_matter: float | None = Field(
-        default=None, ge=0, le=1, description="DM fraction of FW, shellfish only"
+        default=None,
+        ge=0,
+        le=1,
+        description=(
+            "DM fraction of FW. Shellfish carry it on a fresh-weight elemental basis; "
+            "a salinity-indexed macroalga carries it too, to convert its published "
+            "t FW/ha yield into the kg DW its elemental basis expects."
+        ),
     )
 
 
@@ -205,8 +212,31 @@ class SpeciesParams(BaseModel):
     max_yield_t_fw_ha: float | None = Field(
         default=None, description="Reference maximum yield before salinity scaling"
     )
+    yield_model: Literal["ode", "salinity_indexed"] = Field(
+        default="ode",
+        description=(
+            "Which model produces the harvest. 'ode' is the OLAMUR D3.2 growth "
+            "formulation (specification 7.2). 'salinity_indexed' is D2.3's published "
+            "form for Saccharina - f_salinity multiplied by max_yield_t_fw_ha, with no "
+            "ODE at all."
+        ),
+    )
     calibration: list[CalibrationEntry]
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _check_salinity_indexed_is_computable(self) -> SpeciesParams:
+        """A model that cannot produce a number must fail at load, not mid-analysis."""
+        if self.yield_model == "salinity_indexed":
+            if self.max_yield_t_fw_ha is None:
+                raise ValueError(
+                    "yield_model='salinity_indexed' requires max_yield_t_fw_ha to be set"
+                )
+            if self.elemental.dry_matter is None:
+                raise ValueError(
+                    "yield_model='salinity_indexed' requires elemental.dry_matter to be set"
+                )
+        return self
 
     @field_validator("cultivation_window")
     @classmethod

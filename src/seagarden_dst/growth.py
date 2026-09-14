@@ -138,6 +138,34 @@ def simulate(
     )
 
 
+def salinity_indexed_yield(species: SpeciesParams, site: SiteConditions) -> Quantity:
+    """OLAMUR D2.3's published Saccharina model: f_salinity x a maximum yield.
+
+    There is no growth ODE in the published form - yield is a function of salinity
+    alone, anchored on 18.4 t FW/ha from Danish sites above 16 psu. Returns t FW/ha so
+    the figure can be checked directly against the published anchor without passing
+    through a dry-matter conversion.
+
+    This is a public function in its own right (not only a step inside
+    `harvest_biomass`), so it resolves its own calibration through `contraindication()`
+    first, exactly as `harvest_biomass` does - a direct caller below the salinity floor
+    must see tier D here too, not a tier C number that only turns into a finding one
+    layer up. Enforcing it a second time in the one other function that can produce
+    this figure is the same reasoning as commit 751de41 ("Resolve tier D where the
+    number is produced, not only where it is orchestrated").
+    """
+    if species.salinity is None or species.max_yield_t_fw_ha is None:
+        raise ValueError(f"{species.key} has no salinity-indexed yield model")
+
+    calibration = contraindication(species, site) or species.calibration_for(site.region)
+    factor = species.salinity.factor(site.salinity_psu)
+    return Quantity(
+        value=factor * species.max_yield_t_fw_ha,
+        unit="t FW/ha",
+        calibration=calibration,
+    )
+
+
 def harvest_biomass(
     species: SpeciesParams,
     site: SiteConditions,
@@ -159,6 +187,12 @@ def harvest_biomass(
         return Quantity(value=0.0, unit="kg DW", calibration=contra)
 
     calibration = species.calibration_for(site.region)
+
+    if species.yield_model == "salinity_indexed":
+        fresh_t_per_ha = salinity_indexed_yield(species, site).value
+        kg = fresh_t_per_ha * species.elemental.dry_matter * 1000.0 * (area_m2 / 10_000.0)
+        return Quantity(value=kg, unit="kg DW", calibration=calibration)
+
     trajectory = simulate(species, site)
     kg = trajectory.final_biomass * area_m2 / 1000.0
     return Quantity(value=kg, unit="kg DW", calibration=calibration)

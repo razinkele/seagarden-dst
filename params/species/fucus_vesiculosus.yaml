@@ -52,6 +52,10 @@ elemental:
   phosphorus: 0.0020      # ASSUMED, same provenance caveat as nitrogen above.
   carbon: 0.31            # ASSUMED. Fucus is slightly lower in C than kelp; 31% DW
                           # taken as a mid-range guess, not fitted.
+  dry_matter: 0.17        # ASSUMED. Fucoid brown algae are typically 15-20% DM of
+                          # fresh weight; 17% is a mid-range guess, not fitted. Needed
+                          # only so the tool can produce the spec 7.1 t FW/ha figure
+                          # from this species' dry-weight harvest. Refine against A3.4.
 
 calibration:
   - region: EE-coastal
