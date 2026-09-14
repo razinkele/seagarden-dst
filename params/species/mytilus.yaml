@@ -28,6 +28,12 @@ shellfish_yield:
                                  # reduced shell growth; mitigation culture below 16 psu
                                  # is already the banded model's low band. Refine against A3.4.
   demonstrated_salinity_range: [6.0, 18.0]
+  # Mytilus was the last of the five shipped species without a floor. With this one
+  # in place, the Szczecin Lagoon (PL-lagoon, 2.0 psu) has NO assessable species at
+  # all: Ulva's 2.5 psu floor, the lowest of the five, is still above 2.0. assess_site
+  # at PL-lagoon now returns an empty ranked list and all five species excluded with
+  # a tier D note. That is a real behavioural change from before this task, and it is
+  # intended - see task-2-report.md.
 
 elemental:
   basis: fresh_weight

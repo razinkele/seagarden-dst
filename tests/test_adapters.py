@@ -76,9 +76,14 @@ def test_bad_eutropy_input_does_not_break_the_assessment(lithuania):
     assert "EUTROPY forcing not applied" in degraded.caveats["nutrient forcing"]
 
 
-def test_good_eutropy_input_changes_the_numbers(lagoon):
-    lean = assess_site(lagoon, eutropy={"din_umol_l": 2.0, "dip_umol_l": 0.1})
-    rich = assess_site(lagoon, eutropy={"din_umol_l": 40.0, "dip_umol_l": 2.5})
+# LT-coastal rather than the lagoon: this test needs a site with a non-empty
+# ranking, and every species is now correctly contraindicated at 2.0 psu. What is
+# under test here is the adapter, not where anything can be farmed. EUTROPY is a
+# Curonian Lagoon model, so it is out-of-domain at LT-coastal - that caveat is
+# asserted separately by test_lagoon_model_applied_to_the_open_coast_says_so.
+def test_good_eutropy_input_changes_the_numbers(lithuania):
+    lean = assess_site(lithuania, eutropy={"din_umol_l": 2.0, "dip_umol_l": 0.1})
+    rich = assess_site(lithuania, eutropy={"din_umol_l": 40.0, "dip_umol_l": 2.5})
     lean_n = {o.species_key: o.nitrogen_value for o in lean.ranked}
     rich_n = {o.species_key: o.nitrogen_value for o in rich.ranked}
     shared = set(lean_n) & set(rich_n)
@@ -115,8 +120,11 @@ def test_pressure_is_never_folded_into_the_ranking(lagoon):
     assert "never folded into it" in with_pressure.pressure_note
 
 
-def test_malformed_bowtie_is_reported_not_raised(lagoon):
-    result = assess_site(lagoon, bowtie={"Catastrophe": 1.0})
+# LT-coastal rather than the lagoon: this test needs a site with a non-empty
+# ranking, and every species is now correctly contraindicated at 2.0 psu. What is
+# under test here is the adapter, not where anything can be farmed.
+def test_malformed_bowtie_is_reported_not_raised(lithuania):
+    result = assess_site(lithuania, bowtie={"Catastrophe": 1.0})
     assert result.pressure == {}
     assert "names none of" in result.pressure_note
     assert result.ranked, "the ranking is unaffected"
