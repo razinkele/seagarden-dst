@@ -403,9 +403,20 @@ Both were wrong:
 
 - Spec §5.1's human-use output and spec §5.2's terms need fields `SiteConditions` lacks.
   Package D adds them; the downstream touch is part of D's effort.
-- The refactor changes four call sites: `growth.py:104`, `contracts.py:56`,
-  `contracts.py:60`, and the re-export in `__init__.py`. Package A's done-when requires
-  each to be named in the PR.
+- The refactor's call-site count was wrong in both directions, and the corrected set is
+  what package A's done-when requires the PR to name. `contracts.py:56` and `:60`
+  collapse to **one** edit — a two-method protocol has no membership operation, so the
+  guard and the lookup both become `forcing.conditions_for(region)`. Against that,
+  `growth.py` needs **two** edits, not one: `simulate()` *and* `harvest_biomass()`,
+  because `assess_site` reaches the ODE only through the latter, so threading the
+  former alone leaves a seam nothing can reach. With the additive re-export in
+  `__init__.py` that is five, documented in `14d3d4c`. A sixth requirement emerged in
+  review and is documented in `fed2e19`: the public entry points must accept and
+  forward a `ForcingSource` too — `api.assess_site`, `api._assess_one`,
+  `suitability.assess`, `suitability.assess_growth`, `scenarios.evaluate` and
+  `scenarios.compare` — or a caller can build a `SiteContext` from real anchors and
+  still have the seasonal series come from the placeholder, with nothing in
+  `SiteAssessment.caveats` marking the mismatch.
 
 ### 5.1 Calendar-day indexing, and the defect it retires
 

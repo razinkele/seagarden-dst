@@ -18,7 +18,7 @@ rather than built).
 ```bash
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e ".[app,dev]"
-pytest                                            # 106 passed, 1 xfailed
+pytest                                            # 117 passed
 shiny run app.app                                 # http://127.0.0.1:8000
 ```
 
@@ -151,7 +151,7 @@ layer returns `UNKNOWN`, which *blocks* the verdict rather than silently passing
 ## Testing
 
 ```bash
-pytest                     # core + app smoke, 106 passed, 1 xfailed
+pytest                     # core + app smoke, 117 passed
 pytest -m engines          # needs bowtiepy / EUTROPY installed
 ruff check .
 ```
@@ -175,7 +175,7 @@ Tests worth knowing about:
   hit" and cites a 3.61 umol N/L figure; both are superseded — that commit message is
   published history and cannot be corrected, but `mu_max` has never been fitted to the
   anchor (above), and the corrected account, including the retired figure, lives in
-  `forcing.py`'s docstring, `tests/test_cultivation_window.py`'s xfail reason, and
+  `forcing.py`'s docstring, `tests/test_cultivation_window.py`, and
   `docs/superpowers/specs/2026-09-13-dst-data-layer-design.md` §3.1.
 - `test_pressure_is_never_folded_into_the_ranking` — the beside-never-merged rule, in
   executable form.
@@ -185,10 +185,11 @@ Tests worth knowing about:
   not deleted, when the first parameter set is promoted to tier A.
 - `test_report_carries_the_site_label_and_the_caveats` — the report is where a caveat
   gets lost, so it is asserted.
-- `test_nutrient_forcing_is_a_property_of_the_site_not_the_query` — a strict `xfail`,
-  which is the point: when the seasonal forcing lands it XPASSes and *fails* the
-  suite, so the marker has to be removed deliberately rather than the finding quietly
-  evaporating.
+- `test_nutrient_forcing_is_a_property_of_the_site_not_the_query` — carried a strict
+  `xfail` until calendar-day indexing landed, so the finding could not quietly
+  evaporate. It now passes and guards the property instead, at `rel=1e-2`: the
+  seasonal term's 365.25-day period against a whole-365-day step across the wrap
+  leaves a ~1.8e-03 residual that no amount of correctness removes.
 
 ## Licence and durability
 
