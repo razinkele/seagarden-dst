@@ -1,0 +1,96 @@
+# WORKED EXAMPLE - NOT LAW, NOT ANY REAL JURISDICTION.
+#
+# This file exists so the shape of a regulatory record can be reviewed, and handed to
+# GMU's A2.2 legal expertise at M12, before any real content exists. Every value below
+# is invented. The authorities do not exist, the thresholds are made up, and the legal
+# bases name nothing. Do not copy any figure out of this file.
+#
+# It is keyed `EXAMPLE`, which is not one of the four jurisdictions in
+# `regulatory.JURISDICTIONS`, so `RegulatoryRegistry.for_jurisdiction()` cannot return
+# it for DK, DE, PL or LT. `illustrative: true` is required to pair with it - the model
+# refuses a record where one is set without the other.
+#
+# Real records replace this pattern with DK.yaml, DE.yaml, PL.yaml, LT.yaml.
+
+jurisdiction: EXAMPLE
+verified_on: 2026-09-15
+illustrative: true
+source_note: >-
+  Invented by the SeaGarden DST team as a structural template for A2.2. Contains no
+  legal content from any jurisdiction and cites no real instrument.
+
+authorities:
+  - name: Example Coastal Waters Agency
+    decides: Leasing of the seabed area and the cultivation licence itself
+    contact_route: One-stop marine portal, or the regional office for pre-application advice
+  - name: Example Environmental Board
+    decides: Whether an environmental assessment is required, and approves it
+    contact_route: Written application through the same marine portal
+
+permits:
+  - name: Marine cultivation licence
+    activity: Cultivation of macroalgae or shellfish on a fixed structure
+    exempt_below: 0.5 ha of cultivated area AND under 12 months duration
+    issuing_authority: Example Coastal Waters Agency
+  - name: Seabed occupation lease
+    activity: Physical anchoring to the seabed
+    exempt_below: null    # no threshold exists in this invented regime - a real record
+                          # states null only where it has been checked and found absent
+    issuing_authority: Example Coastal Waters Agency
+
+exclusions:
+  - name: Example Strict Marine Reserve zones
+    legal_basis: Example Nature Protection Act, invented section 12
+    absolute: true
+  - name: Designated navigation fairways and their invented 200 m buffer
+    legal_basis: Example Maritime Safety Regulation, invented article 4
+    absolute: true
+  - name: Example Bird Protection Area, outside the breeding season only
+    legal_basis: Example Nature Protection Act, invented section 18
+    absolute: false
+
+procedure:
+  - order: 1
+    step: Pre-application consultation with the Coastal Waters Agency
+    typical_duration_days: 30
+    required_documents:
+      - Outline site description with coordinates
+      - Intended species and cultivation method
+    consultation: Optional but strongly advised; shortens step 3 in practice
+  - order: 2
+    step: Screening decision on environmental assessment
+    typical_duration_days: 45
+    required_documents:
+      - Screening form
+      - Site plan at 1:5000
+    consultation: null
+  - order: 3
+    step: Full application, including public consultation
+    typical_duration_days: 120
+    required_documents:
+      - Application form
+      - Environmental report where step 2 required one
+      - Evidence of seabed lease application
+    consultation: Statutory 30-day public consultation within this period
+
+assessment_triggers:
+  - kind: EIA
+    threshold: Cultivated area above 5 ha, or any area within 1 km of a designated reserve
+    note: Invented threshold. Screening is mandatory even below it.
+  - kind: Natura2000
+    threshold: Any activity capable of a significant effect on a designated site
+    note: Appropriate assessment, separate from and additional to EIA screening.
+
+policy_hooks:
+  - instrument: HELCOM-BSAP
+    relation: >-
+      Nutrient removal by cultivation may be counted toward eutrophication segment
+      objectives where the harvest is landed and documented.
+  - instrument: WFD
+    relation: >-
+      The site sits within a coastal water body whose ecological status objective
+      constrains any activity capable of causing deterioration.
+  - instrument: MSP
+    relation: >-
+      The national Maritime Spatial Plan designates aquaculture priority areas;
+      siting outside them is possible but carries a heavier justification burden.
