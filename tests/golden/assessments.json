@@ -6,7 +6,7 @@
       },
       "ranked": [
         {
-          "carbon": 1246.56704,
+          "carbon": 1233.864895,
           "constraints": [
             [
               "Physical feasibility",
@@ -21,7 +21,7 @@
             [
               "Growth viability",
               "suitable",
-              "Predicted 4.02 kg DW/m2 over one cycle (literature prior)."
+              "Predicted 3.98 kg DW/m2 over one cycle (literature prior)."
             ],
             [
               "Legal permissibility",
@@ -29,9 +29,9 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 4021.183999,
-          "nitrogen": 80.42368,
-          "phosphorus": 8.042368,
+          "harvest": 3980.209338,
+          "nitrogen": 79.604187,
+          "phosphorus": 7.960419,
           "species": "fucus_vesiculosus",
           "tier": "C",
           "unit": "kg DW"
@@ -68,7 +68,7 @@
           "unit": "kg FW"
         },
         {
-          "carbon": 231.276031,
+          "carbon": 204.899867,
           "constraints": [
             [
               "Physical feasibility",
@@ -83,7 +83,7 @@
             [
               "Growth viability",
               "suitable",
-              "Predicted 0.77 kg DW/m2 over one cycle (literature prior)."
+              "Predicted 0.68 kg DW/m2 over one cycle (literature prior)."
             ],
             [
               "Legal permissibility",
@@ -91,15 +91,15 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 770.920104,
-          "nitrogen": 23.127603,
-          "phosphorus": 1.9273,
+          "harvest": 682.999556,
+          "nitrogen": 20.489987,
+          "phosphorus": 1.707499,
           "species": "ulva",
           "tier": "C",
           "unit": "kg DW"
         },
         {
-          "carbon": 245.468001,
+          "carbon": 207.458824,
           "constraints": [
             [
               "Physical feasibility",
@@ -114,7 +114,7 @@
             [
               "Growth viability",
               "suitable",
-              "Predicted 0.79 kg DW/m2 over one cycle (literature prior)."
+              "Predicted 0.67 kg DW/m2 over one cycle (literature prior)."
             ],
             [
               "Legal permissibility",
@@ -122,9 +122,9 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 791.832263,
-          "nitrogen": 12.669316,
-          "phosphorus": 1.583665,
+          "harvest": 669.222011,
+          "nitrogen": 10.707552,
+          "phosphorus": 1.338444,
           "species": "chorda_filum",
           "tier": "C",
           "unit": "kg DW"
@@ -135,7 +135,7 @@
       "excluded": {},
       "ranked": [
         {
-          "carbon": 1128.194972,
+          "carbon": 961.348582,
           "constraints": [
             [
               "Physical feasibility",
@@ -150,7 +150,7 @@
             [
               "Growth viability",
               "suitable",
-              "Predicted 3.64 kg DW/m2 over one cycle (literature prior)."
+              "Predicted 3.10 kg DW/m2 over one cycle (literature prior)."
             ],
             [
               "Legal permissibility",
@@ -158,9 +158,9 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 3639.338619,
-          "nitrogen": 72.786772,
-          "phosphorus": 7.278677,
+          "harvest": 3101.124457,
+          "nitrogen": 62.022489,
+          "phosphorus": 6.202249,
           "species": "fucus_vesiculosus",
           "tier": "C",
           "unit": "kg DW"
@@ -197,7 +197,7 @@
           "unit": "kg FW"
         },
         {
-          "carbon": 150.474144,
+          "carbon": 69.349012,
           "constraints": [
             [
               "Physical feasibility",
@@ -211,8 +211,8 @@
             ],
             [
               "Growth viability",
-              "suitable",
-              "Predicted 0.50 kg DW/m2 over one cycle (literature prior)."
+              "marginal",
+              "Predicted 0.23 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
             ],
             [
               "Legal permissibility",
@@ -220,15 +220,15 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 501.58048,
-          "nitrogen": 15.047414,
-          "phosphorus": 1.253951,
+          "harvest": 231.163374,
+          "nitrogen": 6.934901,
+          "phosphorus": 0.577908,
           "species": "ulva",
           "tier": "C",
           "unit": "kg DW"
         },
         {
-          "carbon": 160.835464,
+          "carbon": 91.139926,
           "constraints": [
             [
               "Physical feasibility",
@@ -242,8 +242,8 @@
             ],
             [
               "Growth viability",
-              "suitable",
-              "Predicted 0.52 kg DW/m2 over one cycle (literature prior)."
+              "marginal",
+              "Predicted 0.29 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
             ],
             [
               "Legal permissibility",
@@ -251,9 +251,9 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 518.824076,
-          "nitrogen": 8.301185,
-          "phosphorus": 1.037648,
+          "harvest": 293.999762,
+          "nitrogen": 4.703996,
+          "phosphorus": 0.588,
           "species": "chorda_filum",
           "tier": "C",
           "unit": "kg DW"
@@ -297,7 +297,7 @@
       },
       "ranked": [
         {
-          "carbon": 1068.362506,
+          "carbon": 867.166035,
           "constraints": [
             [
               "Physical feasibility",
@@ -312,7 +312,7 @@
             [
               "Growth viability",
               "suitable",
-              "Predicted 3.45 kg DW/m2 over one cycle."
+              "Predicted 2.80 kg DW/m2 over one cycle."
             ],
             [
               "Legal permissibility",
@@ -320,9 +320,9 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 3446.330664,
-          "nitrogen": 68.926613,
-          "phosphorus": 6.892661,
+          "harvest": 2797.309791,
+          "nitrogen": 55.946196,
+          "phosphorus": 5.59462,
           "species": "fucus_vesiculosus",
           "tier": "B",
           "unit": "kg DW"
@@ -359,7 +359,7 @@
           "unit": "kg FW"
         },
         {
-          "carbon": 138.42965,
+          "carbon": 62.198001,
           "constraints": [
             [
               "Physical feasibility",
@@ -374,7 +374,7 @@
             [
               "Growth viability",
               "marginal",
-              "Predicted 0.46 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
+              "Predicted 0.21 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
             ],
             [
               "Legal permissibility",
@@ -382,15 +382,15 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 461.432167,
-          "nitrogen": 13.842965,
-          "phosphorus": 1.15358,
+          "harvest": 207.32667,
+          "nitrogen": 6.2198,
+          "phosphorus": 0.518317,
           "species": "ulva",
           "tier": "C",
           "unit": "kg DW"
         },
         {
-          "carbon": 149.435029,
+          "carbon": 84.359903,
           "constraints": [
             [
               "Physical feasibility",
@@ -405,7 +405,7 @@
             [
               "Growth viability",
               "marginal",
-              "Predicted 0.48 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
+              "Predicted 0.27 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
             ],
             [
               "Legal permissibility",
@@ -413,9 +413,9 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 482.04848,
-          "nitrogen": 7.712776,
-          "phosphorus": 0.964097,
+          "harvest": 272.12872,
+          "nitrogen": 4.35406,
+          "phosphorus": 0.544257,
           "species": "chorda_filum",
           "tier": "C",
           "unit": "kg DW"
@@ -428,7 +428,7 @@
       },
       "ranked": [
         {
-          "carbon": 1158.288535,
+          "carbon": 1043.287029,
           "constraints": [
             [
               "Physical feasibility",
@@ -443,7 +443,7 @@
             [
               "Growth viability",
               "suitable",
-              "Predicted 3.74 kg DW/m2 over one cycle (literature prior)."
+              "Predicted 3.37 kg DW/m2 over one cycle (literature prior)."
             ],
             [
               "Legal permissibility",
@@ -451,9 +451,9 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 3736.414629,
-          "nitrogen": 74.728293,
-          "phosphorus": 7.472829,
+          "harvest": 3365.442029,
+          "nitrogen": 67.308841,
+          "phosphorus": 6.730884,
           "species": "fucus_vesiculosus",
           "tier": "C",
           "unit": "kg DW"
@@ -490,7 +490,7 @@
           "unit": "kg FW"
         },
         {
-          "carbon": 177.524315,
+          "carbon": 102.402638,
           "constraints": [
             [
               "Physical feasibility",
@@ -504,8 +504,8 @@
             ],
             [
               "Growth viability",
-              "suitable",
-              "Predicted 0.59 kg DW/m2 over one cycle (literature prior)."
+              "marginal",
+              "Predicted 0.34 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
             ],
             [
               "Legal permissibility",
@@ -513,15 +513,15 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 591.747717,
-          "nitrogen": 17.752432,
-          "phosphorus": 1.479369,
+          "harvest": 341.342126,
+          "nitrogen": 10.240264,
+          "phosphorus": 0.853355,
           "species": "ulva",
           "tier": "C",
           "unit": "kg DW"
         },
         {
-          "carbon": 188.075598,
+          "carbon": 121.36208,
           "constraints": [
             [
               "Physical feasibility",
@@ -535,8 +535,8 @@
             ],
             [
               "Growth viability",
-              "suitable",
-              "Predicted 0.61 kg DW/m2 over one cycle (literature prior)."
+              "marginal",
+              "Predicted 0.39 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
             ],
             [
               "Legal permissibility",
@@ -544,9 +544,9 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 606.695478,
-          "nitrogen": 9.707128,
-          "phosphorus": 1.213391,
+          "harvest": 391.49058,
+          "nitrogen": 6.263849,
+          "phosphorus": 0.782981,
           "species": "chorda_filum",
           "tier": "C",
           "unit": "kg DW"
@@ -559,7 +559,7 @@
       },
       "ranked": [
         {
-          "carbon": 1221.439488,
+          "carbon": 1183.24396,
           "constraints": [
             [
               "Physical feasibility",
@@ -574,7 +574,7 @@
             [
               "Growth viability",
               "suitable",
-              "Predicted 3.94 kg DW/m2 over one cycle (literature prior)."
+              "Predicted 3.82 kg DW/m2 over one cycle (literature prior)."
             ],
             [
               "Legal permissibility",
@@ -582,9 +582,9 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 3940.12738,
-          "nitrogen": 78.802548,
-          "phosphorus": 7.880255,
+          "harvest": 3816.916,
+          "nitrogen": 76.33832,
+          "phosphorus": 7.633832,
           "species": "fucus_vesiculosus",
           "tier": "C",
           "unit": "kg DW"
@@ -621,7 +621,7 @@
           "unit": "kg FW"
         },
         {
-          "carbon": 214.865175,
+          "carbon": 167.96649,
           "constraints": [
             [
               "Physical feasibility",
@@ -636,7 +636,7 @@
             [
               "Growth viability",
               "suitable",
-              "Predicted 0.72 kg DW/m2 over one cycle (literature prior)."
+              "Predicted 0.56 kg DW/m2 over one cycle (literature prior)."
             ],
             [
               "Legal permissibility",
@@ -644,15 +644,15 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 716.21725,
-          "nitrogen": 21.486517,
-          "phosphorus": 1.790543,
+          "harvest": 559.888301,
+          "nitrogen": 16.796649,
+          "phosphorus": 1.399721,
           "species": "ulva",
           "tier": "C",
           "unit": "kg DW"
         },
         {
-          "carbon": 228.661996,
+          "carbon": 177.023987,
           "constraints": [
             [
               "Physical feasibility",
@@ -667,7 +667,7 @@
             [
               "Growth viability",
               "suitable",
-              "Predicted 0.74 kg DW/m2 over one cycle (literature prior)."
+              "Predicted 0.57 kg DW/m2 over one cycle (literature prior)."
             ],
             [
               "Legal permissibility",
@@ -675,9 +675,9 @@
               "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
             ]
           ],
-          "harvest": 737.619343,
-          "nitrogen": 11.801909,
-          "phosphorus": 1.475239,
+          "harvest": 571.04512,
+          "nitrogen": 9.136722,
+          "phosphorus": 1.14209,
           "species": "chorda_filum",
           "tier": "C",
           "unit": "kg DW"
@@ -701,11 +701,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "81.8-736 kg C [C]",
-        "Harvest": "264-2.38e+03 kg DW [C]",
+        "Carbon in harvest": "69.2-622 kg C [C]",
+        "Harvest": "223-2.01e+03 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "4.22-38 kg N [C]",
-        "Phosphorus removed": "0.528-4.75 kg P [C]",
+        "Nitrogen removed": "3.57-32.1 kg N [C]",
+        "Phosphorus removed": "0.446-4.02 kg P [C]",
         "Scenario": "chorda_filum",
         "Species": "Sea lace",
         "Verdict": "unknown"
@@ -714,11 +714,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "416-3.74e+03 kg C [C]",
-        "Harvest": "1.34e+03-1.21e+04 kg DW [C]",
+        "Carbon in harvest": "411-3.7e+03 kg C [C]",
+        "Harvest": "1.33e+03-1.19e+04 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "26.8-241 kg N [C]",
-        "Phosphorus removed": "2.68-24.1 kg P [C]",
+        "Nitrogen removed": "26.5-239 kg N [C]",
+        "Phosphorus removed": "2.65-23.9 kg P [C]",
         "Scenario": "fucus_vesiculosus",
         "Species": "Bladderwrack",
         "Verdict": "unknown"
@@ -753,11 +753,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "77.1-694 kg C [C]",
-        "Harvest": "257-2.31e+03 kg DW [C]",
+        "Carbon in harvest": "68.3-615 kg C [C]",
+        "Harvest": "228-2.05e+03 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "7.71-69.4 kg N [C]",
-        "Phosphorus removed": "0.642-5.78 kg P [C]",
+        "Nitrogen removed": "6.83-61.5 kg N [C]",
+        "Phosphorus removed": "0.569-5.12 kg P [C]",
         "Scenario": "ulva",
         "Species": "Sea lettuce",
         "Verdict": "unknown"
@@ -768,11 +768,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "53.6-483 kg C [C]",
-        "Harvest": "173-1.56e+03 kg DW [C]",
+        "Carbon in harvest": "30.4-273 kg C [C]",
+        "Harvest": "98-882 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "2.77-24.9 kg N [C]",
-        "Phosphorus removed": "0.346-3.11 kg P [C]",
+        "Nitrogen removed": "1.57-14.1 kg N [C]",
+        "Phosphorus removed": "0.196-1.76 kg P [C]",
         "Scenario": "chorda_filum",
         "Species": "Sea lace",
         "Verdict": "unknown"
@@ -781,11 +781,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "376-3.38e+03 kg C [C]",
-        "Harvest": "1.21e+03-1.09e+04 kg DW [C]",
+        "Carbon in harvest": "320-2.88e+03 kg C [C]",
+        "Harvest": "1.03e+03-9.3e+03 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "24.3-218 kg N [C]",
-        "Phosphorus removed": "2.43-21.8 kg P [C]",
+        "Nitrogen removed": "20.7-186 kg N [C]",
+        "Phosphorus removed": "2.07-18.6 kg P [C]",
         "Scenario": "fucus_vesiculosus",
         "Species": "Bladderwrack",
         "Verdict": "unknown"
@@ -820,11 +820,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "50.2-451 kg C [C]",
-        "Harvest": "167-1.5e+03 kg DW [C]",
+        "Carbon in harvest": "23.1-208 kg C [C]",
+        "Harvest": "77.1-693 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "5.02-45.1 kg N [C]",
-        "Phosphorus removed": "0.418-3.76 kg P [C]",
+        "Nitrogen removed": "2.31-20.8 kg N [C]",
+        "Phosphorus removed": "0.193-1.73 kg P [C]",
         "Scenario": "ulva",
         "Species": "Sea lettuce",
         "Verdict": "unknown"
@@ -835,11 +835,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "49.8-448 kg C [C]",
-        "Harvest": "161-1.45e+03 kg DW [C]",
+        "Carbon in harvest": "28.1-253 kg C [C]",
+        "Harvest": "90.7-816 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "2.57-23.1 kg N [C]",
-        "Phosphorus removed": "0.321-2.89 kg P [C]",
+        "Nitrogen removed": "1.45-13.1 kg N [C]",
+        "Phosphorus removed": "0.181-1.63 kg P [C]",
         "Scenario": "chorda_filum",
         "Species": "Sea lace",
         "Verdict": "unknown"
@@ -848,11 +848,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Regionally extrapolated",
-        "Carbon in harvest": "1.07e+03 kg C [B]",
-        "Harvest": "3.45e+03 kg DW [B]",
+        "Carbon in harvest": "867 kg C [B]",
+        "Harvest": "2.8e+03 kg DW [B]",
         "Method": "Floating longline",
-        "Nitrogen removed": "68.9 kg N [B]",
-        "Phosphorus removed": "6.89 kg P [B]",
+        "Nitrogen removed": "55.9 kg N [B]",
+        "Phosphorus removed": "5.59 kg P [B]",
         "Scenario": "fucus_vesiculosus",
         "Species": "Bladderwrack",
         "Verdict": "unknown"
@@ -887,11 +887,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "46.1-415 kg C [C]",
-        "Harvest": "154-1.38e+03 kg DW [C]",
+        "Carbon in harvest": "20.7-187 kg C [C]",
+        "Harvest": "69.1-622 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "4.61-41.5 kg N [C]",
-        "Phosphorus removed": "0.385-3.46 kg P [C]",
+        "Nitrogen removed": "2.07-18.7 kg N [C]",
+        "Phosphorus removed": "0.173-1.55 kg P [C]",
         "Scenario": "ulva",
         "Species": "Sea lettuce",
         "Verdict": "unknown"
@@ -902,11 +902,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "62.7-564 kg C [C]",
-        "Harvest": "202-1.82e+03 kg DW [C]",
+        "Carbon in harvest": "40.5-364 kg C [C]",
+        "Harvest": "130-1.17e+03 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "3.24-29.1 kg N [C]",
-        "Phosphorus removed": "0.404-3.64 kg P [C]",
+        "Nitrogen removed": "2.09-18.8 kg N [C]",
+        "Phosphorus removed": "0.261-2.35 kg P [C]",
         "Scenario": "chorda_filum",
         "Species": "Sea lace",
         "Verdict": "unknown"
@@ -915,11 +915,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "386-3.47e+03 kg C [C]",
-        "Harvest": "1.25e+03-1.12e+04 kg DW [C]",
+        "Carbon in harvest": "348-3.13e+03 kg C [C]",
+        "Harvest": "1.12e+03-1.01e+04 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "24.9-224 kg N [C]",
-        "Phosphorus removed": "2.49-22.4 kg P [C]",
+        "Nitrogen removed": "22.4-202 kg N [C]",
+        "Phosphorus removed": "2.24-20.2 kg P [C]",
         "Scenario": "fucus_vesiculosus",
         "Species": "Bladderwrack",
         "Verdict": "unknown"
@@ -954,11 +954,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "59.2-533 kg C [C]",
-        "Harvest": "197-1.78e+03 kg DW [C]",
+        "Carbon in harvest": "34.1-307 kg C [C]",
+        "Harvest": "114-1.02e+03 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "5.92-53.3 kg N [C]",
-        "Phosphorus removed": "0.493-4.44 kg P [C]",
+        "Nitrogen removed": "3.41-30.7 kg N [C]",
+        "Phosphorus removed": "0.284-2.56 kg P [C]",
         "Scenario": "ulva",
         "Species": "Sea lettuce",
         "Verdict": "unknown"
@@ -969,11 +969,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "76.2-686 kg C [C]",
-        "Harvest": "246-2.21e+03 kg DW [C]",
+        "Carbon in harvest": "59-531 kg C [C]",
+        "Harvest": "190-1.71e+03 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "3.93-35.4 kg N [C]",
-        "Phosphorus removed": "0.492-4.43 kg P [C]",
+        "Nitrogen removed": "3.05-27.4 kg N [C]",
+        "Phosphorus removed": "0.381-3.43 kg P [C]",
         "Scenario": "chorda_filum",
         "Species": "Sea lace",
         "Verdict": "unknown"
@@ -982,11 +982,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "407-3.66e+03 kg C [C]",
-        "Harvest": "1.31e+03-1.18e+04 kg DW [C]",
+        "Carbon in harvest": "394-3.55e+03 kg C [C]",
+        "Harvest": "1.27e+03-1.15e+04 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "26.3-236 kg N [C]",
-        "Phosphorus removed": "2.63-23.6 kg P [C]",
+        "Nitrogen removed": "25.4-229 kg N [C]",
+        "Phosphorus removed": "2.54-22.9 kg P [C]",
         "Scenario": "fucus_vesiculosus",
         "Species": "Bladderwrack",
         "Verdict": "unknown"
@@ -1021,11 +1021,11 @@
         "Area (ha)": 0.1,
         "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
         "Calibration": "Literature prior",
-        "Carbon in harvest": "71.6-645 kg C [C]",
-        "Harvest": "239-2.15e+03 kg DW [C]",
+        "Carbon in harvest": "56-504 kg C [C]",
+        "Harvest": "187-1.68e+03 kg DW [C]",
         "Method": "Floating longline",
-        "Nitrogen removed": "7.16-64.5 kg N [C]",
-        "Phosphorus removed": "0.597-5.37 kg P [C]",
+        "Nitrogen removed": "5.6-50.4 kg N [C]",
+        "Phosphorus removed": "0.467-4.2 kg P [C]",
         "Scenario": "ulva",
         "Species": "Sea lettuce",
         "Verdict": "unknown"

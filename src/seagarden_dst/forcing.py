@@ -162,18 +162,18 @@ def daily_forcing(
     in the season as day 5, and continuing the axis keeps the forcing continuous across
     New Year and the axis monotone for the interpolation in `growth.simulate`.
 
-    One placeholder limitation is worth naming, because wrapping windows made it
-    consequential: the nutrient drawdown below is indexed by position in the window
-    rather than by calendar day. Nitrogen is therefore a property of the query and not
-    of the site - on 1 April at DK-belt this function returns 3.15 umol N/L for the
-    Oct-Jun window and 5.00 for the April-start windows: two values, not three, for
-    the windows that reach this function. Mytilus ships cultivation_window [1, 12]
-    and would give 4.3144 on the same date, but never reaches this function -
-    shellfish have no growth: block and are handled outside `growth.simulate`. The
-    real seasonal cycle arrives with the section 6 climatologies. Fixing it moves the
-    modelled yields; mu_max has never been fitted to the anchor - it carries its
-    initial value, and b_max is set from the anchor's own upper bound, so the anchor
-    is not an independent check either.
+    Nitrogen is a property of the site and the date, not of the window asked about.
+    It was not always: the drawdown used to be spread across however many days the
+    window contained, so on 1 April at DK-belt this function returned 3.15 umol N/L
+    for the Oct-Jun window and 5.00 for the April starts. It now shares the seasonal
+    term with temperature and irradiance, so any two windows overlapping a date agree
+    on it to within the phase residual of the 365.25-day period - about 1.8e-03
+    relative across the Apr-Jun overlap, not zero.
+
+    The values are still ASSUMED. The real seasonal cycle arrives with the section 6
+    climatologies, and this change moved the modelled yields down: mu_max has never
+    been fitted to the anchor - it carries its initial value, and b_max is set from
+    the anchor's own upper bound, so the anchor is not an independent check either.
     """
     start, end = window
     first = day_of_year(start, 1)
@@ -191,9 +191,20 @@ def daily_forcing(
 
     par = site.par_at_depth() * (0.25 + 0.75 * season)
 
-    # Nutrients are highest early and drawn down as the season progresses.
-    drawdown = np.linspace(1.0, 0.45, days.size)
-    din = site.din_umol_l * drawdown
+    # Nutrients by calendar day, not by position in the window. The previous
+    # `np.linspace(1.0, 0.45, days.size)` spread a fixed drawdown across however many
+    # days the window contained, so nitrogen was a property of the question asked: on
+    # 1 April at DK-belt it returned 3.15 umol N/L for the Oct-Jun window and 5.00 for
+    # the April starts. Highest in winter and lowest at midsummer is the Baltic
+    # pattern - winter accumulation, spring-bloom drawdown.
+    #
+    # ASSUMED, not sourced, and replaced wholesale by the section 6 climatologies.
+    # Note it is NOT amplitude-preserving within a window: the season term reaches 0
+    # only at midwinter, so a window that never reaches midwinter sees less than the
+    # full 0.450-1.000 range - Fucus's April-October spans 0.450-0.891. That is why
+    # this change lowers the ODE yield of every window that stops short of midwinter,
+    # which after the Saccharina yield-model change is every window still on the ODE.
+    din = site.din_umol_l * (1.0 - 0.55 * season)
 
     return days, par, temperature, din
 
