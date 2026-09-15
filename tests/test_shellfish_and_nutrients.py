@@ -97,3 +97,40 @@ def test_imta_heuristic():
     assert area == 0.8
     assert "OLAMUR" in source
     assert imta_sizing("both")[0] == 8.0
+
+
+def test_mode_on_a_contraindicated_harvest_is_not_a_recommendation(params):
+    """`.mode` describes the salinity band, not advice to cultivate.
+
+    On the contraindicated path `harvest()` returns a real "commercial"/"mitigation"
+    string beside a zero yield, so a caller reading `.mode` without first checking
+    `fresh_weight.calibration.is_reportable` sees what reads as a recommendation for
+    a pairing the tool is reporting as unusable. Inert today - `api._assess_one`
+    discards `.mode`, and no shipped species reaches the branch at a placeholder
+    site - which is exactly why it needs pinning rather than leaving to be discovered
+    when something does read it.
+
+    The field keeps its type: widening it to None would push the same question onto
+    every caller. The contract asserted here is that `.mode` is only ever meaningful
+    alongside a reportable calibration.
+    """
+    from dataclasses import replace
+
+    mytilus = params.species["mytilus"]
+    floor = mytilus.salinity_floor()
+    assert floor is not None, "mytilus must resolve a salinity floor for this test to mean anything"
+    floor_psu, _ = floor
+
+    fresh = PLACEHOLDER_SITES["LT-coastal"]
+    too_fresh = replace(fresh, salinity_psu=floor_psu - 1.0)
+
+    result = harvest(mytilus, too_fresh, area_ha=0.1)
+    assert not result.fresh_weight.calibration.is_reportable, (
+        "the test site must actually be contraindicated"
+    )
+    assert result.fresh_weight.value == 0.0
+    assert result.mode in {"commercial", "mitigation"}
+    assert result.dry_matter_kg == 0.0 and result.density_kg_m3 == 0.0, (
+        "mode must be the only non-zero field on a contraindicated harvest - every "
+        "quantity that could be mistaken for a yield is zeroed"
+    )

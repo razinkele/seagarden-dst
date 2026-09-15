@@ -224,6 +224,23 @@ class Anchor(BaseModel):
         description="False where the model cannot currently reproduce this arm.",
     )
 
+    @model_validator(mode="after")
+    def _check_the_range_is_not_inverted(self) -> Anchor:
+        """An inverted band must fail at load, not mid-analysis.
+
+        This was enforced only where a test happened to look, so an inverted range in
+        a species file added later would load clean. An anchor is what the
+        parameterisation is checked against: reversed, `low <= value <= high` can
+        never hold, and `reconciles` then records a modelling failure that is really
+        a data-entry error. `low == high` is allowed - a single published figure.
+        """
+        if self.low > self.high:
+            raise ValueError(
+                f"{self.quantity} anchor has low={self.low} above high={self.high}; "
+                "the range is inverted"
+            )
+        return self
+
 
 class SpeciesParams(BaseModel):
     """One species parameter set."""

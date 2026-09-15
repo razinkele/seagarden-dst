@@ -24,9 +24,24 @@ from .params import SpeciesParams
 
 @dataclass(frozen=True)
 class ShellfishHarvest:
-    """One cultivation cycle of shellfish on a given area."""
+    """One cultivation cycle of shellfish on a given area.
 
-    mode: str  # "commercial" or "mitigation"
+    Read `fresh_weight.calibration.is_reportable` before anything else. On the
+    contraindicated path every quantity below is zero and only `mode` still carries a
+    real string - see the field's note.
+    """
+
+    mode: str
+    """Which salinity band applies: "commercial" or "mitigation".
+
+    A description of the site, NOT a recommendation to cultivate. It is populated
+    from `culture_mode()` even when the pairing is contraindicated, where it means
+    "the band this salinity falls in, had cultivation been viable" - so reading it
+    without checking `fresh_weight.calibration.is_reportable` turns a tier D refusal
+    into what looks like advice. Every other field is zeroed on that path precisely so
+    that this is the only one that can mislead.
+    """
+
     fresh_weight: Quantity  # kg FW
     dry_matter_kg: float
     density_kg_m3: float

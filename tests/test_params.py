@@ -293,3 +293,39 @@ def test_every_anchor_flag_matches_what_the_model_actually_produces():
             f"{anchor.quantity}: model gives {actual[anchor.quantity]:.4g} {anchor.unit} "
             f"against {anchor.low}-{anchor.high}, so reconciles should be {inside}"
         )
+
+
+def test_an_inverted_anchor_range_fails_at_load_not_in_a_test():
+    """`low <= high` was enforced only where a test happened to look.
+
+    test_the_tagalaht_anchor_is_data_with_a_stated_basis asserts it for the anchors
+    that ship today, which means an inverted range in a species file added later
+    loads clean and is caught only if someone writes the same assertion again. An
+    anchor is the thing the parameterisation is checked against, so a reversed band
+    silently inverts that check - `low <= value <= high` can never hold, and the
+    reconciles flag records a failure that is an artefact of the data entry.
+    """
+    from seagarden_dst.params import Anchor
+
+    ok = Anchor(
+        quantity="dry_weight", low=4800.0, high=5200.0, unit="g DW/m2",
+        basis="areal density", source="OLAMUR D3.2",
+    )
+    assert ok.low <= ok.high
+
+    with pytest.raises(ValidationError, match="low.*high|high.*low"):
+        Anchor(
+            quantity="dry_weight", low=5200.0, high=4800.0, unit="g DW/m2",
+            basis="areal density", source="OLAMUR D3.2",
+        )
+
+
+def test_an_anchor_may_be_a_point_value():
+    """low == high is a single published figure, not an error."""
+    from seagarden_dst.params import Anchor
+
+    point = Anchor(
+        quantity="nitrogen", low=12.0, high=12.0, unit="g N per cage",
+        basis="per 6 m2 cage", source="OLAMUR D3.2",
+    )
+    assert point.low == point.high
