@@ -30,7 +30,17 @@ app = [
 
 # Live spatial data layer (specification section 6). Not needed for the prototype,
 # which runs on the placeholder conditions in seagarden_dst.forcing.
+#
+# These are BUILD-TIME only. The data-layer design's central premise is that nothing
+# here is imported at runtime: scripts/refresh_layers.py runs once a year, writes an
+# artifact, and the tool then reads that artifact with no network, no credentials and
+# no service call. That is what keeps the tool alive to 2034 on no maintenance budget.
+#
+# copernicusmarine authenticates against a credential the refresh runbook requires to be
+# INSTITUTIONAL, never personal (design section 4.1) — an annual refresh that depends on
+# one person's account stops working when that person changes role.
 spatial = [
+  "copernicusmarine>=2.4",
   "rioxarray>=0.15",
   "xarray>=2024.1",
   "rasterio>=1.3",
