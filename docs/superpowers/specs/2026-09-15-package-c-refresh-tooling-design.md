@@ -24,7 +24,7 @@ to keep open.
 | Decision | Choice | Why |
 |---|---|---|
 | **Does C deposit to Zenodo?** | **No.** The step is implemented and documented; the manifest carries the DOI field; a human runs the first real deposit. | A Zenodo DOI is permanent, public and published under the project's name, and needs institutional credentials. Everything C does stays reversible. |
-| **Baseline years** | **2016–2025**, the last ten full calendar years. ~170 MB on disk (590 MB uncompressed, at B's measured 3.5× NetCDF4+zlib4 ratio). | B measured interannual spread as the dominant term (−57% to +179%). Three years cannot characterise that; a decade can. Recent enough that Baltic warming and falling nutrient loads do not make early years unrepresentative of a siting decision taken now. |
+| **Baseline years** | **2016–2025**, the last ten full calendar years — confirmed after review. ~170 MB on disk (590 MB uncompressed, at B's measured 3.5× NetCDF4+zlib4 ratio). Ten years carried, **nine usable for wrapping windows** (C§11). | B measured interannual spread as the dominant term (−57% to +179%). Three years cannot characterise that; a decade can. Recent enough that Baltic warming and falling nutrient loads do not make early years unrepresentative of a siting decision taken now. |
 | **Waves** | **Monthly 95th percentile from a three-year sub-baseline** (2023–2025), streamed. `significant_wave_max_m` deferred. | The hourly product costs ~8.6 GB per year of transfer against ~0.42 GB/year for every other layer combined (C§3.4, C§8.1). A p95 is not a tail statistic — three years gives ~2,200 hourly values per cell per month — so the extra seven years buy stability it does not need. The annual maximum *is* a tail statistic, which is why it is deferred rather than computed badly. |
 | **Sources** | **Copernicus + EMODnet Bathymetry.** HELCOM dropped. | Copernicus BGC already carries `no3`, `nh4` and `po4`, which is everything `din_umol_l` and `dip_umol_l` need, so HELCOM would be provenance burden for no added field. EMODnet earns its integration: see C§2. |
 | **Architecture** | **Thin layer-plugin package**, not a linear script and not a config-driven engine. | C§5. |
@@ -488,11 +488,43 @@ To be made when this design is accepted, not silently assumed:
   C§10 clause 8 (no core module imports `refresh/`) is only meaningful in an install
   *without* `spatial`, while C§7's fixture tests need one *with* it — two install states,
   so a second CI job or skip markers.
-- **§6.2's year-boundary rule makes the effective baseline nine years, not ten.** A wrapping
-  window opened in year Y takes January from Y+1, and blocks when Y+1 is absent, so 2025
-  cannot open a *Saccharina* Oct–Jun window in a 2016–2025 artifact. C§1's "last ten full
-  calendar years" is correct about what the artifact *carries* and misleading about what is
-  *usable* for wrapping windows. Either state it, or carry 2016–2026 once 2026 completes.
+- **§6.2 should record that a ten-year artifact gives nine usable years for wrapping
+  windows.** This is now a settled decision rather than an open choice: the baseline stays
+  **2016–2025**. A wrapping window opened in year Y takes January from Y+1 and blocks when
+  Y+1 is absent, so 2025 cannot open a *Saccharina* Oct–Jun window in this artifact. That is
+  correct behaviour — §6.2 chose blocking over silently substituting another year — and the
+  cost is one species losing one year at the end of the range. The artifact *carries* ten
+  years; nine are usable for wrapping windows; both numbers belong in the manifest's
+  documentation and in the runbook, so nobody reads the shortfall as a bug.
+
+## C§11.1 Provenance uniformity — checked, and closed
+
+Review flagged that the hourly wave dataset was unnamed and its uniformity unverified: a
+layer split across a `_my_` reanalysis and a `_myint_` interim product cannot be described
+by one `LayerProvenance`, which carries one `dataset_id` and one `version`. That would have
+been a schema question, not only a sourcing one. It was checked against the live catalogue
+on 15 September 2026:
+
+| layer | dataset | version | coverage | interim variant |
+|---|---|---|---|---|
+| waves | `cmems_mod_bal_wav_my_PT1H-i` | `202411` | 1980-01-01 → 2026-07-01 | **none — `_myint_` absent from catalogue** |
+| physics | `cmems_mod_bal_phy_my_P1M-m` | `202303` | 1993-01-01 → 2026-05-31 | **none** |
+| biogeochemistry (monthly) | `cmems_mod_bal_bgc_my_P1M-m` | `202303` | 1993-01-01 → 2026-05-31 | **none** |
+| biogeochemistry (daily `zsd`, C§3.4) | `cmems_mod_bal_bgc_my_P1D-m` | `202303` | 1993-01-01 → 2026-05-31 | **none** |
+
+**Every baseline this design uses falls inside a single `_my_` dataset at a single
+version.** 2016–2025 for forcing, 2023–2025 for waves. No layer is split, so one
+`LayerProvenance` per layer is sufficient and the schema stands unchanged.
+
+Two things follow that the manifest must carry. The **wave product is at a different
+version** (`202411`) from physics and biogeochemistry (`202303`) — expected, since they are
+different products, and exactly why `version` is per-layer rather than per-artifact. And
+`VHM0` is confirmed present in the hourly dataset alongside 18 other wave variables, only
+one of which C reads.
+
+**EMODnet Bathymetry has no equivalent check yet.** It has no CMEMS-style catalogue and no
+version string of this form, and it remains the least-specified layer in this design
+(C§12).
 
 ## C§12 Risks
 
@@ -506,13 +538,6 @@ To be made when this design is accepted, not silently assumed:
 - **The runbook's done-when depends on a second person.** Nothing in the implementation can
   discharge it, and it is the deliverable that most directly addresses spec §14's
   key-person risk.
-- **The wave layer's dataset is still unnamed.** C commits to hourly `VHM0`, but package B
-  only read catalogue metadata for `BALTICSEA_MULTIYEAR_WAV_003_015`. B established that
-  PHY and BGC involve no `_myint_` interim product, so their provenance is uniform; **nobody
-  has established that for the hourly dataset over 2023–2025**, the most recent years, where
-  an interim split is most likely. A layer split across `_my_` and `_myint_` cannot be
-  described by one `LayerProvenance` with one `dataset_id` and one `version` — so this is a
-  schema question, not only a sourcing one, and it should be settled before implementation.
 - **`baselines` cannot express a layer with no years.** `depth_mean_m` and `depth_min_m` are
   static. Their entry is either absent or an empty list, and this design does not say which.
   Pick one in the plan.
