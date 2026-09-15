@@ -45,8 +45,21 @@ Final biomass, g DW/m²:
 | *Chorda* | 2024 | 39.12 | 42.04 | 16.91 | +7.47% | −56.78% |
 | *Chorda* | 2025 | 6.48 | 7.10 | 16.91 | +9.48% | **+160.81%** |
 
-**(a) Monthly temporal resolution is sufficient.** Worst case +17.4%, typically under 10%.
-The design's choice of monthly means survives its own test.
+**(a) Monthly temporal resolution costs at most +17.4%** — an observed trade-off, not a
+demonstrated sufficiency result. **No acceptance tolerance exists to judge it against.**
+Neither this note nor the design defines what error in final biomass is acceptable, so
+"sufficient" would be a word doing unearned work. What can be said: the cost of monthly
+means is bounded at +17.4% (*Ulva* 2024) across three species and three years at this cell,
+typically under 10%, which is small beside the ±factor-of-several uncertainty the tier
+system already attaches to these yields.
+
+**The ranking and verdict question is unmeasured.** A biomass delta matters only if it
+changes what the tool tells a user. At this cell it does not — but for a degenerate reason
+that is not evidence of insensitivity: all three species fall below the 0.5 kg DW/m² growth
+viability floor under *every* variant (the largest value anywhere in the table is 320.54
+g DW/m², against a 500 g DW/m² floor), so the verdict is the same because nothing is close
+to the boundary. Whether monthly means can flip a verdict or reorder species at a site
+where yields sit near the floor is **package D's measurement**, against real polygons.
 
 **(b) A multi-year climatology is not.** −57% to +179%. Interannual variability swamps the
 resolution effect by an order of magnitude. A single 12-month climatology returns 152.61
@@ -97,7 +110,22 @@ the numbers can be reproduced or disputed:
 `LT-coastal` 55.70 N 21.00 E · `PL-coastal` 54.60 N 18.60 E · `PL-lagoon` 54.40 N 19.60 E ·
 `DE-coastal` 54.30 N 12.00 E · `DK-belt` 55.40 N 10.80 E · `EE-coastal` 58.52 N 22.30 E
 
-| region | ~2 km cell valid | ~4 km | ~8 km | 5 km valid fraction @ ~2 km |
+**The window, stated so the fraction is reproducible.** It is an **axis-aligned lat/lon
+box, not a disc**: half-width 5 km in latitude (±0.045045°) and 5 km in longitude scaled by
+1/cos φ (±0.045045/cos φ °), so a ~10 × 10 km box centred on the point. Slice bounds are
+inclusive at both ends (`xarray.DataArray.sel` with a `slice`), which at native resolution
+gives **30 cells** (≈5.4 × 6, trimmed by the inclusive bound). The valid fraction is the
+unweighted arithmetic mean of the boolean validity mask over those cells — **no area
+weighting and no partial-cell handling**, both of which a production implementation would
+need and neither of which affects the conclusion here. EE-coastal's 36.7% is 11 of 30
+cells; PL-coastal's 93.3% is 28 of 30; DK-belt's 83.3% is 25 of 30.
+
+**Distance to the nearest valid cell is a separate metric**, computed independently of the
+box: the minimum great-circle-approximated distance from the point to any valid cell centre
+in the whole domain, with degrees converted at 111 km and longitude scaled by cos φ. It is
+part of the *replacement* rule proposed in §4, not an input to the fraction above.
+
+| region | ~2 km cell valid | ~4 km | ~8 km | 10 km box valid fraction @ ~2 km |
 |---|---|---|---|---|
 | LT-coastal | yes | yes | yes | 100.0% |
 | PL-coastal | yes | yes | yes | 93.3% |
@@ -125,8 +153,9 @@ cell, so its fraction of valid cells is 0% or 100%, and no threshold between the
 anything. §6.2's rule presumes a polygon spanning many cells; the tool's own default scale
 does not produce one.
 
-**At a scale where it is well-posed, it rejects Tagalaht.** Over a 5 km siting-region
-window at native resolution the valid fraction at EE-coastal is **36.7%**, against §6.2's
+**At a scale where it is well-posed, it rejects Tagalaht.** Over the ~10 × 10 km box
+defined in §3 at native resolution, the valid fraction at EE-coastal is **36.7%** (11 of 30
+cells), against §6.2's
 assumed 60% minimum. The threshold as written puts the one site the model is calibrated
 against outside coverage. The value was marked "assumed, not sourced" and package B was
 asked to set it on evidence; the evidence says the *statistic* is wrong, not just the
@@ -191,7 +220,8 @@ caveats is **package D1's question** — and D1 now has reason to expect the fit
 
 | | |
 |---|---|
-| Products | `BALTICSEA_MULTIYEAR_PHY_003_011`, `BALTICSEA_MULTIYEAR_BGC_003_012`, `BALTICSEA_MULTIYEAR_WAV_003_015` |
+| Products **measured** | `BALTICSEA_MULTIYEAR_PHY_003_011`, `BALTICSEA_MULTIYEAR_BGC_003_012` |
+| Products **inspected only** | `BALTICSEA_MULTIYEAR_WAV_003_015` — catalogue metadata read to price the wave statistic (§5). **No wave data was downloaded and no number here derives from it.** Its datasets are package C's scope. |
 | Datasets | `cmems_mod_bal_phy_my_P1M-m`, `cmems_mod_bal_bgc_my_P1M-m`, `cmems_mod_bal_phy_my_P1D-m`, `cmems_mod_bal_bgc_my_P1D-m` |
 | Dataset version | `202303` |
 | Full coverage | 1993-01-01 to 2026-05-31 |

@@ -541,9 +541,18 @@ cultivation-depth mean is argued for separately.
 
 **Waves get a percentile, not a mean**, because the same artifact feeds
 `assess_physical`'s exposure test against a structural design limit, where a mean is wrong
-in the permissive direction. Either split `significant_wave_m` into operational and extreme
-fields or document which it is, and re-check `methods.yaml`'s `max_significant_wave_m`
-against the same statistic.
+in the permissive direction. Revisions 1–5 left this as "either split the field or document
+which it is", which is not a specification: `SiteConditions.significant_wave_m` is **one
+`float`**, and `suitability.py:107` compares it directly to `method.max_significant_wave_m`.
+A row asking for two statistics into one field cannot be implemented as written.
+
+**Decided here, and reversible:** `significant_wave_m` carries the **monthly 95th
+percentile** — the statistic `assess_physical` must consume, because the comparison is
+against a structural design limit and a mean fails permissively. The **annual maximum
+becomes a second field**, `significant_wave_max_m`, which package D adds to
+`SiteConditions` alongside its other extensions and which no verdict consumes until a rule
+is written for it. `methods.yaml`'s `max_significant_wave_m` must be re-checked against the
+95th percentile, since its present values were set against an unstated statistic.
 
 **"One extra band costs nothing" was wrong, and package B priced it.** The wave product
 ships a ready-made 2 km monthly climatology (`cmems_mod_bal_wav_my_2km-climatology_P1M-m`,
@@ -588,6 +597,16 @@ scope and is not yet measured.
   `GriddedForcing.daily_forcing` **takes a year** — an interface change package D owns, and
   a reason for `artifact_schema_version` (§6.3) to exist. At native resolution three years
   is 50.7 MB against 16.5 MB for a climatology, so size does not argue against it.
+- **The year boundary, for a window that wraps.** Per-year fields make "wrapping at the
+  year boundary" ambiguous in a way a single climatology never was: for *Saccharina*'s
+  Oct–Jun window opened on year Y, January comes from **year Y+1**, not from Y. The
+  day-of-year axis runs past 365 (package A already does this) and the field it indexes
+  changes with it. A same-year cycle — reusing Y's own January after Y's December — would
+  reintroduce exactly the averaging-away of interannual variation that the measurement
+  above rejects, on the one window where it matters most. **If Y+1 is not in the artifact,
+  the query blocks** (`UNKNOWN`, §7) rather than falling back to Y or to a mean of
+  available years. That makes the last year the artifact carries unusable for wrapping
+  windows, which is correct and must be visible rather than silently papered over.
 - **Which years the artifact carries is package C's decision**, not settled here. B used
   the last three full calendar years (2023–2025) because three is enough to expose the
   interannual spread; it is not a recommendation for the production baseline. What B does
@@ -676,7 +695,7 @@ surface rather than absorb, and this row is now surfaced.
 | **A** | Forcing seam | `ForcingSource`; `PlaceholderForcing`; calendar-day indexing per §5.1; the `xfail` retired | A0 | 0.3 PM *(spec §13 "model core")* | Four call sites named in the PR; snapshot diff explained line by line |
 | **B** | Resolution + format spike — **COMPLETE**, `docs/2026-09-15-package-b-measurements.md` | Artifact size at 3 resolutions × 2 formats × 2 temporal designs; valid-cell and nearest-cell measurements; daily-vs-monthly forcing comparison (§10.2). Decided: native ~2 km, NetCDF4+zlib4, per-year monthly | — | 0.3 PM *(spec §13 "data layer")* | **Met.** Note committed with sizes, the daily/monthly delta, a coverage statistic set on evidence, and four decisions — three of which amended this document |
 | **C** | Refresh tooling | `refresh_layers.py`; manifest; Zenodo archive; runbook; source-probe job; test fixture | B | 1.0 PM *(spec §13 "data layer")* | Provenance test passes against the committed fixture; runbook followed end-to-end by someone else |
-| **D** | `GriddedForcing` | Artifact read; polygon query; aggregation per §6; `terra` port; calibration-domain layer; `SiteConditions` extensions; `conditions: SiteConditions \| None` + `unassessable` | **A**, B, C | 1.5 PM *(spec §13 "data layer" + "terra port")* | One fewer README stub row; port validated against Tagalaht and Maar et al.; a test that an unassessable site returns UNKNOWN and never a verdict |
+| **D** | `GriddedForcing` | Artifact read; **polygon-and-year query**; aggregation per §6; `terra` port; calibration-domain layer; `SiteConditions` extensions incl. `significant_wave_max_m`; `conditions: SiteConditions \| None` + `unassessable`; **the §6.2 coverage rule and the §10.2 verdict-sensitivity measurement B could not make** | **A**, B, C | 1.5 PM *(spec §13 "data layer" + "terra port")* | One fewer README stub row; port validated against Tagalaht and Maar et al.; a test that an unassessable site returns UNKNOWN and never a verdict. **Plus, because revision 5 added behaviour the package A protocol does not express:** a test that a polygon query aggregates over the polygon's cells rather than a single point; a test that a requested year the artifact lacks **blocks** rather than substituting another; a test that a wrapping window takes January from year Y+1 (§6.2) and blocks when Y+1 is absent; and every caller migrated wherever the signature changes. **The package A seam is deliberately unchanged until D** - `conditions_for(region)` / `daily_forcing(site, window)` carry no polygon and no year, so D must extend it rather than merely implement it, and these tests are what prevent D satisfying the old protocol while proving none of the new behaviour |
 | **D1** | Re-parameterisation | The fit deferred from A0, against real forcing; `test_growth.py:69` narrowed toward the published range | D | 0.5 PM *(spec §13 "calibration")* | Anchor met with the fitted parameters named, **or** the failure documented as a finding with the identifiability argument of §3.1 restated against real data |
 | **E** | Map and polygon drawing | `shinywidgets` + `ipyleaflet`; drawn geometry into the report; spec §10 instrumentation seam left in place | D | 1.5 PM *(spec §13 "siting module")* | One fewer README stub row; seam present though unwired |
 | **C1** | Human-use vector build | The EMODnet/HELCOM/EEA GeoPackage of §6.4 — a second output of the refresh tooling, same manifest and DOI treatment | C | 0.2 PM *(spec §13 "data layer")* | GeoPackage present with per-layer provenance; provenance test covers it |
@@ -837,6 +856,23 @@ is targeted edits, not a rewrite:
   climatology is a mean, and the percentile needs the hourly product.
 - **Resolution and format are decided**: native ~2 km, NetCDF4 + zlib complevel 4. The
   resolution is forced by the anchor rather than chosen — coarsening land-masks Tagalaht.
+
+Three further items, from review of revision 5 itself, where the revision exposed a
+contradiction rather than created one:
+
+- **The wave row could not be implemented as written.** §6.1 asked for two statistics into
+  `SiteConditions.significant_wave_m`, which is one `float` that `suitability.py:107`
+  compares directly to a design limit. Decided: the field carries the **monthly 95th
+  percentile**, and the annual maximum becomes `significant_wave_max_m`, added by D and
+  consumed by no verdict until a rule exists. Reversible, but not leavable as an either/or.
+- **Per-year fields made the year boundary ambiguous**, where a single climatology never
+  was. *Saccharina*'s Oct–Jun window takes January from **Y+1**, and blocks when Y+1 is not
+  in the artifact rather than falling back to Y — which makes the artifact's last year
+  unusable for wrapping windows, correctly and visibly.
+- **Package D's done-when now tests the behaviour revision 5 added.** The package A seam
+  carries no polygon and no year, so D could have satisfied the protocol while proving none
+  of it. D must now show polygon aggregation, a missing requested year blocking, and the
+  Y+1 boundary rule.
 
 Recorded but not resolved: with real forcing *Fucus* returns 54.7–290.4 g DW/m² against a
 published 4800–5200. Measured with `surface_par` still a placeholder, at one cell and one
