@@ -25,7 +25,7 @@ to keep open.
 |---|---|---|
 | **Does C deposit to Zenodo?** | **No.** The step is implemented and documented; the manifest carries the DOI field; a human runs the first real deposit. | A Zenodo DOI is permanent, public and published under the project's name, and needs institutional credentials. Everything C does stays reversible. |
 | **Baseline years** | **2016–2025**, the last ten full calendar years. ~170 MB on disk (590 MB uncompressed, at B's measured 3.5× NetCDF4+zlib4 ratio). | B measured interannual spread as the dominant term (−57% to +179%). Three years cannot characterise that; a decade can. Recent enough that Baltic warming and falling nutrient loads do not make early years unrepresentative of a siting decision taken now. |
-| **Waves** | **Monthly 95th percentile from a three-year sub-baseline** (2023–2025), streamed. `significant_wave_max_m` deferred. | The hourly product costs ~8.6 GB per year of transfer against ~17 MB/year for everything else (C§7). A p95 is not a tail statistic — three years gives ~2,200 hourly values per cell per month — so the extra seven years buy stability it does not need. The annual maximum *is* a tail statistic, which is why it is deferred rather than computed badly. |
+| **Waves** | **Monthly 95th percentile from a three-year sub-baseline** (2023–2025), streamed. `significant_wave_max_m` deferred. | The hourly product costs ~8.6 GB per year of transfer against ~0.42 GB/year for every other layer combined (C§3.4, C§8.1). A p95 is not a tail statistic — three years gives ~2,200 hourly values per cell per month — so the extra seven years buy stability it does not need. The annual maximum *is* a tail statistic, which is why it is deferred rather than computed badly. |
 | **Sources** | **Copernicus + EMODnet Bathymetry.** HELCOM dropped. | Copernicus BGC already carries `no3`, `nh4` and `po4`, which is everything `din_umol_l` and `dip_umol_l` need, so HELCOM would be provenance burden for no added field. EMODnet earns its integration: see C§2. |
 | **Architecture** | **Thin layer-plugin package**, not a linear script and not a config-driven engine. | C§5. |
 
@@ -82,7 +82,7 @@ decision and it propagates into the manifest (C§4) and into D's reader.
 | `temp_c` | year, month, lat, lon | `thetao` | monthly mean |
 | `din_umol_l` | year, month, lat, lon | `no3` + `nh4` | monthly mean |
 | `dip_umol_l` | year, month, lat, lon | `po4` | monthly mean |
-| `light_attenuation_k` | year, month, lat, lon | `zsd`, **derived** | monthly mean of 1.7/z_SD |
+| `light_attenuation_k` | year, month, lat, lon | **daily** `zsd`, **derived** | monthly mean of *daily* 1.7/z_SD — see C§3.4 |
 | `significant_wave_m` | **month, lat, lon** | hourly `VHM0` | **monthly p95**, 2023–2025 |
 | `depth_mean_m` | **lat, lon** | EMODnet | mean per cell |
 | `depth_min_m` | **lat, lon** | EMODnet | min per cell |
@@ -94,7 +94,8 @@ The **Copernicus fields are taken at the surface level, 0.50 m** — the shallow
 reanalysis's 56 levels, the choice package B made and §6.1 now records. That is a
 *model level*, and has nothing to do with `depth_mean_m`/`depth_min_m`, which are seabed
 bathymetry from EMODnet. All fields are float32; land and out-of-domain cells are NaN,
-which is the validity mask D reads for §6.2's containing-cell rule.
+which is the validity mask D reads for §6.2's containing-cell rule — but see C§3.5, because
+there is more than one of them.
 
 `light_attenuation_k` is stored **derived rather than raw**: the artifact carries k, not
 `zsd`, with the Poole–Atkins relation named in the manifest. Storing the derivation rather
@@ -113,6 +114,59 @@ the absence in machine-readable form (C§4.2) so §7's display requirement reads
 rather than from a hardcoded caveat that can drift.
 
 ---
+
+### C§3.4 Why light attenuation needs the daily product, and what it costs
+
+This is the one variable whose source product is fixed by the *shape* of its statistic
+rather than by convenience, and getting it wrong biases the model in a direction this
+project has consistently refused.
+
+k is a **non-linear** function of the source: k = 1.7/z_SD. Averaging does not commute
+through it. Taking monthly `zsd` from `cmems_mod_bal_bgc_my_P1M-m` and computing
+1.7/mean(z) is **not** mean(1.7/z), and by Jensen's inequality — 1/x being convex for
+x > 0 — the monthly-input route is systematically **lower**. A lower k means less
+attenuation, so **more** PAR at cultivation depth, so an **optimistic** growth bias. It
+would be a silent one: the field would look correct and carry no marker.
+
+So the BGC layer pulls **daily** `zsd` from `cmems_mod_bal_bgc_my_P1D-m`, computes k per
+day, and averages k over the month. Every other variable is linear in its source, so
+monthly-mean inputs are correct for them and the monthly product is used.
+
+This was established by re-reading package B's own pull: B computed 0.198 at Tagalaht from
+`cmems_mod_bal_bgc_my_P1D-m`, the daily product, so B's figure is sound and it was this
+document that first named the wrong product.
+
+**It costs transfer, and the runbook figures in C§8.1 include it:** daily `zsd` over ten
+years is ~0.36 GB/year, ~3.6 GB in total, against ~0.59 GB for every monthly variable
+combined. It does not change the artifact size, which stores monthly k either way.
+
+### C§3.5 One validity field, because the sources disagree at the coastline
+
+An earlier draft of this section said "land and out-of-domain cells are NaN, which is the
+validity mask" as though there were one. There are two, and they disagree exactly where it
+matters.
+
+Copernicus land-masking is on the 2 km model grid; EMODnet bathymetry coverage is an
+independent product at ~115 m. A cell can be wet in one and absent in the other, and the
+disagreement is concentrated at the coastline — which is where every farm is.
+
+**The driver therefore writes an explicit `valid` boolean field**, the intersection of all
+contributing layers' coverage, and D reads that rather than inferring validity from
+whichever variable it happened to look at. The manifest records which layers the
+intersection covers.
+
+**This is not defensive tidiness.** Verified in the current code: if `depth_m` reaches
+`api.select_method` as NaN, every `m.min_depth_m <= conditions.depth_m <= m.max_depth_m`
+comparison is false, `workable` is empty, and `pool = workable or candidates` falls through
+to returning a method anyway. `suitability.assess_physical` then evaluates
+`not (min <= nan <= max)`, which is `True`, and returns a confident **`UNSUITABLE`**:
+*"Depth nan m is outside the workable window"*. A definitive negative verdict manufactured
+from missing data — precisely what §7 exists to prevent, and it becomes reachable the moment
+D reads a real artifact.
+
+Writing a single `valid` field is C's half of the fix. **The NaN-handling defect in
+`select_method`/`assess_physical` is package D's half**, and C§11 records it as an
+amendment so it is owned rather than noticed.
 
 ## C§4 The manifest
 
@@ -135,9 +189,35 @@ absent                  : [AbsentField]
 ```
 
 `LayerProvenance` carries what §6.3 requires: `source`, `product_id`, `dataset_id`,
-`version`, `retrieved_on`, `licence`, `redistribution` (`allowed` | `forbidden`), and
-**either** `zenodo_doi` **or** `source_url`. §9's provenance test is that every layer
-satisfies that either/or.
+`version`, `retrieved_on`, `licence`, `redistribution` (`allowed` | `forbidden`),
+`source_url`, and an **archive state** (below). §6.3's rule, stated once and not
+paraphrased anywhere else in this document: a layer must carry **either a `zenodo_doi`, or
+an explicit `redistribution: forbidden` marker with a `source_url`**. A layer carrying
+neither fails §9's provenance test.
+
+**That rule as written cannot be satisfied by anything package C produces, and this design
+had to resolve it rather than restate it.** C§1 puts the Zenodo deposit outside package C,
+so at manifest-construction time no layer has a DOI. All four layers are genuinely
+redistributable, so `redistribution: forbidden` is not a truthful alternative — and setting
+it to clear the validator would be precisely the mis-marked provenance this whole design
+exists to prevent. Under the rule as written, C§6 step 4 fails on **every real refresh**,
+and it would fail after the wave pull rather than before it.
+
+The resolution is a third **named, honest** state rather than a weakened rule:
+
+```
+archive: {status: "deposited",  zenodo_doi: "10.5281/zenodo.NNNNNNN"}
+archive: {status: "forbidden",  source_url: "https://..."}      # referenced-not-mirrored
+archive: {status: "pending",    source_url: "https://...", unblocked_by: "..."}
+```
+
+`pending` means *built, not yet deposited* — the state every layer of a first real refresh
+is in. It requires a `source_url` and an `unblocked_by` note, structurally mirroring
+C§4.2's `absent` block, so the gap is recorded in the artifact rather than papered over.
+The validator accepts exactly these three and nothing else; a layer with no archive state,
+or `pending` with no `source_url`, still fails at load. §7 gains a display row (C§11): an
+artifact whose layers are `pending` is usable but **says so**, the same way `surface_par`
+does.
 
 `baselines` is a mapping rather than a single field because C§1 gave waves a different
 baseline from the forcing variables. A single `baseline_years` at artifact level would be
@@ -159,7 +239,8 @@ the cheap structural fix for that class of defect.
 
 `seagarden_dst/refresh/manifest.py` defines the models with `extra="forbid"`, matching
 `params.py`. §6.3's provenance rules are `model_validator`s, so a layer carrying neither a
-DOI nor a forbidden-marker **fails at load**, not mid-analysis — the principle
+valid archive state — `deposited` with a DOI, `forbidden` with a URL, or `pending` with a
+URL and an `unblocked_by` note (C§4.1) — **fails at load**, not mid-analysis; the principle
 `_check_salinity_indexed_is_computable` and the `Anchor` range validator already follow.
 
 This makes §9's provenance test a model-load rather than a list of ad-hoc assertions, and
@@ -246,6 +327,8 @@ would look internally consistent while attesting to data that is not there.
 | `artifact_sha256` mismatch | Refuse and say why. Never read the artifact anyway. |
 | Unrecognised `artifact_schema_version` | Refuse, fall back, say why (§7 row 6). |
 | Insufficient free disk | Refuse **before** starting, naming the requirement. |
+| Layer built but not yet deposited | Manifest records `archive.status: pending` with a `source_url`. Valid, loadable, and **visibly incomplete** (§7). Not an error — it is the state of every layer of a first refresh. |
+| A layer marked `forbidden` that is in fact redistributable | Not detectable by the validator, and the reason `pending` exists: without it, clearing the check by mis-marking a layer is the path of least resistance. |
 
 A single layer failing takes the whole refresh with it because a missing variable quietly
 defaulting is the unmarked-provenance hazard A0 spent two commits removing — and it would
@@ -263,6 +346,10 @@ The fixture is **synthetic-valued but structurally real**: a 3 × 3-cell, 2-year
 carrying every variable at its correct shape, written by the *same* writer and manifest
 code as a production refresh, with `synthetic: true` set in the manifest.
 
+Its layers carry **`archive.status: pending`**, not an invented DOI. That is the state a
+real first refresh produces, so the fixture exercises the path production actually takes;
+a fixture carrying a fake DOI would test a state package C never reaches.
+
 Synthetic rather than a real subset, for two reasons. Committing real Copernicus values to
 a public repository raises a redistribution question that C should not answer implicitly;
 and regenerating a real fixture would need network and credentials, which makes it the kind
@@ -278,7 +365,7 @@ excludes `*.nc` and `*.zarr/`, so this needs the exception §6.3 anticipated:
 Tests:
 
 - The committed manifest loads against the Pydantic model — this **is** §9's provenance
-  test, and it fails if any layer lacks both a DOI and a forbidden-marker.
+  test, and it fails on any layer without one of the three archive states of C§4.1.
 - The committed artifact's sha256 matches its manifest.
 - A layer with neither DOI nor marker is rejected (negative test, constructed in-memory).
 - A mismatched sha is refused.
@@ -295,10 +382,18 @@ deliverable, and the one whose done-when is that **somebody else follows it end 
 
 It must carry: prerequisites, including that the Copernicus credential is **institutional,
 never personal**, and where it is held; environment setup; the command; **expected transfer
-volume (~170 MB of forcing on disk, but ~26 GB of wave data crossing the wire)** and runtime; free-disk requirement; what success
+volume** — ~170 MB of forcing on disk, but **~30 GB crossing the wire**: ~0.59 GB of
+monthly fields, ~3.6 GB of daily `zsd` (C§3.4), ~25.8 GB of hourly waves — **and runtime**; free-disk requirement; what success
 looks like; how to verify (provenance test plus checksum); how to deposit artifact and
 manifest to Zenodo and record the DOI back into the committed manifest; what each failure
 mode in C§6.1 means and what to do about it; and who to contact.
+
+It must also state plainly that **the deposited manifest and the committed manifest differ**.
+The DOI exists only after the deposit, so the sequence is: build (every layer
+`archive.status: pending`) → deposit artifact and manifest → record the returned DOI back
+into the committed manifest, flipping those layers to `deposited`. The committed manifest is
+authoritative for provenance; the deposited copy is a snapshot of the moment before the DOI
+existed. `artifact_sha256` is unaffected — it covers the artifact, which does not change.
 
 The volumes and timings are not decoration. A runbook that does not say "this will move 26
 GB and take hours" is one somebody abandons halfway, which is the key-person risk §4.1 and
@@ -339,7 +434,7 @@ end-to-end by someone else."* Both stand. Expanded, so the row is checkable:
 
 1. `refresh_layers.py` builds the artifact and manifest for a named year range.
 2. The committed fixture loads and its manifest validates — §9's provenance test.
-3. A layer lacking both DOI and forbidden-marker is rejected, proven by a negative test.
+3. A layer with no valid archive state is rejected, proven by a negative test (C§4.1).
 4. Artifact and manifest are checksum-linked, and a torn pair is refused.
 5. An interrupted refresh leaves the previous pair valid, proven by a test.
 6. `--probe` reports per-layer reachability and is wired to a scheduled workflow separate
@@ -348,6 +443,16 @@ end-to-end by someone else."* Both stand. Expanded, so the row is checkable:
    **has been followed end to end by someone who did not write it**. This one cannot be
    discharged by the implementer, and it is the row most likely to be quietly skipped.
 8. No core module imports `refresh/`.
+9. **The deposit path is exercised.** The deposit function runs against a stub returning a
+   synthetic DOI, and a test proves that recording it flips the affected layers from
+   `pending` to `deposited` and that the manifest still validates. Without this clause the
+   deliverable discharging the open-data half of the durability commitment has no check that
+   can fail — which was true of this design until review caught it.
+10. **A `pending` manifest validates and a mis-stated one does not.** Positive test: every
+    layer `pending` with a `source_url` loads. Negative tests: `pending` without a
+    `source_url`, and a layer with no archive state at all, both fail at load.
+11. **The `valid` field is the intersection** of contributing layer coverage, proven by a
+    test with two deliberately disagreeing masks (C§3.5).
 
 ---
 
@@ -361,9 +466,33 @@ To be made when this design is accepted, not silently assumed:
   Gulfs of Bothnia and Finland.
 - **§6.3** — replace "written atomically as a pair" with the checksum-and-manifest-last
   mechanism of C§6, which is what a filesystem can deliver.
+- **§7** — a display row for an artifact whose layers are `archive.status: pending`:
+  usable, but it says so, the way `surface_par` does.
 - **§8** — C1's row should name the manifest models it reuses.
-- **§8.1** — traceability rows for the extent choice, the wave sub-baseline and the
-  `absent` block.
+- **§8.1** — traceability rows for the extent choice, the wave sub-baseline, the `absent`
+  block, the `pending` archive state, the `valid` field, and the daily-`zsd` requirement.
+  The "§4.1 — Zenodo archive" row's *Checked by* cell must widen beyond the fixture
+  provenance test to name C§10 clause 9, since that row currently claims a check that
+  cannot fail.
+- **Package D gains two items it does not have.** (1) The NaN-depth defect of C§3.5:
+  `select_method`'s `pool = workable or candidates` plus `assess_physical`'s
+  `not (min <= nan <= max)` turn missing depth into a confident `UNSUITABLE`. D must read
+  the `valid` field and return `UNKNOWN`, never a verdict, for an invalid cell. (2) The
+  **temperature mapping**: the artifact carries one `temp_c`, while `SiteConditions` needs
+  `mean_temp_c`, `summer_temp_c` and `winter_temp_c`. D owns the derivation and must name
+  the month definitions it uses; §6.1 should record it, exactly as C§11 already asks it to
+  record `depth_m` resolving to `depth_mean_m`/`depth_min_m`.
+- **`pyproject.toml` and `.github/workflows/ci.yml`** — neither is touched by this design
+  and both must be. The `spatial` extra carries no netCDF engine, so **nothing in the repo
+  can currently read the fixture C commits**, and `copernicusmarine` appears in no extra.
+  C§10 clause 8 (no core module imports `refresh/`) is only meaningful in an install
+  *without* `spatial`, while C§7's fixture tests need one *with* it — two install states,
+  so a second CI job or skip markers.
+- **§6.2's year-boundary rule makes the effective baseline nine years, not ten.** A wrapping
+  window opened in year Y takes January from Y+1, and blocks when Y+1 is absent, so 2025
+  cannot open a *Saccharina* Oct–Jun window in a 2016–2025 artifact. C§1's "last ten full
+  calendar years" is correct about what the artifact *carries* and misleading about what is
+  *usable* for wrapping windows. Either state it, or carry 2016–2026 once 2026 completes.
 
 ## C§12 Risks
 
@@ -377,6 +506,16 @@ To be made when this design is accepted, not silently assumed:
 - **The runbook's done-when depends on a second person.** Nothing in the implementation can
   discharge it, and it is the deliverable that most directly addresses spec §14's
   key-person risk.
+- **The wave layer's dataset is still unnamed.** C commits to hourly `VHM0`, but package B
+  only read catalogue metadata for `BALTICSEA_MULTIYEAR_WAV_003_015`. B established that
+  PHY and BGC involve no `_myint_` interim product, so their provenance is uniform; **nobody
+  has established that for the hourly dataset over 2023–2025**, the most recent years, where
+  an interim split is most likely. A layer split across `_my_` and `_myint_` cannot be
+  described by one `LayerProvenance` with one `dataset_id` and one `version` — so this is a
+  schema question, not only a sourcing one, and it should be settled before implementation.
+- **`baselines` cannot express a layer with no years.** `depth_mean_m` and `depth_min_m` are
+  static. Their entry is either absent or an empty list, and this design does not say which.
+  Pick one in the plan.
 - **`artifact_schema_version` starts at 1 with no negotiation mechanism.** If D and C
   disagree about the shape, the failure is a refusal to load — loud, but total. That is the
   intended trade, recorded so it is not a surprise.
