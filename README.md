@@ -139,7 +139,7 @@ layer returns `UNKNOWN`, which *blocks* the verdict rather than silently passing
 |---|---|---|
 | Site conditions | `forcing.PLACEHOLDER_SITES` | The curated Copernicus/EMODnet/HELCOM layers (§6); `pip install -e ".[spatial]"` |
 | Map and polygon drawing | `modules/site.py` | Same, plus `shinywidgets` + `ipyleaflet` |
-| Regulatory layer | `suitability.assess_legal` | GMU's A2.2 external legal expertise, four jurisdictions, M12 |
+| Regulatory layer — **content** | `params/regulatory/`, empty but for the worked example | GMU's A2.2 external legal expertise, four jurisdictions, M12. The **schema** now exists (`regulatory.RegulatoryRecord`, spec §9.1) with a committed `EXAMPLE` record, so the M12 hand-off is a record set to fill rather than a transcription project. `suitability.assess_legal` still returns UNKNOWN without a layer — an absent record blocks, it never reads as "no restrictions" |
 | Registration and usage logging | absent | §10; decision D4 due M18 |
 | Method costs and labour | `params/methods.yaml`, all `null` | WP3 procurement records |
 | *Chorda filum* growth parameters | `params/species/chorda_filum.yaml` | A3.4 harvest data. Decision D1 is taken — Chorda **ships** — but the coefficients are a structural analogue of Fucus, assumed rather than fitted, and tier C in every region. `test_chorda_ships_but_stays_uncalibrated` enforces that |

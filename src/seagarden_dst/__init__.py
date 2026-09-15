@@ -34,6 +34,13 @@ from .contracts import SiteAssessment, SiteContext, SpeciesOption
 from .eutropy_adapter import EutropyUnavailable
 from .forcing import DEFAULT_FORCING, PLACEHOLDER_SITES, REGIONS, ForcingSource, SiteConditions
 from .params import ParameterSet, SpeciesParams, default_parameters, load_parameters
+from .regulatory import (
+    JURISDICTIONS,
+    RegulatoryRecord,
+    RegulatoryRegistry,
+    default_registry,
+    load_regulatory_records,
+)
 from .scenarios import SCALES, Scenario, compare, evaluate
 from .suitability import Suitability, Verdict, assess
 
@@ -41,6 +48,7 @@ __version__ = "0.2.0.dev0"
 
 __all__ = [
     "DEFAULT_FORCING",
+    "JURISDICTIONS",
     "PLACEHOLDER_SITES",
     "REGIONS",
     "SCALES",
@@ -50,6 +58,8 @@ __all__ = [
     "ForcingSource",
     "ParameterSet",
     "Quantity",
+    "RegulatoryRecord",
+    "RegulatoryRegistry",
     "Scenario",
     "SiteAssessment",
     "SiteConditions",
@@ -63,7 +73,9 @@ __all__ = [
     "assess_site",
     "compare",
     "default_parameters",
+    "default_registry",
     "evaluate",
     "load_parameters",
+    "load_regulatory_records",
     "removal_framing",
 ]
