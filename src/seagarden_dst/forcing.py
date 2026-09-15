@@ -43,11 +43,20 @@ class SiteConditions:
     mean_temp_c: float
     summer_temp_c: float
     winter_temp_c: float
+    #: Surface PAR. NO SOURCE EXISTS for this field: package B established that the
+    #: Copernicus Baltic BGC reanalysis carries no PAR variable of any kind, so unlike
+    #: every other field here this one does NOT become a measurement when the data layer
+    #: lands - it stays a placeholder constant that the tool has to say it is using.
     surface_par: float
     din_umol_l: float
     dip_umol_l: float
     depth_m: float
     significant_wave_m: float
+    #: Beer-Lambert attenuation coefficient. Package B identified the source the design
+    #: did not have: Secchi depth (`zsd`) via Poole-Atkins, k ~= 1.7 / z_SD, which makes
+    #: this a DERIVED quantity rather than a measured layer when package D wires it. The
+    #: 0.4 default is roughly twice the 0.198 measured at Tagalaht; it is left alone here
+    #: because changing it moves every reported number.
     light_attenuation_k: float = 0.4
     cultivation_depth_m: float = 1.5
 
@@ -60,6 +69,20 @@ class SiteConditions:
 #: Placeholder conditions per region, used by the scaffold so the application runs
 #: end to end before the data layer exists. These are plausible order-of-magnitude
 #: values, NOT measurements, and every result derived from them inherits tier C.
+#:
+#: One of them has since been checked. Package B pulled the Copernicus cell at Tagalaht
+#: (58.5249 N, 22.2910 E), 2023-2025, against the EE-coastal entry below
+#: (docs/2026-09-15-package-b-measurements.md):
+#:
+#:   salinity_psu          6.0  vs measured 5.86-6.78, mean 6.33   - good
+#:   din_umol_l            5.5  vs measured  0.28-6.21, mean 1.05  - 5.3x HIGH
+#:   light_attenuation_k   0.4  vs measured  0.15-0.34, mean 0.20  - 2.0x HIGH
+#:
+#: So "order of magnitude" holds, but only just, and the two errors pull the growth model
+#: in opposite directions - less nitrogen, clearer water. The values are deliberately NOT
+#: corrected here: changing them moves every reported number and the golden snapshot, and
+#: replacing them wholesale is package D's job, not a hand-patch of one of six sites from
+#: one cell of one product. Recorded so nobody reads "plausible" as "checked".
 PLACEHOLDER_SITES: dict[str, SiteConditions] = {
     "LT-coastal": SiteConditions(
         region="LT-coastal",
