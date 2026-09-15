@@ -438,24 +438,42 @@ pattern (winter accumulation, spring-bloom drawdown) and the direction the old c
 backwards for wrapping windows. It is a placeholder, **assumed rather than sourced**, and
 package D replaces it wholesale.
 
-**It is not amplitude-preserving, and it lowers every yield.** Revisions 3 and earlier
-claimed it preserved the existing 1.0 → 0.45 amplitude exactly. It does so only over a
-full year: within any shipped window the season term never reaches 0, so over April–October
-the range is 0.450–0.891 rather than 0.450–1.000. Measured consequences at package A:
+**It is not amplitude-preserving, and it lowers the yield of every window that stops
+short of midwinter.** Revisions 3 and earlier claimed it preserved the existing
+1.0 → 0.45 amplitude exactly. It does so only over a full year: the season term reaches
+0 only at midwinter, so *Fucus*'s April–October window spans 0.450–0.891 rather than
+0.450–1.000. Revision 4 then overcorrected to "it lowers **every** yield", which is also
+false — sugar kelp's Oct–June window *does* reach midwinter (season span 0.000–1.000), so
+its ODE trajectory **rises** 0.0–2.3%. That is invisible in the shipped numbers only
+because §2.2 took *Saccharina* off the ODE; its reported harvest is bit-identical either
+way. Measured consequences at package A, all at EE-coastal (the percentages are
+site-specific — *Ulva* is −53.9% at DK-belt and −42.3% at LT-coastal):
 
-| | before | after |
-|---|---|---|
-| *Fucus* at EE-coastal | 3446 g DW/m² | **2797** |
-| *Ulva* | — | −55% |
-| *Chorda* | — | −43% |
+| | before | after | |
+|---|---|---|---|
+| *Fucus* at EE-coastal | 3446.33 g DW/m² | **2797.31** | −18.8% |
+| *Ulva* at EE-coastal | 461.43 | 207.33 | −55.1% |
+| *Chorda* at EE-coastal | 482.05 | 272.13 | −43.5% |
+| *Saccharina* at DK-belt (ODE only) | 36.90 | 37.75 | **+2.3%** |
 
-2797 is **below the hard `assert 3000.0` at `tests/test_growth.py:69`**, and four
-growth-viability verdicts flip, including *Ulva* at LT-coastal. **Package A therefore
-resets that bound in the same pull request**, downward and with the new value stated in
-the test's docstring alongside the published range it still does not meet. §3.1's rule
-that A0 does not touch the assertion stands; A does, because A is what moves it. Without
-this the suite is red for the whole B → C → D stretch with a standing instruction not to
-fix it.
+2797.31 is **below the hard `assert 3000.0` in
+`tests/test_growth.py::test_fucus_reaches_the_tagalaht_reference_range`**, and four
+growth-viability verdicts flip suitable → marginal: *Chorda* and *Ulva* at DK-belt and at
+LT-coastal. **Package A therefore resets that bound in the same pull request**, downward
+to 2500.0 and with the new value stated in the test's docstring alongside the published
+range it still does not meet. §3.1's rule that A0 does not touch the assertion stands; A
+does, because A is what moves it. Without this the suite is red for the whole B → C → D
+stretch with a standing instruction not to fix it.
+
+**One further correction to this section's own premise.** It states the defect is
+"recorded as a strict `xfail`" and package A's plan assumed that marker would XPASS when
+the formula landed. It does not: the season term has period 365.25 while the test steps a
+whole 365 days across the wrap, leaving a phase residual of 1.722e-03 relative
+(worst case 1.765e-03 over the Apr–Jun overlap) against `pytest.approx`'s default
+`rel=1e-6`. Retiring the marker and widening the tolerance to `rel=1e-2` is therefore one
+edit. The test keeps its teeth by a factor of 37 — under the old drawdown the same
+comparison differed by 37.1%. The period must **not** be changed to 365.0 to force
+exactness: that term also drives temperature and PAR, so it would move every yield above.
 
 ---
 

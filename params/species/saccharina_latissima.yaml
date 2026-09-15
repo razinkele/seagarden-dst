@@ -95,17 +95,21 @@ notes: >-
   `f_salinity x max_yield_t_fw_ha`, and the `growth:` block above is retained for
   reference only, still runnable via `growth.simulate` but not called by
   `harvest_biomass` for this species. Measured on the ODE path only, the stand-in's
-  claim does the opposite of what it said: at DK-belt the real window returns 36.9
-  against 44.8 g DW/m2 from `simulate()`, about 18 per cent LOWER. Two placeholder
-  artefacts, neither of them a property of the window: `loss_rate` is a constant, so
-  below roughly 8 degrees the gross growth rate falls under it and modelled biomass
-  declines from October to January; and the placeholder DIN drawdown is spread across
-  the window rather than the calendar, so a longer window arrives at spring with less
-  nitrogen. Both belong to the retained ODE and have no bearing on the salinity-
-  indexed harvest actually reported; expect this specific `simulate()` figure to move
-  again if the section 6 climatologies land and someone refits the `growth:` block
-  against A3.4 - the direction is not yet meaningful, and doing so would not change
-  the harvest this species now ships.
+  claim does the opposite of what it said: at DK-belt the real window returns 37.75
+  against 40.36 g DW/m2 from `simulate()`, about 6.5 per cent LOWER. One placeholder
+  artefact, not a property of the window: `loss_rate` is a constant, so below roughly
+  8 degrees the gross growth rate falls under it and modelled biomass declines from
+  October to January. A second artefact has since been retired - the DIN drawdown used
+  to be spread across the window rather than the calendar, so a longer window arrived
+  at spring with less nitrogen - and retiring it is why these figures moved (36.9 and
+  44.8 previously, an 18 per cent gap) and why the gap narrowed: Oct-June is the one
+  shipped window whose season term reaches midwinter, so calendar-day indexing RAISED
+  this trajectory by 2.3 per cent while lowering every other ODE yield. Both belong to
+  the retained ODE and have no bearing on the salinity-indexed harvest actually
+  reported; expect this specific `simulate()` figure to move again if the section 6
+  climatologies land and someone refits the `growth:` block against A3.4 - the
+  direction is not yet meaningful, and doing so would not change the harvest this
+  species now ships.
 
   The two months are ASSUMED, not fitted - the same standing as the Chorda
   coefficients. Neither the Application Form nor OLAMUR D2.3 states a deployment date
