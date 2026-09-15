@@ -184,8 +184,10 @@ package produces it.
 
 **Recommendation:** record it as a new decision in spec §11. Either add a tier-C proxy —
 HELCOM assessment products are already in spec §6's nutrient row, with HELCOM PLC
-waterborne inputs as the load side — plus a `SiteConditions` field, **added to §6.1's
-variable table before package B measures against it**; or record which named proxy
+waterborne inputs as the load side — plus a `SiteConditions` field, **which package B's
+measurement window has now closed on**: B has run against §6.1's table as it stood, so a
+field added now is unmeasured and either C re-measures for it or it ships untested; or
+record which named proxy
 discharges the item and agree it with the LP before D2.2. Either way spec §2 row 1 must
 point at what produces it.
 
@@ -357,8 +359,8 @@ credential and an organisation's continued existence, for a decade, with nobody 
 watch any of them. So the layer splits.
 
 **Build time — once a year.** `scripts/refresh_layers.py` pulls from Copernicus, EMODnet,
-HELCOM and EEA, extracts climatologies onto one Baltic grid, writes one artifact plus a
-provenance manifest. Only this code needs `rioxarray`, `rasterio` or `geopandas`, confined
+HELCOM and EEA, extracts **per-year monthly fields** (§6.2, not a single climatology) onto
+one Baltic grid at native ~2 km, writes one NetCDF4 artifact plus a provenance manifest. Only this code needs `rioxarray`, `rasterio` or `geopandas`, confined
 to the `spatial` extra.
 
 **Runtime — reads the artifact and nothing else.** No network, no credentials, no service
@@ -395,7 +397,7 @@ hard-coded dictionary. It gains one:
 ```
 ForcingSource (Protocol)
 ├── PlaceholderForcing    today's PLACEHOLDER_SITES, retained for tests and fallback
-└── GriddedForcing        the climatology artifact, queried by polygon
+└── GriddedForcing        the forcing artifact, queried by polygon and year
 ```
 
 Revision 1 claimed `SiteConditions` does not change and no downstream module is touched.
@@ -490,9 +492,18 @@ exactness: that term also drives temperature and PAR, so it would move every yie
 
 ## 6. The artifact
 
-**Package B decides two things by measurement: grid resolution and file format.**
-Revision 2 asserted the format was settled here and then named none — it is B's, together
-with resolution, and B reports sizes for candidate combinations.
+**Package B has now decided both, by measurement.** Revision 2 asserted the format was
+settled here and then named none; it was B's, together with resolution. B is complete and
+its measurements are in `docs/2026-09-15-package-b-measurements.md`, which this
+section has been amended against. **Grid resolution is native ~2 km** (0.016666° lat ×
+0.027777° lon) and **format is NetCDF4 + zlib complevel 4**, smaller than Zarr at all six
+resolution × temporal combinations measured and a single file, which §6.3's atomic pair
+write wants.
+
+Resolution is not a trade-off against size. Coarsening to ~4 km land-masks the cell
+containing **Tagalaht** — the only published anchor the parameterisation has — and
+PL-lagoon with it. The anchor forces the grid, and the largest candidate artifact is
+50.7 MB, so nothing argues for coarsening anyway.
 
 Everything else is fixed here, because four of the eleven packages in §8 could not otherwise
 have their first failing test written.
@@ -504,30 +515,102 @@ have their first failing test written.
 | `salinity_psu` | Copernicus Baltic reanalysis | mean over polygon | monthly mean |
 | `mean/summer/winter_temp_c` | Copernicus Baltic reanalysis | mean | monthly mean |
 | `din_umol_l`, `dip_umol_l` | Copernicus BGC + HELCOM | mean | monthly mean |
-| `surface_par` | Copernicus BGC | mean | monthly mean |
-| `light_attenuation_k` | Copernicus BGC `kd490` | mean | monthly mean |
+| `surface_par` | **none — no source exists** | — | — |
+| `light_attenuation_k` | Copernicus BGC `zsd`, **derived** via Poole–Atkins k ≈ 1.7/z_SD | mean | monthly mean |
 | `depth_m` | EMODnet Bathymetry | mean, with min reported | static |
-| `significant_wave_m` | Copernicus Baltic wave hindcast | mean | **monthly 95th percentile + annual maximum** |
+| `significant_wave_m` | Copernicus Baltic wave hindcast, **hourly `PT1H-i`** — not the ready-made climatology | mean | **monthly 95th percentile + annual maximum** |
 
 **PAR and light attenuation are absent from spec §6's layer table** — two growth-model
-inputs with no source. If `kd490` proves unusable, both remain placeholder constants after
-D, and §7 must then display that fact the way staleness is displayed, not bury it.
+inputs with no source. Revision 4 made that contingent on `kd490` proving unusable.
+**Package B measured it, and the contingency is now half live.**
+`BALTICSEA_MULTIYEAR_BGC_003_012` has no `kd490` and no PAR variable of any kind; its
+variables are `chl`, `nh4`, `no3`, `nppv`, `o2`, `o2b`, `ph`, `po4`, `spco2`, `zsd`.
+
+- `light_attenuation_k` **is** recoverable, from a variable this document never named:
+  `zsd` is Secchi depth, and Poole–Atkins gives k ≈ 1.7/z_SD. At Tagalaht that yields
+  0.152–0.336 m⁻¹, mean 0.198, against the placeholder default of 0.4. It must be carried
+  as a **derived** quantity with the relation named in the manifest, not as a measured
+  layer — the distinction matters for the tier the result inherits.
+- `surface_par` **has no source.** It remains a placeholder constant after D, and §7 must
+  display that the way staleness is displayed, not bury it. This is now a commitment, not
+  a contingency.
+
+**Depth is a dimension §6.1 never specified**, and the reanalysis is 3-D with 56 levels.
+Package B used the **surface level, 0.50 m**, and D should do the same unless a
+cultivation-depth mean is argued for separately.
 
 **Waves get a percentile, not a mean**, because the same artifact feeds
 `assess_physical`'s exposure test against a structural design limit, where a mean is wrong
-in the permissive direction. One extra band costs nothing. Either split
-`significant_wave_m` into operational and extreme fields or document which it is, and
-re-check `methods.yaml`'s `max_significant_wave_m` against the same statistic.
+in the permissive direction. Revisions 1–5 left this as "either split the field or document
+which it is", which is not a specification: `SiteConditions.significant_wave_m` is **one
+`float`**, and `suitability.py:107` compares it directly to `method.max_significant_wave_m`.
+A row asking for two statistics into one field cannot be implemented as written.
+
+**Decided here, and reversible:** `significant_wave_m` carries the **monthly 95th
+percentile** — the statistic `assess_physical` must consume, because the comparison is
+against a structural design limit and a mean fails permissively. The **annual maximum
+becomes a second field**, `significant_wave_max_m`, which package D adds to
+`SiteConditions` alongside its other extensions and which no verdict consumes until a rule
+is written for it. `methods.yaml`'s `max_significant_wave_m` must be re-checked against the
+95th percentile, since its present values were set against an unstated statistic.
+
+**"One extra band costs nothing" was wrong, and package B priced it.** The wave product
+ships a ready-made 2 km monthly climatology (`cmems_mod_bal_wav_my_2km-climatology_P1M-m`,
+`VHM0`, 12 steps) — but as a **mean**, which is the statistic this paragraph rejects. A
+95th percentile requires the hourly `PT1H-i` dataset, a far larger pull than the existence
+of the climatology suggests. **Package C must price this separately**; it was outside B's
+scope and is not yet measured.
 
 ### 6.2 Aggregation and coverage
 
-- **Minimum valid fraction: 60%** of the polygon's cells non-land and non-NaN, below
-  which the polygon is outside coverage (§7 row 2). **This number is assumed, not
-  sourced.** Package B reports the distribution of valid-cell fractions for representative
-  polygons at each candidate resolution so it can be set on evidence.
+- **Coverage is decided by the containing cell, not by a valid fraction.** Revision 4 set
+  a **minimum valid fraction of 60%** of the polygon's cells non-land and non-NaN, marked
+  it assumed, and asked package B to set it on evidence. B's finding is that the
+  *statistic* is wrong, not merely the number, and it is withdrawn:
+  - It is **degenerate at farm scale**. A 0.1 ha community farm is 31.6 m square against a
+    native cell of 1.85 × 1.69 km — **59× wider** — so every farm polygon lies inside one
+    cell and its valid fraction can only be 0% or 100%. The rule presumes a polygon
+    spanning many cells; the tool's own default scale never produces one.
+  - At a scale where it *is* well posed it **rejects the anchor**. Over a 5 km siting-region
+    window at native resolution, EE-coastal's valid fraction is **36.7%** — so a 60%
+    minimum puts Tagalaht, the one site the model is calibrated against, outside coverage.
+
+  **The replacement, which package D implements:** (1) the polygon's containing cell must
+  be valid — this is what "is there data here" means at farm scale; (2) **distance to the
+  nearest valid cell** is computed and surfaced, which at native resolution is 0.75–1.28 km
+  across all six regions and is a quantity a siting user can judge; (3) a valid-fraction
+  rule returns only for polygons genuinely spanning multiple cells, with its threshold set
+  once package E's drawn geometry produces them. §7 row 2 keys off (1).
+- **The six placeholder regions have no geometry**, so B invented coordinates to measure
+  against and recorded them in `docs/2026-09-15-package-b-measurements.md`. Any
+  polygon-level threshold set before package E is set against invented shapes.
 - **Monthly fields replace the sinusoid** in `daily_forcing` rather than feeding it;
   interpolation is linear on day-of-year, wrapping at the year boundary, which the window
   work already supports.
+- **Per-year monthly fields, not one climatology — and this is a change.** Earlier
+  revisions assumed the artifact held a single 12-month climatology. §10.2's own
+  measurement refutes that: monthly *resolution* costs at most +17.4% in final biomass, but
+  collapsing 2023–2025 into one climatology costs **−57% to +179%**, because interannual
+  variability swamps the resolution effect by an order of magnitude. A single climatology
+  returns *Fucus* 152.61 g DW/m² for every year against real values of 54.74, 290.41 and
+  67.84. The artifact therefore carries **one monthly field per year**, and
+  `GriddedForcing.daily_forcing` **takes a year** — an interface change package D owns, and
+  a reason for `artifact_schema_version` (§6.3) to exist. At native resolution three years
+  is 50.7 MB against 16.5 MB for a climatology, so size does not argue against it.
+- **The year boundary, for a window that wraps.** Per-year fields make "wrapping at the
+  year boundary" ambiguous in a way a single climatology never was: for *Saccharina*'s
+  Oct–Jun window opened on year Y, January comes from **year Y+1**, not from Y. The
+  day-of-year axis runs past 365 (package A already does this) and the field it indexes
+  changes with it. A same-year cycle — reusing Y's own January after Y's December — would
+  reintroduce exactly the averaging-away of interannual variation that the measurement
+  above rejects, on the one window where it matters most. **If Y+1 is not in the artifact,
+  the query blocks** (`UNKNOWN`, §7) rather than falling back to Y or to a mean of
+  available years. That makes the last year the artifact carries unusable for wrapping
+  windows, which is correct and must be visible rather than silently papered over.
+- **Which years the artifact carries is package C's decision**, not settled here. B used
+  the last three full calendar years (2023–2025) because three is enough to expose the
+  interannual spread; it is not a recommendation for the production baseline. What B does
+  establish is that averaging years away is not available.
 - **The spatial-averaging method is a port, not a re-invention.** OLAMUR's `terra`
   salinity-weighting step is the reference; spec §14 already carries the risk and the
   obligation to validate the port before numbers reach a user. It is a named sub-item of
@@ -565,8 +648,10 @@ Each degrades visibly, never fails, and never silently substitutes.
 
 | Condition | Behaviour |
 |---|---|
-| Climatology artifact absent | Fall back to `PlaceholderForcing` with a banner naming what the tool is running on |
-| Polygon coverage below the valid-cell threshold | `UNKNOWN`, which **blocks** the verdict |
+| Forcing artifact absent | Fall back to `PlaceholderForcing` with a banner naming what the tool is running on |
+| Polygon's containing cell not valid (§6.2) | `UNKNOWN`, which **blocks** the verdict, with the distance to the nearest valid cell reported |
+| Artifact does not carry the requested year (§6.2) | `UNKNOWN` and blocks; never silently substitutes another year |
+| `surface_par` consumed | Always a placeholder constant — §6.1 has no source — displayed the way staleness is |
 | Polygon outside every calibration domain | `SiteConditions` with `region=None`; every quantity forced to tier C, the polygon's coordinates named |
 | Artifact older than 18 months | Staleness note on the result, the mechanism of spec §9.3's "verified on" dates |
 | Refresh fails part-way | Writes nothing; previous artifact and manifest stay valid as a pair |
@@ -608,9 +693,9 @@ surface rather than absorb, and this row is now surfaced.
 |---|---|---|---|---|---|
 | **A0** | Modelling corrections (§3) | §2's three decisions recorded; anchors re-sourced; `b_max` re-based or marked assumed; tier D via `contraindication()`; floors + demonstrated ranges for all five species; thresholds to `params/`; `dry_matter` on four macroalgae; **the §2.2 salinity relocation**; **spec §7.2 amended per §2.1**; **the DK-belt tier re-examined**; **`Fucus` elemental fractions re-sourced**; four false sentences corrected; two README stub rows added | §2 decisions | 0.8 PM *(no spec §13 row — propose amendment)* | Fourteen clauses, each a test or a diff: (1) nothing reportable below any floor; (2) `anchors:` block present with basis stated; (3) `b_max` sourced or marked `assumed`; (4) `0.35`/`0.5`/decline width absent from `.py`, identical values in `params/assessment.yaml`; (5) `dry_matter` on all four macroalgae; (6) grep for "re-tune" and "3.61" returns nothing outside this document; (7) *Fucus* still tier C at LT-coastal; (8) README stub table has the two new rows; (9) `growth.py` no longer multiplies `salinity_factor` into `rate`, and Saccharina at DK-belt returns **11.24 t FW/ha** (= 0.611 × 18.4) per §2.2; (10) spec §7.2's Redfield sentence amended and the nitrogen gap recorded in the Fucus YAML; (11) *Fucus* elemental fractions no longer byte-identical to Saccharina's, or explicitly marked assumed-from-kelp; (12) the DK-belt calibration tier re-examined and the outcome recorded; (13) spec §14 carries a key-person row for the annual refresh; (14) `contraindication()`'s note distinguishes an observed floor from an assumed one — *Chorda* is the test case |
 | **A** | Forcing seam | `ForcingSource`; `PlaceholderForcing`; calendar-day indexing per §5.1; the `xfail` retired | A0 | 0.3 PM *(spec §13 "model core")* | Four call sites named in the PR; snapshot diff explained line by line |
-| **B** | Resolution + format spike | Artifact size at 2–3 resolutions × 2 candidate formats; valid-cell fraction distributions; daily-vs-monthly forcing comparison (§10.2) | — | 0.3 PM *(spec §13 "data layer")* | A committed measurement note in `docs/` with sizes, the daily/monthly delta, a valid-cell threshold on evidence, and a decision |
+| **B** | Resolution + format spike — **COMPLETE**, `docs/2026-09-15-package-b-measurements.md` | Artifact size at 3 resolutions × 2 formats × 2 temporal designs; valid-cell and nearest-cell measurements; daily-vs-monthly forcing comparison (§10.2). Decided: native ~2 km, NetCDF4+zlib4, per-year monthly | — | 0.3 PM *(spec §13 "data layer")* | **Met.** Note committed with sizes, the daily/monthly delta, a coverage statistic set on evidence, and four decisions — three of which amended this document |
 | **C** | Refresh tooling | `refresh_layers.py`; manifest; Zenodo archive; runbook; source-probe job; test fixture | B | 1.0 PM *(spec §13 "data layer")* | Provenance test passes against the committed fixture; runbook followed end-to-end by someone else |
-| **D** | `GriddedForcing` | Artifact read; polygon query; aggregation per §6; `terra` port; calibration-domain layer; `SiteConditions` extensions; `conditions: SiteConditions \| None` + `unassessable` | **A**, B, C | 1.5 PM *(spec §13 "data layer" + "terra port")* | One fewer README stub row; port validated against Tagalaht and Maar et al.; a test that an unassessable site returns UNKNOWN and never a verdict |
+| **D** | `GriddedForcing` | Artifact read; **polygon-and-year query**; aggregation per §6; `terra` port; calibration-domain layer; `SiteConditions` extensions incl. `significant_wave_max_m`; **re-validation of `methods.yaml`'s `max_significant_wave_m` against the 95th percentile**; `conditions: SiteConditions \| None` + `unassessable`; **the §6.2 coverage rule and the §10.2 verdict-sensitivity measurement B could not make** | **A**, B, C | 1.5 PM *(spec §13 "data layer" + "terra port")* | One fewer README stub row; port validated against Tagalaht and Maar et al.; a test that an unassessable site returns UNKNOWN and never a verdict. **Plus, because revision 5 added behaviour the package A protocol does not express:** a test that a polygon query aggregates over the polygon's cells rather than a single point; a test that a requested year the artifact lacks **blocks** rather than substituting another; a test that a wrapping window takes January from year Y+1 (§6.2) and blocks when Y+1 is absent; **a recorded re-validation of every `methods.yaml` `max_significant_wave_m` against the monthly 95th percentile, with each value either confirmed against a named structural source or marked assumed** - the present values were set against an unstated statistic, so adopting a defined one without re-checking them silently changes what the exposure test means; and every caller migrated wherever the signature changes. **The package A seam is deliberately unchanged until D** - `conditions_for(region)` / `daily_forcing(site, window)` carry no polygon and no year, so D must extend it rather than merely implement it, and these tests are what prevent D satisfying the old protocol while proving none of the new behaviour |
 | **D1** | Re-parameterisation | The fit deferred from A0, against real forcing; `test_growth.py:69` narrowed toward the published range | D | 0.5 PM *(spec §13 "calibration")* | Anchor met with the fitted parameters named, **or** the failure documented as a finding with the identifiability argument of §3.1 restated against real data |
 | **E** | Map and polygon drawing | `shinywidgets` + `ipyleaflet`; drawn geometry into the report; spec §10 instrumentation seam left in place | D | 1.5 PM *(spec §13 "siting module")* | One fewer README stub row; seam present though unwired |
 | **C1** | Human-use vector build | The EMODnet/HELCOM/EEA GeoPackage of §6.4 — a second output of the refresh tooling, same manifest and DOI treatment | C | 0.2 PM *(spec §13 "data layer")* | GeoPackage present with per-layer provenance; provenance test covers it |
@@ -667,6 +752,9 @@ it is checked before the implementation plan is written, and again whenever a ro
 | §4.1 — Zenodo archive, runbook, source-probe | C | provenance test requires DOI or marker |
 | §4.1 — key-person row in spec §14 | **A0** | clause: spec §14 has the row |
 | §10.2 — daily-vs-monthly measured | B | measurement note |
+| §6.1 — wave statistic fixed to the 95th percentile, annual max to its own field | D | `significant_wave_max_m` present; `assess_physical` reads the percentile |
+| §6.1 — `methods.yaml` wave limits re-validated against that statistic | D | each `max_significant_wave_m` confirmed against a named source or marked assumed |
+| §6.2 — per-year fields, and January from Y+1 for a wrapping window | D | boundary test; missing-year block test |
 
 **Two rows are deliberately unowned and say so:** §2.3's carrying capacity, which cannot
 be scheduled before the decision is taken; and §3.3's demonstrated ranges, which are a
@@ -729,12 +817,18 @@ labelled throwaway.
 - Copernicus Baltic reanalysis, EMODnet Bathymetry and EMODnet Human Activities are
   redistributable compatibly with the open-data commitment. If not, that layer becomes
   referenced-not-mirrored under §6.3's marker and spec §14's durability risk grows.
-- **Monthly climatology is sufficient for the biology — measured, not assumed.** Package
-  B drives `simulate()` with daily and with monthly-mean DIN and PAR from one Copernicus
-  cell and reports the difference in final biomass. It would certainly not hold for spec
-  §8.3's weather-window module, which is out of scope. Related: the model has one state
-  variable and no nutrient reserve pool, so it cannot buffer short-term variability —
-  which is why the measurement is worth its cost.
+- **Monthly climatology is sufficient for the biology — MEASURED, and the answer is half
+  no.** This was the assumption; package B ran it and it splits in two.
+  **Monthly resolution is sufficient:** daily versus that year's own monthly means costs at
+  most **+17.4%** in final biomass (*Ulva* 2024), typically under 10%.
+  **A multi-year climatology is not:** daily versus a 2023–2025 climatology costs **−57% to
+  +179%**. The assumption held for the half it was really making a claim about and failed
+  for the half nobody examined, which is why §6.2 now specifies per-year monthly fields.
+  It would certainly not hold for spec §8.3's weather-window module, which is out of scope.
+  Related, and now demonstrated rather than argued: the model has one state variable and no
+  nutrient reserve pool, so it cannot buffer variability — which is why the measurement was
+  worth its cost. Measured at the Tagalaht cell, three species, three years;
+  `docs/2026-09-15-package-b-measurements.md` §1.
 - The four doors of spec §4 survive D2.1's findings at M12. If D9 resolves against them,
   package E's UI changes but the data layer does not.
 - Nobody is waiting on this. If a partner deadline needs a demo sooner, §8's ordering is
@@ -743,6 +837,50 @@ labelled throwaway.
 ---
 
 ## 11. Revision history
+
+**Revision 4 → 5.** The first revision driven by measurement rather than review. Package B
+ran, and three of this document's claims did not survive contact with the data. Revision 5
+is targeted edits, not a rewrite:
+
+- **§10.2's central assumption was half wrong.** Monthly *resolution* is sufficient
+  (≤ +17.4% in final biomass); a multi-year *climatology* is not (−57% to +179%).
+  Interannual variability swamps the resolution effect by an order of magnitude. §6.2 now
+  specifies **per-year monthly fields** and `GriddedForcing` takes a year — an interface
+  change package D inherits.
+- **§6.2's 60% valid-cell threshold was malformed, not merely unsourced.** It is degenerate
+  at farm scale (a 0.1 ha farm is 59× narrower than a native cell, so the fraction is 0% or
+  100%) and at a well-posed scale it rejects Tagalaht at 36.7%. Withdrawn and replaced by
+  containing-cell validity plus distance to the nearest valid cell.
+- **§6.1 sourced two variables from a product that does not contain them.** The Baltic BGC
+  reanalysis has no `kd490` and no PAR. `light_attenuation_k` is recoverable as a *derived*
+  quantity from `zsd` via Poole–Atkins; `surface_par` has no source at all and is now
+  committed to remaining a placeholder constant that §7 must display. §6.1 also gained the
+  depth choice it never specified, and the wave percentile was re-priced: the ready-made
+  climatology is a mean, and the percentile needs the hourly product.
+- **Resolution and format are decided**: native ~2 km, NetCDF4 + zlib complevel 4. The
+  resolution is forced by the anchor rather than chosen — coarsening land-masks Tagalaht.
+
+Three further items, from review of revision 5 itself, where the revision exposed a
+contradiction rather than created one:
+
+- **The wave row could not be implemented as written.** §6.1 asked for two statistics into
+  `SiteConditions.significant_wave_m`, which is one `float` that `suitability.py:107`
+  compares directly to a design limit. Decided: the field carries the **monthly 95th
+  percentile**, and the annual maximum becomes `significant_wave_max_m`, added by D and
+  consumed by no verdict until a rule exists. Reversible, but not leavable as an either/or.
+- **Per-year fields made the year boundary ambiguous**, where a single climatology never
+  was. *Saccharina*'s Oct–Jun window takes January from **Y+1**, and blocks when Y+1 is not
+  in the artifact rather than falling back to Y — which makes the artifact's last year
+  unusable for wrapping windows, correctly and visibly.
+- **Package D's done-when now tests the behaviour revision 5 added.** The package A seam
+  carries no polygon and no year, so D could have satisfied the protocol while proving none
+  of it. D must now show polygon aggregation, a missing requested year blocking, and the
+  Y+1 boundary rule.
+
+Recorded but not resolved: with real forcing *Fucus* returns 54.7–290.4 g DW/m² against a
+published 4800–5200. Measured with `surface_par` still a placeholder, at one cell and one
+depth level, so it is an observation for **package D1** to explain, not a finding against
+the parameterisation. All measurements and their provenance are in `docs/2026-09-15-package-b-measurements.md`.
 
 **Revision 1 → 2.** Reviewed by 13 agents across six dimensions, each finding
 adversarially verified; 27 survived, 17 refuted. Revision 2 added package A0 and moved
