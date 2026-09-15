@@ -17,7 +17,7 @@ from .bowtie_adapter import BowtieUnavailable, eutrophication_pressure
 from .calibration import Tier
 from .contracts import SiteAssessment, SiteContext, SpeciesOption
 from .eutropy_adapter import EutropyUnavailable, apply_nutrient_scenario
-from .forcing import SiteConditions
+from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
 from .growth import contraindication, harvest_biomass
 from .nutrients import from_harvest
 from .params import MethodParams, ParameterSet, SpeciesParams, default_parameters
@@ -69,15 +69,16 @@ def _assess_one(
     species: SpeciesParams,
     method: MethodParams,
     area_m2: float,
+    forcing: ForcingSource = DEFAULT_FORCING,
 ) -> SpeciesOption:
-    suitability = assess(context.conditions, species, method)
+    suitability = assess(context.conditions, species, method, forcing=forcing)
 
     if species.group == "shellfish":
         harvest = shellfish_harvest(
             species, context.conditions, area_ha=area_m2 / 10_000.0
         ).fresh_weight
     else:
-        harvest = harvest_biomass(species, context.conditions, area_m2)
+        harvest = harvest_biomass(species, context.conditions, area_m2, forcing=forcing)
 
     removal = from_harvest(species, harvest) if harvest.calibration.is_reportable else None
 
@@ -101,6 +102,7 @@ def _assess_one(
 def assess_site(
     context: SiteContext,
     *,
+    forcing: ForcingSource = DEFAULT_FORCING,
     params: ParameterSet | None = None,
     species: list[str] | None = None,
     methods: dict[str, str] | None = None,
@@ -111,7 +113,14 @@ def assess_site(
     """Assess one site across the selected species.
 
     Args:
-        context: the site.
+        context: the site. Its `conditions` may already come from an injected
+            `ForcingSource` via `SiteContext.from_region(..., forcing=...)` — that
+            only supplies the site anchors, not the seasonal series consumed below,
+            which is why this function takes its own `forcing`.
+        forcing: seasonal forcing source for the growth model; defaults to the
+            scaffold's placeholder. Pass the same source used to build `context` so
+            a result is never derived from real anchors and an invented season at
+            once.
         params: parameter set; defaults to the shipped one.
         species: species keys to consider; defaults to all.
         methods: optional species_key -> method_key overrides.
@@ -169,7 +178,7 @@ def assess_site(
             excluded[key] = contra.note or "Contraindicated at this site."
             continue
 
-        options.append(_assess_one(working, species_params, method, area_m2))
+        options.append(_assess_one(working, species_params, method, area_m2, forcing=forcing))
 
     ranked = sorted(options, key=lambda o: o.nitrogen_value, reverse=True)
     best = next((o for o in ranked if o.is_reportable and o.verdict != "unsuitable"), None)

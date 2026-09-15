@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from .calibration import Tier
-from .forcing import SiteConditions
+from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
 from .growth import contraindication, harvest_biomass
 from .params import MethodParams, SpeciesParams, default_parameters
 
@@ -151,6 +151,7 @@ def assess_growth(
     species: SpeciesParams,
     method: MethodParams,
     floor_kg_dw_per_m2: float | None = None,
+    forcing: ForcingSource = DEFAULT_FORCING,
 ) -> Constraint:
     """Growth viability against a yield floor.
 
@@ -159,6 +160,11 @@ def assess_growth(
 
     `floor_kg_dw_per_m2=None` (the default) resolves `default_parameters()` here,
     inside the call, rather than once at import time - see `assess_environment`.
+
+    `forcing` is threaded through to `harvest_biomass()` so this constraint sees the
+    same seasonal series as the harvest figure reported alongside it, rather than
+    silently falling back to the placeholder while the rest of the assessment uses
+    an injected source.
     """
     if floor_kg_dw_per_m2 is None:
         floor_kg_dw_per_m2 = default_parameters().assessment.yield_floor_kg_dw_per_m2
@@ -166,7 +172,7 @@ def assess_growth(
         return Constraint(
             "Growth viability", Verdict.SUITABLE, "Assessed by the banded yield model."
         )
-    harvest = harvest_biomass(species, site, area_m2=method.area_m2_per_unit)
+    harvest = harvest_biomass(species, site, area_m2=method.area_m2_per_unit, forcing=forcing)
     if not harvest.calibration.is_reportable:
         return Constraint(
             "Growth viability",
@@ -212,11 +218,16 @@ def assess(
     method: MethodParams,
     permitting_layer: object | None = None,
     yield_floor_kg_dw_per_m2: float | None = None,
+    forcing: ForcingSource = DEFAULT_FORCING,
 ) -> Suitability:
     """Full suitability assessment for one species x method x site.
 
     `yield_floor_kg_dw_per_m2=None` is passed straight through to `assess_growth`,
     which resolves the default itself - see its docstring.
+
+    `forcing` is passed straight through to `assess_growth` too, so an injected
+    source reaches the growth-viability constraint, not only the headline harvest
+    figure computed elsewhere.
     """
     if species.group not in method.suits_groups:
         return Suitability(
@@ -239,7 +250,7 @@ def assess(
         constraints=[
             assess_physical(site, method),
             assess_environment(site, species),
-            assess_growth(site, species, method, yield_floor_kg_dw_per_m2),
+            assess_growth(site, species, method, yield_floor_kg_dw_per_m2, forcing=forcing),
             assess_legal(site, permitting_layer),
         ],
     )
