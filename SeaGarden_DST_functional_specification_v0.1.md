@@ -242,7 +242,10 @@ dB/dt = μ_max · f(I) · f(T) · f(N) · B  −  losses(B)
 - **f(T)** — temperature, Arrhenius-type, DEB-style
 - **f(N)** — nitrate limitation, Holling type II
 - **No explicit salinity term.** OLAMUR found none was needed once the model was calibrated for Baltic conditions: salinity was not limiting for *Fucus* once adapted. This is an important and slightly counter-intuitive inheritance and should be stated explicitly in the tool's methods page, because users will expect a salinity term and its absence looks like an omission.
-- Nitrogen and phosphorus reserves tracked via Redfield ratio; **carbon fixed at 32% of dry weight**.
+- Nitrogen, phosphorus and carbon are fixed tissue fractions applied to harvested dry
+  weight, per species, from macroalgal stoichiometry — not Redfield, which is a plankton
+  ratio. There is no internal nutrient reserve pool; the growth model carries a single
+  state variable. Introducing a quota model is a structural change and is not scheduled.
 
 Implementation: the seasonal trajectory is integrated with `scipy.integrate.solve_ivp` over the cultivation window, driven by the site's forcing climatology (§6) resampled to daily steps. All rate coefficients come from the parameter YAML (§7.4), never from the code.
 
@@ -274,7 +277,9 @@ Every (species × region × parameter set) combination carries a tier, stored in
 | **A — Locally calibrated** | Fitted to SeaGarden pilot data from this sub-region | Value with confidence interval |
 | **B — Regionally extrapolated** | Fitted elsewhere in the Baltic at comparable salinity; ODSS-style transfer | Value as a range, with the calibration region named |
 | **C — Literature prior** | Published parameters, no local validation; the default for LT and PL before M24 | Order-of-magnitude band, explicitly labelled indicative |
-| **D — Contraindicated** | A local finding contradicts the model (e.g. *Saccharina* below 16 psu) | Finding shown in place of the number |
+| **D — Contraindicated** | A local finding contradicts the model (e.g. *Saccharina* below 16 psu), or the site lies below a salinity floor beneath which the parameters are not defensible | Finding shown in place of the number; for a floor, the floor and whether it is observed or assumed |
+
+Anything short of tier D puts a confident-looking number back at 2.0 psu, which is the defect the floors exist to remove; a siting tool should fail safe, and the observed/assumed distinction lives in the note the user reads, not in the tier.
 
 At the M24 prototype, essentially all SE Baltic cells are tier **C**. The M24–30 window promotes what A3.4 supports to tier **A**. Because tiers live in the parameter files rather than the code, that promotion is a data change, not a release — which is what makes the compressed schedule in §12 feasible.
 
@@ -419,6 +424,7 @@ Recurring cost after project end: server capacity within KU MRI's existing estat
 | A3.4 data arrives after M28 | SE Baltic outputs stay at tier C at launch | Quarterly WP3→A2.3 data handover; calibration as a data change, not a release |
 | Chorda has no growth model and no literature parameters | Headline LT species is the least modelled | Structural analogue from *Fucus*, tier C, explicit; fit from pilot data in phase 3 |
 | Five-year hosting is unfunded | Tool dies quietly after the project | Minimal stack; costed maintenance figure (§13) put to KU MRI management before commitment |
+| The annual data-layer refresh is a manual act by one unfunded person, with the layer's only copy a build output | That person leaves; the refresh lapses and the data-durability commitment fails quietly | Runbook written for a successor, not its author; Copernicus credential held institutionally, not personally; each refresh archived under a DOI so the data survives the script; scheduled source-probe checks each source still answers and is allowed to fail loudly |
 | Scraper and external-service dependencies break | Silent failures years later | Cached snapshots; degrade to stale, never to broken; Selenium kept out of the runtime image |
 | OLAMUR's published spatial code is R; the DST is Python | Re-implementation of the salinity-weighting and spatial-averaging step, with a risk of silent numerical divergence | Port once, early (§13, 0.5 PM); validate against the Tagalaht reference yields in §7.2 and against Maar et al.'s published figures before the numbers reach any user |
 | Regulatory records go stale | Tool misleads users on permitting | "Verified on" dates displayed; two-year staleness warning (§9.3) |

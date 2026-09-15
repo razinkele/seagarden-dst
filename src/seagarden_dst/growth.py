@@ -23,7 +23,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 from .calibration import Calibration, Quantity, Tier
-from .forcing import SiteConditions, daily_forcing
+from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
 from .params import SpeciesParams
 
 KELVIN = 273.15
@@ -39,13 +39,16 @@ def f_temperature(
     arrhenius_temp: float,
     ref_temp_c: float,
     upper_temp_c: float | None = None,
+    upper_temp_decline_c: float = 3.0,
 ) -> np.ndarray | float:
     """Arrhenius temperature correction, DEB-style.
 
         c_T = exp(T_A/T_ref - T_A/T)
 
     with an optional decline above `upper_temp_c` so that the model does not predict
-    unbounded growth in a warming summer.
+    unbounded growth in a warming summer. `upper_temp_decline_c` sets the width of
+    that decline and comes from the species parameter file - see
+    `GrowthParams.upper_temp_decline_c`.
     """
     t = np.asarray(temp_c, dtype=float) + KELVIN
     t_ref = ref_temp_c + KELVIN
@@ -53,7 +56,7 @@ def f_temperature(
     if upper_temp_c is not None:
         t_upper = upper_temp_c + KELVIN
         excess = np.clip(t - t_upper, 0.0, None)
-        correction = correction * np.exp(-((excess / 3.0) ** 2))
+        correction = correction * np.exp(-((excess / upper_temp_decline_c) ** 2))
     return correction
 
 
@@ -91,21 +94,28 @@ def simulate(
     species: SpeciesParams,
     site: SiteConditions,
     max_step_days: float = 1.0,
+    forcing: ForcingSource = DEFAULT_FORCING,
 ) -> GrowthTrajectory:
     """Integrate the seasonal growth trajectory with `scipy.integrate.solve_ivp`.
 
     All rate coefficients come from the species parameter file. Nothing here is
     hard-coded, so recalibration against WP3 A3.4 data is a parameter edit.
+
+    `forcing` defaults to the scaffold's placeholder; the data layer substitutes a
+    `ForcingSource` of its own without this function changing.
     """
     if species.growth is None:
         raise ValueError(f"{species.key} has no growth parameters (not a macroalga?)")
 
     g = species.growth
-    days, par, temp, din = daily_forcing(site, species.cultivation_window)
+    days, par, temp, din = forcing.daily_forcing(site, species.cultivation_window)
 
     f_i = np.asarray(f_irradiance(par, g.i_k), dtype=float)
     f_t = np.asarray(
-        f_temperature(temp, g.arrhenius_temp, g.ref_temp_c, g.upper_temp_c), dtype=float
+        f_temperature(
+            temp, g.arrhenius_temp, g.ref_temp_c, g.upper_temp_c, g.upper_temp_decline_c
+        ),
+        dtype=float,
     )
     f_n = np.asarray(f_nitrate(din, g.k_nitrate), dtype=float)
 
@@ -138,22 +148,75 @@ def simulate(
     )
 
 
+def salinity_indexed_yield(species: SpeciesParams, site: SiteConditions) -> Quantity:
+    """OLAMUR D2.3's published Saccharina model: f_salinity x a maximum yield.
+
+    There is no growth ODE in the published form - yield is a function of salinity
+    alone, anchored on 18.4 t FW/ha from Danish sites above 16 psu. Returns t FW/ha so
+    the figure can be checked directly against the published anchor without passing
+    through a dry-matter conversion.
+
+    This is a public function in its own right (not only a step inside
+    `harvest_biomass`), so it resolves its own calibration through `contraindication()`
+    first, exactly as `harvest_biomass` does - a direct caller below the salinity floor
+    must see tier D here too, not a tier C number that only turns into a finding one
+    layer up. Enforcing it a second time in the one other function that can produce
+    this figure is the same reasoning as commit 751de41 ("Resolve tier D where the
+    number is produced, not only where it is orchestrated").
+
+    A contraindicated pairing also zeroes the value, matching `harvest_biomass`: a
+    tier D `Quantity` must not carry a usable figure for anyone who reads `.value`
+    without first checking `is_reportable` - that is exactly the leak the tier
+    apparatus exists to close.
+    """
+    if species.salinity is None or species.max_yield_t_fw_ha is None:
+        raise ValueError(f"{species.key} has no salinity-indexed yield model")
+
+    contra = contraindication(species, site)
+    if contra is not None:
+        return Quantity(value=0.0, unit="t FW/ha", calibration=contra)
+
+    calibration = species.calibration_for(site.region)
+    factor = species.salinity.factor(site.salinity_psu)
+    return Quantity(
+        value=factor * species.max_yield_t_fw_ha,
+        unit="t FW/ha",
+        calibration=calibration,
+    )
+
+
 def harvest_biomass(
     species: SpeciesParams,
     site: SiteConditions,
     area_m2: float,
+    forcing: ForcingSource = DEFAULT_FORCING,
 ) -> Quantity:
     """Harvested dry biomass over one cultivation cycle, in kg DW.
 
     Returns a Quantity so the calibration tier travels with the number. A
     contraindicated combination (tier D) returns a zero-valued Quantity whose
     calibration is not reportable - callers must show the note, not the number.
-    """
-    calibration = species.calibration_for(site.region)
-    if calibration.tier is Tier.D:
-        return Quantity(value=0.0, unit="kg DW", calibration=calibration)
 
-    trajectory = simulate(species, site)
+    The tier is resolved through `contraindication()` rather than through
+    `calibration_for()` so that the dynamic salinity rule and the per-region registry
+    cannot disagree. Enforcing it here rather than only in `api.assess_site` is
+    deliberate: this is the function that produces the number.
+
+    `forcing` is threaded through to `simulate()` for the ODE branch below; the
+    salinity-indexed branch never integrates the ODE, so it never touches it.
+    """
+    contra = contraindication(species, site)
+    if contra is not None:
+        return Quantity(value=0.0, unit="kg DW", calibration=contra)
+
+    calibration = species.calibration_for(site.region)
+
+    if species.yield_model == "salinity_indexed":
+        fresh_t_per_ha = salinity_indexed_yield(species, site).value
+        kg = fresh_t_per_ha * species.elemental.dry_matter * 1000.0 * (area_m2 / 10_000.0)
+        return Quantity(value=kg, unit="kg DW", calibration=calibration)
+
+    trajectory = simulate(species, site, forcing=forcing)
     kg = trajectory.final_biomass * area_m2 / 1000.0
     return Quantity(value=kg, unit="kg DW", calibration=calibration)
 
@@ -165,23 +228,33 @@ def contraindication(species: SpeciesParams, site: SiteConditions) -> Calibratio
     scaling returns a small positive yield while their own pilot found outright
     cultivation failure. A number and a finding disagree, and the tool shows both -
     see specification section 5.3.
+
+    The salinity floor itself is resolved through `species.salinity_floor()` alone,
+    whether it lives on `SalinityResponse` (macroalgae) or `ShellfishYield` (Mytilus,
+    which has no salinity block at all) - one resolution path, not two that could
+    silently disagree.
     """
     calibration = species.calibration_for(site.region)
     if calibration.tier is Tier.D:
         return calibration
-    if (
-        species.salinity is not None
-        and species.salinity.tolerance_floor_psu is not None
-        and site.salinity_psu < species.salinity.tolerance_floor_psu
-    ):
-        return Calibration(
-            tier=Tier.D,
-            region=site.region,
-            source=calibration.source,
-            note=(
-                f"Below {species.salinity.tolerance_floor_psu:g} psu the model returns a "
-                f"positive yield, but cultivation failure has been observed at this "
-                f"salinity. Treat as not cultivable here."
-            ),
-        )
+    floor = species.salinity_floor()
+    if floor is not None:
+        floor_psu, floor_basis = floor
+        if site.salinity_psu < floor_psu:
+            if floor_basis == "observed":
+                detail = "cultivation failure has been observed at this salinity"
+            else:
+                detail = (
+                    "the floor is assumed - no cultivation trial at this salinity is "
+                    "known to us"
+                )
+            return Calibration(
+                tier=Tier.D,
+                region=site.region,
+                source=calibration.source,
+                note=(
+                    f"Below {floor_psu:g} psu the model returns a positive yield, but "
+                    f"{detail}. Treat as not cultivable here."
+                ),
+            )
     return None

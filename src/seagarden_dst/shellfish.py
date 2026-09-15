@@ -16,16 +16,32 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .calibration import Quantity, Tier
+from .calibration import Quantity
 from .forcing import SiteConditions
+from .growth import contraindication
 from .params import SpeciesParams
 
 
 @dataclass(frozen=True)
 class ShellfishHarvest:
-    """One cultivation cycle of shellfish on a given area."""
+    """One cultivation cycle of shellfish on a given area.
 
-    mode: str  # "commercial" or "mitigation"
+    Read `fresh_weight.calibration.is_reportable` before anything else. On the
+    contraindicated path every quantity below is zero and only `mode` still carries a
+    real string - see the field's note.
+    """
+
+    mode: str
+    """Which salinity band applies: "commercial" or "mitigation".
+
+    A description of the site, NOT a recommendation to cultivate. It is populated
+    from `culture_mode()` even when the pairing is contraindicated, where it means
+    "the band this salinity falls in, had cultivation been viable" - so reading it
+    without checking `fresh_weight.calibration.is_reportable` turns a tier D refusal
+    into what looks like advice. Every other field is zeroed on that path precisely so
+    that this is the only one that can mislead.
+    """
+
     fresh_weight: Quantity  # kg FW
     dry_matter_kg: float
     density_kg_m3: float
@@ -67,6 +83,15 @@ def harvest(
     The yield band is carried through as the low/high of the returned Quantity rather
     than collapsed to a midpoint, because the band *is* the state of knowledge.
     """
+    contra = contraindication(species, site)
+    if contra is not None:
+        return ShellfishHarvest(
+            mode=culture_mode(species, site),
+            fresh_weight=Quantity(value=0.0, unit="kg FW", calibration=contra),
+            dry_matter_kg=0.0,
+            density_kg_m3=0.0,
+        )
+
     sy = species.shellfish_yield
     if sy is None:
         raise ValueError(f"{species.key} has no shellfish yield parameters")
@@ -123,7 +148,3 @@ def carbon_note() -> str:
         "shell-heavy, so they are carbon-efficient per unit biomass even though total "
         "yield is low - that efficiency framing is the defensible one."
     )
-
-
-def is_contraindicated(species: SpeciesParams, site: SiteConditions) -> bool:
-    return species.calibration_for(site.region).tier is Tier.D

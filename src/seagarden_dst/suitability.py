@@ -23,9 +23,9 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from .calibration import Tier
-from .forcing import SiteConditions
+from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
 from .growth import contraindication, harvest_biomass
-from .params import MethodParams, SpeciesParams
+from .params import MethodParams, SpeciesParams, default_parameters
 
 
 class Verdict(StrEnum):
@@ -114,7 +114,17 @@ def assess_physical(site: SiteConditions, method: MethodParams) -> Constraint:
     return Constraint("Physical feasibility", Verdict.SUITABLE, "Depth and exposure workable.")
 
 
-def assess_environment(site: SiteConditions, species: SpeciesParams) -> Constraint:
+def assess_environment(
+    site: SiteConditions,
+    species: SpeciesParams,
+    salinity_factor_floor: float | None = None,
+) -> Constraint:
+    """`salinity_factor_floor=None` (the default) resolves `default_parameters()` here,
+    inside the call, rather than once at import time - so a params/ recalibration
+    reaches the next call that takes the default, not just the next process start.
+    """
+    if salinity_factor_floor is None:
+        salinity_factor_floor = default_parameters().assessment.salinity_factor_floor
     contra = contraindication(species, site)
     if contra is not None:
         return Constraint(
@@ -124,7 +134,7 @@ def assess_environment(site: SiteConditions, species: SpeciesParams) -> Constrai
         )
     if species.salinity is not None and species.salinity.applies:
         factor = species.salinity.factor(site.salinity_psu)
-        if factor < 0.35:
+        if factor < salinity_factor_floor:
             return Constraint(
                 "Environmental tolerance",
                 Verdict.MARGINAL,
@@ -140,18 +150,29 @@ def assess_growth(
     site: SiteConditions,
     species: SpeciesParams,
     method: MethodParams,
-    floor_kg_dw_per_m2: float = 0.5,
+    floor_kg_dw_per_m2: float | None = None,
+    forcing: ForcingSource = DEFAULT_FORCING,
 ) -> Constraint:
-    """Growth viability against a user-set yield floor.
+    """Growth viability against a yield floor.
 
     Shellfish are handled by the banded yield model rather than the ODE, so they
     return SUITABLE here and are constrained by environment and law instead.
+
+    `floor_kg_dw_per_m2=None` (the default) resolves `default_parameters()` here,
+    inside the call, rather than once at import time - see `assess_environment`.
+
+    `forcing` is threaded through to `harvest_biomass()` so this constraint sees the
+    same seasonal series as the harvest figure reported alongside it, rather than
+    silently falling back to the placeholder while the rest of the assessment uses
+    an injected source.
     """
+    if floor_kg_dw_per_m2 is None:
+        floor_kg_dw_per_m2 = default_parameters().assessment.yield_floor_kg_dw_per_m2
     if species.group != "macroalga":
         return Constraint(
             "Growth viability", Verdict.SUITABLE, "Assessed by the banded yield model."
         )
-    harvest = harvest_biomass(species, site, area_m2=method.area_m2_per_unit)
+    harvest = harvest_biomass(species, site, area_m2=method.area_m2_per_unit, forcing=forcing)
     if not harvest.calibration.is_reportable:
         return Constraint(
             "Growth viability",
@@ -164,7 +185,7 @@ def assess_growth(
             "Growth viability",
             Verdict.MARGINAL,
             f"Predicted {per_m2:.2f} kg DW/m2 is below the {floor_kg_dw_per_m2:g} "
-            f"kg DW/m2 floor set for this assessment.",
+            f"kg DW/m2 default floor.",
         )
     tier_note = " (literature prior)" if harvest.calibration.tier is Tier.C else ""
     return Constraint(
@@ -196,9 +217,18 @@ def assess(
     species: SpeciesParams,
     method: MethodParams,
     permitting_layer: object | None = None,
-    yield_floor_kg_dw_per_m2: float = 0.5,
+    yield_floor_kg_dw_per_m2: float | None = None,
+    forcing: ForcingSource = DEFAULT_FORCING,
 ) -> Suitability:
-    """Full suitability assessment for one species x method x site."""
+    """Full suitability assessment for one species x method x site.
+
+    `yield_floor_kg_dw_per_m2=None` is passed straight through to `assess_growth`,
+    which resolves the default itself - see its docstring.
+
+    `forcing` is passed straight through to `assess_growth` too, so an injected
+    source reaches the growth-viability constraint, not only the headline harvest
+    figure computed elsewhere.
+    """
     if species.group not in method.suits_groups:
         return Suitability(
             species_key=species.key,
@@ -220,7 +250,7 @@ def assess(
         constraints=[
             assess_physical(site, method),
             assess_environment(site, species),
-            assess_growth(site, species, method, yield_floor_kg_dw_per_m2),
+            assess_growth(site, species, method, yield_floor_kg_dw_per_m2, forcing=forcing),
             assess_legal(site, permitting_layer),
         ],
     )

@@ -5,14 +5,15 @@ climatology. In the delivered tool they are read from the curated layers of
 specification section 6 (Copernicus reanalysis, EMODnet, HELCOM) for a drawn
 polygon, via the optional `spatial` extra.
 
-The interface between the two is deliberately narrow - `SiteConditions` and
-`daily_forcing()` - so that swapping the stub for the real data layer touches
-nothing in `growth`, `shellfish`, `nutrients` or `suitability`.
+The interface between the two is deliberately narrow - `SiteConditions` and the
+two-method `ForcingSource` protocol - so that swapping the stub for the real data
+layer touches nothing in `growth`, `shellfish`, `nutrients` or `suitability`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
@@ -161,13 +162,18 @@ def daily_forcing(
     in the season as day 5, and continuing the axis keeps the forcing continuous across
     New Year and the axis monotone for the interpolation in `growth.simulate`.
 
-    One placeholder limitation is worth naming, because wrapping windows made it
-    consequential: the nutrient drawdown below is indexed by position in the window
-    rather than by calendar day. Nitrogen is therefore a property of the query and not
-    of the site - on 1 April at DK-belt this function returns 3.15, 3.61 or 5.00
-    umol N/L according to which window was asked for. The real seasonal cycle arrives
-    with the section 6 climatologies. Fixing it will move the Tagalaht growth anchor,
-    so the mu_max re-tune belongs to the same change.
+    Nitrogen is a property of the site and the date, not of the window asked about.
+    It was not always: the drawdown used to be spread across however many days the
+    window contained, so on 1 April at DK-belt this function returned 3.15 umol N/L
+    for the Oct-Jun window and 5.00 for the April starts. It now shares the seasonal
+    term with temperature and irradiance, so any two windows overlapping a date agree
+    on it to within the phase residual of the 365.25-day period - about 1.8e-03
+    relative across the Apr-Jun overlap, not zero.
+
+    The values are still ASSUMED. The real seasonal cycle arrives with the section 6
+    climatologies, and this change moved the modelled yields down: mu_max has never
+    been fitted to the anchor - it carries its initial value, and b_max is set from
+    the anchor's own upper bound, so the anchor is not an independent check either.
     """
     start, end = window
     first = day_of_year(start, 1)
@@ -185,8 +191,56 @@ def daily_forcing(
 
     par = site.par_at_depth() * (0.25 + 0.75 * season)
 
-    # Nutrients are highest early and drawn down as the season progresses.
-    drawdown = np.linspace(1.0, 0.45, days.size)
-    din = site.din_umol_l * drawdown
+    # Nutrients by calendar day, not by position in the window. The previous
+    # `np.linspace(1.0, 0.45, days.size)` spread a fixed drawdown across however many
+    # days the window contained, so nitrogen was a property of the question asked: on
+    # 1 April at DK-belt it returned 3.15 umol N/L for the Oct-Jun window and 5.00 for
+    # the April starts. Highest in winter and lowest at midsummer is the Baltic
+    # pattern - winter accumulation, spring-bloom drawdown.
+    #
+    # ASSUMED, not sourced, and replaced wholesale by the section 6 climatologies.
+    # Note it is NOT amplitude-preserving within a window: the season term reaches 0
+    # only at midwinter, so a window that never reaches midwinter sees less than the
+    # full 0.450-1.000 range - Fucus's April-October spans 0.450-0.891. That is why
+    # this change lowers the ODE yield of every window that stops short of midwinter,
+    # which after the Saccharina yield-model change is every window still on the ODE.
+    din = site.din_umol_l * (1.0 - 0.55 * season)
 
     return days, par, temperature, din
+
+
+@runtime_checkable
+class ForcingSource(Protocol):
+    """Where site conditions and seasonal forcing come from.
+
+    The interface is deliberately narrow - two methods - because swapping the
+    placeholder for the section 6 data layer must touch nothing in growth, shellfish,
+    nutrients or suitability.
+    """
+
+    def conditions_for(self, region: str) -> SiteConditions: ...
+
+    def daily_forcing(
+        self, site: SiteConditions, window: tuple[int, int]
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: ...
+
+
+class PlaceholderForcing:
+    """The scaffold's invented conditions. Not measurements - see PLACEHOLDER_SITES."""
+
+    def conditions_for(self, region: str) -> SiteConditions:
+        if region not in PLACEHOLDER_SITES:
+            raise KeyError(f"No placeholder conditions for region {region!r}")
+        return PLACEHOLDER_SITES[region]
+
+    def daily_forcing(
+        self, site: SiteConditions, window: tuple[int, int]
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        return daily_forcing(site, window)
+
+
+#: The scaffold's forcing source. `growth.simulate`, `growth.harvest_biomass` and
+#: `contracts.SiteContext.from_region` all take a `ForcingSource` defaulting to this,
+#: so the section 6 data layer substitutes a `GriddedForcing` at the boundary without
+#: any of those callers changing.
+DEFAULT_FORCING: ForcingSource = PlaceholderForcing()

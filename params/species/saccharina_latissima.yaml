@@ -16,6 +16,10 @@ group: macroalga
 in_application_form: false
 cultivation_window: [10, 6]  # deployed in autumn, harvested early summer; wraps the year
 
+yield_model: salinity_indexed   # OLAMUR D2.3's published form. The growth: block below
+                                # is retained for reference and is NOT used to produce
+                                # the harvest for this species.
+
 growth:
   mu_max: 0.055           # 1/day
   i_k: 85.0               # umol photons/m2/s
@@ -34,6 +38,9 @@ salinity:
   upper_divisor: 18.0
   lower_divisor: 32.0
   tolerance_floor_psu: 16.0
+  floor_basis: observed         # OLAMUR's Tagalaht Bay pilot documented outright
+                                 # cultivation failure at 5.5-6.5 psu - a finding, not
+                                 # an assumption. See calibration note below.
 
 max_yield_t_fw_ha: 18.4   # Danish sites above 16 psu, OLAMUR D2.3
 
@@ -42,12 +49,21 @@ elemental:
   nitrogen: 0.010
   phosphorus: 0.0017
   carbon: 0.32
+  dry_matter: 0.10        # ASSUMED. Saccharina DM is typically 10-12% of fresh weight;
+                          # OLAMUR publishes a dry-matter figure for mussels but not for
+                          # kelp. Only affects the DW conversion, not the 18.4 t FW/ha
+                          # anchor the model is checked against. Refine against A3.4.
 
 calibration:
   - region: DK-belt
-    tier: B
+    tier: C
     source: OLAMUR D2.3 / Maar et al. 2023
     calibrated_on: Danish sites above 16 psu
+    note: >-
+      Moved from tier B to C: no coefficient in this file is fitted to Danish data.
+      18.4 t FW/ha is a published yield figure from Danish sites, which makes it a
+      literature prior applied at the site it was measured, not a local calibration -
+      "local" would mean fitted to a SeaGarden pilot, which does not exist here.
   - region: LT-coastal
     tier: D
     source: OLAMUR pilot finding, Tagalaht Bay
@@ -73,15 +89,27 @@ notes: >-
   the day axis past 365. It replaces a January-June stand-in that was there only
   because the generator could not express a wrapping window.
 
-  That stand-in was annotated as understating the harvest. Measured, it does the
-  opposite: at DK-belt the real window returns 36.9 against 44.8 g DW/m2, about 18 per
-  cent LOWER. Two placeholder artefacts, neither of them a property of the window:
-  `loss_rate` is a constant, so below roughly 8 degrees the gross growth rate falls
-  under it and modelled biomass declines from October to January; and the placeholder
-  DIN drawdown is spread across the window rather than the calendar, so a longer window
-  arrives at spring with less nitrogen. Expect this number to move again when the
-  section 6 climatologies land and the growth coefficients are refitted against A3.4 -
-  the direction is not yet meaningful.
+  That stand-in was annotated as understating the harvest, but "harvest" there meant
+  the `growth:` block's ODE trajectory, not the number this species now reports:
+  `yield_model: salinity_indexed` above means the actual harvest comes from
+  `f_salinity x max_yield_t_fw_ha`, and the `growth:` block above is retained for
+  reference only, still runnable via `growth.simulate` but not called by
+  `harvest_biomass` for this species. Measured on the ODE path only, the stand-in's
+  claim does the opposite of what it said: at DK-belt the real window returns 37.75
+  against 40.36 g DW/m2 from `simulate()`, about 6.5 per cent LOWER. One placeholder
+  artefact, not a property of the window: `loss_rate` is a constant, so below roughly
+  8 degrees the gross growth rate falls under it and modelled biomass declines from
+  October to January. A second artefact has since been retired - the DIN drawdown used
+  to be spread across the window rather than the calendar, so a longer window arrived
+  at spring with less nitrogen - and retiring it is why these figures moved (36.9 and
+  44.8 previously, an 18 per cent gap) and why the gap narrowed: Oct-June is the one
+  shipped window whose season term reaches midwinter, so calendar-day indexing RAISED
+  this trajectory by 2.3 per cent while lowering every other ODE yield. Both belong to
+  the retained ODE and have no bearing on the salinity-indexed harvest actually
+  reported; expect this specific `simulate()` figure to move again if the section 6
+  climatologies land and someone refits the `growth:` block against A3.4 - the
+  direction is not yet meaningful, and doing so would not change the harvest this
+  species now ships.
 
   The two months are ASSUMED, not fitted - the same standing as the Chorda
   coefficients. Neither the Application Form nor OLAMUR D2.3 states a deployment date

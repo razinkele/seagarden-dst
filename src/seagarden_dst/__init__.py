@@ -12,7 +12,8 @@ package; this package knows nothing about the app.
     api          assess_site() - the only entry point the UI uses
     calibration  calibration tiers that travel with every number (spec 7.4)
     params       YAML parameter sets, pydantic-validated (spec 3.2)
-    forcing      site conditions and seasonal forcing (spec 6) - STUBBED
+    forcing      site conditions and seasonal forcing (spec 6) - STUBBED, behind
+                 the ForcingSource seam the data layer substitutes into
     growth       macroalgal growth, OLAMUR D3.2 formulation (spec 7.2)
     shellfish    salinity-banded yield, conservative carbon accounting (spec 7.3)
     nutrients    N, P and C removal from harvest (spec 7)
@@ -31,7 +32,7 @@ from .bowtie_adapter import BowtieUnavailable, removal_framing
 from .calibration import Calibration, Quantity, Tier
 from .contracts import SiteAssessment, SiteContext, SpeciesOption
 from .eutropy_adapter import EutropyUnavailable
-from .forcing import PLACEHOLDER_SITES, REGIONS, SiteConditions
+from .forcing import DEFAULT_FORCING, PLACEHOLDER_SITES, REGIONS, ForcingSource, SiteConditions
 from .params import ParameterSet, SpeciesParams, default_parameters, load_parameters
 from .scenarios import SCALES, Scenario, compare, evaluate
 from .suitability import Suitability, Verdict, assess
@@ -39,12 +40,14 @@ from .suitability import Suitability, Verdict, assess
 __version__ = "0.2.0.dev0"
 
 __all__ = [
+    "DEFAULT_FORCING",
     "PLACEHOLDER_SITES",
     "REGIONS",
     "SCALES",
     "BowtieUnavailable",
     "Calibration",
     "EutropyUnavailable",
+    "ForcingSource",
     "ParameterSet",
     "Quantity",
     "Scenario",

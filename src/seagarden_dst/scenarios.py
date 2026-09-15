@@ -15,7 +15,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from .calibration import Quantity, for_display
-from .forcing import SiteConditions
+from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
 from .growth import harvest_biomass
 from .nutrients import NutrientRemoval, from_harvest
 from .params import MethodParams, ParameterSet, SpeciesParams
@@ -59,16 +59,29 @@ class ScenarioResult:
         return self.harvest.calibration.is_reportable
 
 
-def evaluate(scenario: Scenario, permitting_layer: object | None = None) -> ScenarioResult:
-    """Run one scenario end to end."""
-    suit = assess(scenario.site, scenario.species, scenario.method, permitting_layer)
+def evaluate(
+    scenario: Scenario,
+    permitting_layer: object | None = None,
+    forcing: ForcingSource = DEFAULT_FORCING,
+) -> ScenarioResult:
+    """Run one scenario end to end.
+
+    `forcing` is threaded to both `assess()` (the growth-viability constraint) and
+    the headline `harvest_biomass()` call below, so an injected source drives every
+    number this scenario produces, not only one of them.
+    """
+    suit = assess(
+        scenario.site, scenario.species, scenario.method, permitting_layer, forcing=forcing
+    )
 
     if scenario.species.group == "shellfish":
         harvest = shellfish_harvest(
             scenario.species, scenario.site, area_ha=scenario.area_ha
         ).fresh_weight
     else:
-        harvest = harvest_biomass(scenario.species, scenario.site, scenario.area_m2)
+        harvest = harvest_biomass(
+            scenario.species, scenario.site, scenario.area_m2, forcing=forcing
+        )
 
     removal = from_harvest(scenario.species, harvest) if harvest.calibration.is_reportable else None
     return ScenarioResult(scenario=scenario, suitability=suit, harvest=harvest, removal=removal)
@@ -78,6 +91,7 @@ def compare(
     scenarios: list[Scenario],
     permitting_layer: object | None = None,
     limit: int | None = 4,
+    forcing: ForcingSource = DEFAULT_FORCING,
 ) -> pd.DataFrame:
     """Side-by-side comparison table.
 
@@ -88,13 +102,18 @@ def compare(
     specification section 5.4, which is a considered design constraint: more than four
     columns stops being a comparison and starts being a table. Pass `limit=None` for
     the Plan door's species overview, which is a different thing.
+
+    `forcing` is passed straight through to `evaluate()` for every scenario in the
+    panel - the outermost public entry on this side of the package, matching
+    `api.assess_site`, so a caller building scenarios from an injected source is
+    never left with no way to tell `evaluate()` about it.
     """
     if limit is not None and len(scenarios) > limit:
         raise ValueError(f"The comparison panel takes at most {limit} scenarios")
 
     rows = []
     for scenario in scenarios:
-        result = evaluate(scenario, permitting_layer)
+        result = evaluate(scenario, permitting_layer, forcing=forcing)
         row = {
             "Scenario": scenario.label,
             "Species": scenario.species.common_name,

@@ -1,10 +1,18 @@
 """Nutrient-removal and carbon accounting - specification section 7.
 
 Converts a harvest into nitrogen, phosphorus and carbon removed from the water body,
-using the elemental fractions of OLAMUR D2.3:
+using each species' own elemental fractions - `SpeciesParams.elemental`, read here
+from `species.elemental` and defined per species in that species' own params file
+under `params/species/`. There is no universal fraction: two illustrative examples,
+both from OLAMUR D2.3, are
 
-    kelp DM    -> 1% N, 0.17% P, 32% C
-    mussel FW  -> 10.3% DM, 1.45% N, 0.083% P, 4.61% shell C
+    Saccharina (kelp) DM -> 1% N, 0.17% P, 32% C
+    mussel FW           -> 10.3% DM, 1.45% N, 0.083% P, 4.61% shell C
+
+but Fucus, Chorda and Ulva each declare their own, different-valued fractions in
+their own files - several marked ASSUMED, not fitted, not sourced. Treating the kelp
+numbers above as a shared basis is exactly what let Fucus silently inherit
+Saccharina's fractions unmarked, before that was caught.
 
 Carbon is reported as carbon in harvested biomass, never as sequestration
 (see shellfish.carbon_note).

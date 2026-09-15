@@ -1,0 +1,1102 @@
+{
+  "assess_site": {
+    "DE-coastal": {
+      "excluded": {
+        "saccharina_latissima": "Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here."
+      },
+      "ranked": [
+        {
+          "carbon": 1233.864895,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Predicted 3.98 kg DW/m2 over one cycle (literature prior)."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 3980.209338,
+          "nitrogen": 79.604187,
+          "phosphorus": 7.960419,
+          "species": "fucus_vesiculosus",
+          "tier": "C",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 122.165,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Assessed by the banded yield model."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 2650.0,
+          "nitrogen": 38.425,
+          "phosphorus": 2.1995,
+          "species": "mytilus",
+          "tier": "B",
+          "unit": "kg FW"
+        },
+        {
+          "carbon": 204.899867,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Predicted 0.68 kg DW/m2 over one cycle (literature prior)."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 682.999556,
+          "nitrogen": 20.489987,
+          "phosphorus": 1.707499,
+          "species": "ulva",
+          "tier": "C",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 207.458824,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Predicted 0.67 kg DW/m2 over one cycle (literature prior)."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 669.222011,
+          "nitrogen": 10.707552,
+          "phosphorus": 1.338444,
+          "species": "chorda_filum",
+          "tier": "C",
+          "unit": "kg DW"
+        }
+      ]
+    },
+    "DK-belt": {
+      "excluded": {},
+      "ranked": [
+        {
+          "carbon": 961.348582,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Predicted 3.10 kg DW/m2 over one cycle (literature prior)."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 3101.124457,
+          "nitrogen": 62.022489,
+          "phosphorus": 6.202249,
+          "species": "fucus_vesiculosus",
+          "tier": "C",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 78.37,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Assessed by the banded yield model."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 1700.0,
+          "nitrogen": 24.65,
+          "phosphorus": 1.411,
+          "species": "mytilus",
+          "tier": "B",
+          "unit": "kg FW"
+        },
+        {
+          "carbon": 69.349012,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "marginal",
+              "Predicted 0.23 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 231.163374,
+          "nitrogen": 6.934901,
+          "phosphorus": 0.577908,
+          "species": "ulva",
+          "tier": "C",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 91.139926,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "marginal",
+              "Predicted 0.29 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 293.999762,
+          "nitrogen": 4.703996,
+          "phosphorus": 0.588,
+          "species": "chorda_filum",
+          "tier": "C",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 35.982222,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "marginal",
+              "Predicted 0.11 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 112.444444,
+          "nitrogen": 1.124444,
+          "phosphorus": 0.191156,
+          "species": "saccharina_latissima",
+          "tier": "C",
+          "unit": "kg DW"
+        }
+      ]
+    },
+    "EE-coastal": {
+      "excluded": {
+        "saccharina_latissima": "Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here."
+      },
+      "ranked": [
+        {
+          "carbon": 867.166035,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Predicted 2.80 kg DW/m2 over one cycle."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 2797.309791,
+          "nitrogen": 55.946196,
+          "phosphorus": 5.59462,
+          "species": "fucus_vesiculosus",
+          "tier": "B",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 122.165,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Assessed by the banded yield model."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 2650.0,
+          "nitrogen": 38.425,
+          "phosphorus": 2.1995,
+          "species": "mytilus",
+          "tier": "C",
+          "unit": "kg FW"
+        },
+        {
+          "carbon": 62.198001,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "marginal",
+              "Predicted 0.21 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 207.32667,
+          "nitrogen": 6.2198,
+          "phosphorus": 0.518317,
+          "species": "ulva",
+          "tier": "C",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 84.359903,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "marginal",
+              "Predicted 0.27 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 272.12872,
+          "nitrogen": 4.35406,
+          "phosphorus": 0.544257,
+          "species": "chorda_filum",
+          "tier": "C",
+          "unit": "kg DW"
+        }
+      ]
+    },
+    "LT-coastal": {
+      "excluded": {
+        "saccharina_latissima": "Sugar kelp cultivation failed at 5.5-6.5 psu in OLAMUR's Estonian pilot. The salinity scaling would return a small positive yield at Lithuanian salinities; that number is not shown, because the observation contradicts it. Fucus, Chorda or mitigation mussels are the appropriate choices here."
+      },
+      "ranked": [
+        {
+          "carbon": 1043.287029,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Predicted 3.37 kg DW/m2 over one cycle (literature prior)."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 3365.442029,
+          "nitrogen": 67.308841,
+          "phosphorus": 6.730884,
+          "species": "fucus_vesiculosus",
+          "tier": "C",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 122.165,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Assessed by the banded yield model."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 2650.0,
+          "nitrogen": 38.425,
+          "phosphorus": 2.1995,
+          "species": "mytilus",
+          "tier": "C",
+          "unit": "kg FW"
+        },
+        {
+          "carbon": 102.402638,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "marginal",
+              "Predicted 0.34 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 341.342126,
+          "nitrogen": 10.240264,
+          "phosphorus": 0.853355,
+          "species": "ulva",
+          "tier": "C",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 121.36208,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "marginal",
+              "Predicted 0.39 kg DW/m2 is below the 0.5 kg DW/m2 default floor."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 391.49058,
+          "nitrogen": 6.263849,
+          "phosphorus": 0.782981,
+          "species": "chorda_filum",
+          "tier": "C",
+          "unit": "kg DW"
+        }
+      ]
+    },
+    "PL-coastal": {
+      "excluded": {
+        "saccharina_latissima": "Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here."
+      },
+      "ranked": [
+        {
+          "carbon": 1183.24396,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Predicted 3.82 kg DW/m2 over one cycle (literature prior)."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 3816.916,
+          "nitrogen": 76.33832,
+          "phosphorus": 7.633832,
+          "species": "fucus_vesiculosus",
+          "tier": "C",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 122.165,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Assessed by the banded yield model."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 2650.0,
+          "nitrogen": 38.425,
+          "phosphorus": 2.1995,
+          "species": "mytilus",
+          "tier": "C",
+          "unit": "kg FW"
+        },
+        {
+          "carbon": 167.96649,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Predicted 0.56 kg DW/m2 over one cycle (literature prior)."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 559.888301,
+          "nitrogen": 16.796649,
+          "phosphorus": 1.399721,
+          "species": "ulva",
+          "tier": "C",
+          "unit": "kg DW"
+        },
+        {
+          "carbon": 177.023987,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Predicted 0.57 kg DW/m2 over one cycle (literature prior)."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 571.04512,
+          "nitrogen": 9.136722,
+          "phosphorus": 1.14209,
+          "species": "chorda_filum",
+          "tier": "C",
+          "unit": "kg DW"
+        }
+      ]
+    },
+    "PL-lagoon": {
+      "excluded": {
+        "chorda_filum": "Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "fucus_vesiculosus": "Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "mytilus": "Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "saccharina_latissima": "Salinity in the Szczecin Lagoon is far below the demonstrated tolerance for this species. Not cultivable.",
+        "ulva": "Below 2.5 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here."
+      },
+      "ranked": []
+    }
+  },
+  "scenarios": {
+    "DE-coastal": [
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "69.2-622 kg C [C]",
+        "Harvest": "223-2.01e+03 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "3.57-32.1 kg N [C]",
+        "Phosphorus removed": "0.446-4.02 kg P [C]",
+        "Scenario": "chorda_filum",
+        "Species": "Sea lace",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "411-3.7e+03 kg C [C]",
+        "Harvest": "1.33e+03-1.19e+04 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "26.5-239 kg N [C]",
+        "Phosphorus removed": "2.65-23.9 kg P [C]",
+        "Scenario": "fucus_vesiculosus",
+        "Species": "Bladderwrack",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Regionally extrapolated",
+        "Carbon in harvest": "92.2-152 kg C [B]",
+        "Harvest": "2e+03-3.3e+03 kg FW [B]",
+        "Method": "Mussel socks on longline",
+        "Nitrogen removed": "29-47.9 kg N [B]",
+        "Phosphorus removed": "1.66-2.74 kg P [B]",
+        "Scenario": "mytilus",
+        "Species": "Blue mussel",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here.",
+        "Method": "Floating longline",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "saccharina_latissima",
+        "Species": "Sugar kelp",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "68.3-615 kg C [C]",
+        "Harvest": "228-2.05e+03 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "6.83-61.5 kg N [C]",
+        "Phosphorus removed": "0.569-5.12 kg P [C]",
+        "Scenario": "ulva",
+        "Species": "Sea lettuce",
+        "Verdict": "unknown"
+      }
+    ],
+    "DK-belt": [
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "30.4-273 kg C [C]",
+        "Harvest": "98-882 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "1.57-14.1 kg N [C]",
+        "Phosphorus removed": "0.196-1.76 kg P [C]",
+        "Scenario": "chorda_filum",
+        "Species": "Sea lace",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "320-2.88e+03 kg C [C]",
+        "Harvest": "1.03e+03-9.3e+03 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "20.7-186 kg N [C]",
+        "Phosphorus removed": "2.07-18.6 kg P [C]",
+        "Scenario": "fucus_vesiculosus",
+        "Species": "Bladderwrack",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Regionally extrapolated",
+        "Carbon in harvest": "73.8-83 kg C [B]",
+        "Harvest": "1.6e+03-1.8e+03 kg FW [B]",
+        "Method": "Mussel socks on longline",
+        "Nitrogen removed": "23.2-26.1 kg N [B]",
+        "Phosphorus removed": "1.33-1.49 kg P [B]",
+        "Scenario": "mytilus",
+        "Species": "Blue mussel",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "12-108 kg C [C]",
+        "Harvest": "37.5-337 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "0.375-3.37 kg N [C]",
+        "Phosphorus removed": "0.0637-0.573 kg P [C]",
+        "Scenario": "saccharina_latissima",
+        "Species": "Sugar kelp",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "23.1-208 kg C [C]",
+        "Harvest": "77.1-693 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "2.31-20.8 kg N [C]",
+        "Phosphorus removed": "0.193-1.73 kg P [C]",
+        "Scenario": "ulva",
+        "Species": "Sea lettuce",
+        "Verdict": "unknown"
+      }
+    ],
+    "EE-coastal": [
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "28.1-253 kg C [C]",
+        "Harvest": "90.7-816 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "1.45-13.1 kg N [C]",
+        "Phosphorus removed": "0.181-1.63 kg P [C]",
+        "Scenario": "chorda_filum",
+        "Species": "Sea lace",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Regionally extrapolated",
+        "Carbon in harvest": "867 kg C [B]",
+        "Harvest": "2.8e+03 kg DW [B]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "55.9 kg N [B]",
+        "Phosphorus removed": "5.59 kg P [B]",
+        "Scenario": "fucus_vesiculosus",
+        "Species": "Bladderwrack",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "92.2-152 kg C [C]",
+        "Harvest": "2e+03-3.3e+03 kg FW [C]",
+        "Method": "Mussel socks on longline",
+        "Nitrogen removed": "29-47.9 kg N [C]",
+        "Phosphorus removed": "1.66-2.74 kg P [C]",
+        "Scenario": "mytilus",
+        "Species": "Blue mussel",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here.",
+        "Method": "Floating longline",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "saccharina_latissima",
+        "Species": "Sugar kelp",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "20.7-187 kg C [C]",
+        "Harvest": "69.1-622 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "2.07-18.7 kg N [C]",
+        "Phosphorus removed": "0.173-1.55 kg P [C]",
+        "Scenario": "ulva",
+        "Species": "Sea lettuce",
+        "Verdict": "unknown"
+      }
+    ],
+    "LT-coastal": [
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "40.5-364 kg C [C]",
+        "Harvest": "130-1.17e+03 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "2.09-18.8 kg N [C]",
+        "Phosphorus removed": "0.261-2.35 kg P [C]",
+        "Scenario": "chorda_filum",
+        "Species": "Sea lace",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "348-3.13e+03 kg C [C]",
+        "Harvest": "1.12e+03-1.01e+04 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "22.4-202 kg N [C]",
+        "Phosphorus removed": "2.24-20.2 kg P [C]",
+        "Scenario": "fucus_vesiculosus",
+        "Species": "Bladderwrack",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "92.2-152 kg C [C]",
+        "Harvest": "2e+03-3.3e+03 kg FW [C]",
+        "Method": "Mussel socks on longline",
+        "Nitrogen removed": "29-47.9 kg N [C]",
+        "Phosphorus removed": "1.66-2.74 kg P [C]",
+        "Scenario": "mytilus",
+        "Species": "Blue mussel",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Sugar kelp cultivation failed at 5.5-6.5 psu in OLAMUR's Estonian pilot. The salinity scaling would return a small positive yield at Lithuanian salinities; that number is not shown, because the observation contradicts it. Fucus, Chorda or mitigation mussels are the appropriate choices here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Sugar kelp cultivation failed at 5.5-6.5 psu in OLAMUR's Estonian pilot. The salinity scaling would return a small positive yield at Lithuanian salinities; that number is not shown, because the observation contradicts it. Fucus, Chorda or mitigation mussels are the appropriate choices here.",
+        "Method": "Floating longline",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "saccharina_latissima",
+        "Species": "Sugar kelp",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "34.1-307 kg C [C]",
+        "Harvest": "114-1.02e+03 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "3.41-30.7 kg N [C]",
+        "Phosphorus removed": "0.284-2.56 kg P [C]",
+        "Scenario": "ulva",
+        "Species": "Sea lettuce",
+        "Verdict": "unknown"
+      }
+    ],
+    "PL-coastal": [
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "59-531 kg C [C]",
+        "Harvest": "190-1.71e+03 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "3.05-27.4 kg N [C]",
+        "Phosphorus removed": "0.381-3.43 kg P [C]",
+        "Scenario": "chorda_filum",
+        "Species": "Sea lace",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "394-3.55e+03 kg C [C]",
+        "Harvest": "1.27e+03-1.15e+04 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "25.4-229 kg N [C]",
+        "Phosphorus removed": "2.54-22.9 kg P [C]",
+        "Scenario": "fucus_vesiculosus",
+        "Species": "Bladderwrack",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "92.2-152 kg C [C]",
+        "Harvest": "2e+03-3.3e+03 kg FW [C]",
+        "Method": "Mussel socks on longline",
+        "Nitrogen removed": "29-47.9 kg N [C]",
+        "Phosphorus removed": "1.66-2.74 kg P [C]",
+        "Scenario": "mytilus",
+        "Species": "Blue mussel",
+        "Verdict": "unknown"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here.",
+        "Method": "Floating longline",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "saccharina_latissima",
+        "Species": "Sugar kelp",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "56-504 kg C [C]",
+        "Harvest": "187-1.68e+03 kg DW [C]",
+        "Method": "Floating longline",
+        "Nitrogen removed": "5.6-50.4 kg N [C]",
+        "Phosphorus removed": "0.467-4.2 kg P [C]",
+        "Scenario": "ulva",
+        "Species": "Sea lettuce",
+        "Verdict": "unknown"
+      }
+    ],
+    "PL-lagoon": [
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Method": "Floating longline",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "chorda_filum",
+        "Species": "Sea lace",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Method": "Floating longline",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "fucus_vesiculosus",
+        "Species": "Bladderwrack",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Method": "Floating modular pontoon",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "mytilus",
+        "Species": "Blue mussel",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Salinity in the Szczecin Lagoon is far below the demonstrated tolerance for this species. Not cultivable.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Salinity in the Szczecin Lagoon is far below the demonstrated tolerance for this species. Not cultivable.",
+        "Method": "Floating longline",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "saccharina_latissima",
+        "Species": "Sugar kelp",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 2.5 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 2.5 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Method": "Floating longline",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "ulva",
+        "Species": "Sea lettuce",
+        "Verdict": "unsuitable"
+      }
+    ]
+  }
+}

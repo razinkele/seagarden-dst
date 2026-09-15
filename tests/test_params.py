@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
-from seagarden_dst import default_parameters
+from seagarden_dst import PLACEHOLDER_SITES, default_parameters, load_parameters
 from seagarden_dst.calibration import Tier
+from seagarden_dst.growth import simulate
+
+# The carbon, nitrogen and phosphorus anchors' `basis` strings read "per 6 m2 cage,
+# April-October cycle" (OLAMUR D3.2, Tagalaht Bay); dry_weight's differs because it
+# is an areal density (g DW/m2), not a cage total, so it needs no such multiplier
+# below. Parsing free text for the area would be more fragile than naming the number
+# once, here, next to where it is used.
+FUCUS_ANCHOR_CAGE_M2 = 6.0
 
 
 @pytest.fixture(scope="module")
@@ -26,6 +35,129 @@ def test_all_species_load(params):
 def test_methods_load(params):
     assert "mini_farm_kit" in params.methods
     assert params.methods["mini_farm_kit"].area_m2_per_unit == 6.0
+
+
+def test_assessment_thresholds_are_data_not_code():
+    """Specification 1's premise is that coefficients live in params/. These three decide
+    suitability verdicts and lived in Python defaults."""
+    import inspect
+
+    from seagarden_dst import suitability
+
+    source = inspect.getsource(suitability)
+    assert "0.35" not in source, "salinity factor floor still hard-coded"
+    assert "= 0.5" not in source, "yield floor still hard-coded"
+
+    assessment = default_parameters().assessment
+    assert assessment.salinity_factor_floor == 0.35
+    assert assessment.yield_floor_kg_dw_per_m2 == 0.5
+
+
+def test_the_yield_floor_message_does_not_claim_the_user_set_it():
+    """Specification 5.2 says the floor is user-set. No user can set it. Until package E
+    plumbs a control, the text must say 'default' rather than 'set for this assessment'."""
+    import inspect
+
+    from seagarden_dst import suitability
+
+    assert "set for this assessment" not in inspect.getsource(suitability)
+
+
+def test_upper_temp_decline_is_data_not_a_hard_coded_constant(params):
+    """The supra-optimal decline width lived as a bare `3.0` inside `f_temperature`."""
+    for key in ("chorda_filum", "fucus_vesiculosus", "ulva"):
+        assert params.species[key].growth.upper_temp_decline_c == 3.0
+
+
+def _minimal_param_tree(tmp_path, assessment_text: str):
+    """A bare `params/`-shaped tree with only what `load_parameters()` requires: a
+    (possibly empty) `species/` directory and an `assessment.yaml`. `methods.yaml` is
+    optional and left out. Isolated in `tmp_path`, never touching the real `params/`.
+    """
+    (tmp_path / "species").mkdir()
+    (tmp_path / "assessment.yaml").write_text(assessment_text, encoding="utf-8")
+    return tmp_path
+
+
+def test_a_misspelled_assessment_key_raises_and_names_it(tmp_path):
+    """assessment.yaml is the one file whose sole purpose is operator recalibration of
+    a verdict threshold. A misspelled key must fail loudly and say which key, not load
+    "successfully" while silently keeping the Python-side value - that silent fallback
+    was FINDING 1 of the first review round, reproduced with `salinity_factor_flor:
+    0.999999` loading OK and resolving to the old 0.35."""
+    root = _minimal_param_tree(
+        tmp_path,
+        "salinity_factor_flor: 0.999999\nyield_floor_kg_dw_per_m2: 0.5\n",
+    )
+    with pytest.raises(ValidationError) as excinfo:
+        load_parameters(root=root)
+    assert "salinity_factor_flor" in str(excinfo.value)
+
+
+def test_a_missing_assessment_key_raises_at_load(tmp_path):
+    """A required field silently defaulting is exactly what let the misspelling above
+    load without complaint. With no default, an absent key must fail at load."""
+    root = _minimal_param_tree(tmp_path, "salinity_factor_floor: 0.35\n")
+    with pytest.raises(ValidationError):
+        load_parameters(root=root)
+
+
+def test_the_default_salinity_floor_is_resolved_per_call_not_frozen_at_import(monkeypatch):
+    """`assess_environment`'s floor used to default to a value read from `params/` once,
+    at import of `suitability.py`. Recalibrating `assessment.yaml` and reloading could
+    never reach a running process - FINDING 2 of the first review round.
+
+    Saccharina at DK-belt is not contraindicated and its salinity factor there is
+    ~0.611 (OLAMUR's piecewise form: 1 + (18-25)/18). Against the shipped floor
+    (0.35) that clears the constraint (SUITABLE); against an implausibly high floor
+    it must not (MARGINAL). Monkeypatching `load_parameters` itself - wrapping the
+    real loader and substituting only `salinity_factor_floor` in the returned
+    `ParameterSet` - then clearing `default_parameters`'s cache is what lets us
+    observe "the next call that takes the default sees a new value" without reaching
+    into the function's own closure/defaults or writing a second on-disk parameter
+    tree.
+    """
+    import seagarden_dst.params as params_module
+    from seagarden_dst.suitability import Verdict, assess_environment
+
+    site = PLACEHOLDER_SITES["DK-belt"]
+
+    params_module.default_parameters.cache_clear()
+    try:
+        shipped = params_module.default_parameters()
+        kelp = shipped.species["saccharina_latissima"]
+        assert assess_environment(site, kelp).verdict is Verdict.SUITABLE, (
+            "baseline assumption broken: re-check the DK-belt salinity factor"
+        )
+    finally:
+        params_module.default_parameters.cache_clear()
+
+    real_load_parameters = params_module.load_parameters
+
+    def _load_with_raised_floor(root: object | None = None) -> object:
+        real = real_load_parameters(root=root)
+        raised = params_module.AssessmentParams(
+            salinity_factor_floor=0.999999,
+            yield_floor_kg_dw_per_m2=real.assessment.yield_floor_kg_dw_per_m2,
+        )
+        return params_module.ParameterSet(
+            species=real.species, methods=real.methods, assessment=raised
+        )
+
+    monkeypatch.setattr(params_module, "load_parameters", _load_with_raised_floor)
+    params_module.default_parameters.cache_clear()
+    try:
+        recalibrated = params_module.default_parameters()
+        assert recalibrated.assessment.salinity_factor_floor == pytest.approx(0.999999)
+
+        kelp = recalibrated.species["saccharina_latissima"]
+        after = assess_environment(site, kelp)
+        assert after.verdict is Verdict.MARGINAL, (
+            "assess_environment still used a floor frozen at import, not the reloaded one"
+        )
+    finally:
+        monkeypatch.undo()
+        params_module.default_parameters.cache_clear()
 
 
 def test_application_form_species_are_flagged(params):
@@ -89,3 +221,111 @@ def test_macroalgae_are_on_dry_weight_and_shellfish_on_fresh(params):
         else:
             assert species.elemental.basis == "fresh_weight"
             assert species.elemental.dry_matter is not None
+
+
+def test_fucus_does_not_silently_carry_kelp_stoichiometry():
+    """Fucus's elemental fractions were byte-identical to Saccharina's, which OLAMUR
+    labels 'Kelp DM'. Either they are sourced to Fucus, or they say they are assumed."""
+    params = default_parameters()
+    fucus = params.species["fucus_vesiculosus"]
+    kelp = params.species["saccharina_latissima"]
+
+    identical = (
+        fucus.elemental.nitrogen == kelp.elemental.nitrogen
+        and fucus.elemental.phosphorus == kelp.elemental.phosphorus
+        and fucus.elemental.carbon == kelp.elemental.carbon
+    )
+    assert not identical, (
+        "Fucus is running on kelp stoichiometry. Re-source the fractions, or mark them "
+        "assumed_from and say so."
+    )
+
+
+def test_the_tagalaht_anchor_is_data_with_a_stated_basis():
+    """The only published anchor the SE Baltic parameterisation has lived in prose in two
+    documents and a test docstring, with its basis unstated - which is why the nitrogen
+    arm could be out by several times without anyone being able to say against what."""
+    fucus = default_parameters().species["fucus_vesiculosus"]
+    assert fucus.anchors, "Fucus carries no anchors block"
+
+    quantities = {a.quantity for a in fucus.anchors}
+    assert {"dry_weight", "carbon", "nitrogen", "phosphorus"} <= quantities
+
+    for anchor in fucus.anchors:
+        assert anchor.basis, f"{anchor.quantity} anchor has no stated basis"
+        assert anchor.source
+        assert anchor.low <= anchor.high
+
+
+def test_b_max_is_not_read_off_the_anchor_it_is_validated_against():
+    """b_max = 5200 was the anchor's own upper bound, so the model could not overshoot
+    the range it is checked against. Either it is independently sourced, or it says it
+    is assumed - silence is what made the circularity invisible."""
+    fucus = default_parameters().species["fucus_vesiculosus"]
+    anchor = next(a for a in fucus.anchors if a.quantity == "dry_weight")
+    if fucus.growth.b_max == anchor.high:
+        assert fucus.growth.b_max_basis == "assumed_from_anchor", (
+            "b_max equals the anchor's upper bound and does not say so"
+        )
+
+
+def test_every_anchor_flag_matches_what_the_model_actually_produces():
+    """`reconciles` must be derived, not declared.
+
+    The dry-weight flag was wrong on the first attempt precisely because nothing
+    recomputed it. A flag a human maintains by hand, in a file inviting edits to the
+    fractions it depends on, is a claim waiting to go stale. `reconciles` answers one
+    specific question - does *this tool's model output* land inside the published
+    range - not whether the elemental fractions are mutually consistent with each
+    other (that is a different check, computed in this file's `notes:` block).
+    """
+    fucus = default_parameters().species["fucus_vesiculosus"]
+    modelled = simulate(fucus, PLACEHOLDER_SITES["EE-coastal"]).final_biomass
+    actual = {
+        "dry_weight": modelled,
+        "carbon": modelled * FUCUS_ANCHOR_CAGE_M2 * fucus.elemental.carbon / 1000.0,
+        "nitrogen": modelled * FUCUS_ANCHOR_CAGE_M2 * fucus.elemental.nitrogen / 1000.0,
+        "phosphorus": modelled * FUCUS_ANCHOR_CAGE_M2 * fucus.elemental.phosphorus,
+    }
+    for anchor in fucus.anchors:
+        inside = anchor.low <= actual[anchor.quantity] <= anchor.high
+        assert anchor.reconciles == inside, (
+            f"{anchor.quantity}: model gives {actual[anchor.quantity]:.4g} {anchor.unit} "
+            f"against {anchor.low}-{anchor.high}, so reconciles should be {inside}"
+        )
+
+
+def test_an_inverted_anchor_range_fails_at_load_not_in_a_test():
+    """`low <= high` was enforced only where a test happened to look.
+
+    test_the_tagalaht_anchor_is_data_with_a_stated_basis asserts it for the anchors
+    that ship today, which means an inverted range in a species file added later
+    loads clean and is caught only if someone writes the same assertion again. An
+    anchor is the thing the parameterisation is checked against, so a reversed band
+    silently inverts that check - `low <= value <= high` can never hold, and the
+    reconciles flag records a failure that is an artefact of the data entry.
+    """
+    from seagarden_dst.params import Anchor
+
+    ok = Anchor(
+        quantity="dry_weight", low=4800.0, high=5200.0, unit="g DW/m2",
+        basis="areal density", source="OLAMUR D3.2",
+    )
+    assert ok.low <= ok.high
+
+    with pytest.raises(ValidationError, match="low.*high|high.*low"):
+        Anchor(
+            quantity="dry_weight", low=5200.0, high=4800.0, unit="g DW/m2",
+            basis="areal density", source="OLAMUR D3.2",
+        )
+
+
+def test_an_anchor_may_be_a_point_value():
+    """low == high is a single published figure, not an error."""
+    from seagarden_dst.params import Anchor
+
+    point = Anchor(
+        quantity="nitrogen", low=12.0, high=12.0, unit="g N per cage",
+        basis="per 6 m2 cage", source="OLAMUR D3.2",
+    )
+    assert point.low == point.high

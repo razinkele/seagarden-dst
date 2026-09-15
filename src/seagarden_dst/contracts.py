@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 from .calibration import Quantity, Tier
-from .forcing import PLACEHOLDER_SITES, SiteConditions
+from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
 
 
 @dataclass
@@ -47,17 +47,19 @@ class SiteContext:
     protection: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_region(cls, region: str, *, label: str = "") -> SiteContext:
-        """Build a context from the placeholder conditions for a sub-region.
+    def from_region(
+        cls, region: str, *, label: str = "", forcing: ForcingSource = DEFAULT_FORCING
+    ) -> SiteContext:
+        """Build a context from the conditions a `ForcingSource` has for a sub-region.
 
         The scaffold's only way in. Confidence is "low" by construction, because the
-        conditions are plausible order-of-magnitude values and not measurements.
+        default `forcing` (the placeholder) returns plausible order-of-magnitude
+        values and not measurements. `conditions_for()` raises `KeyError` for a
+        region it does not know about.
         """
-        if region not in PLACEHOLDER_SITES:
-            raise KeyError(f"No placeholder conditions for region {region!r}")
         return cls(
             region=region,
-            conditions=PLACEHOLDER_SITES[region],
+            conditions=forcing.conditions_for(region),
             label=label or region,
             confidence="low",
         )

@@ -72,13 +72,19 @@ carbon fixed at 32% of dry weight."* The word *Redfield* appears exactly once in
 repository, in that sentence. `GrowthTrajectory` carries one state variable, and
 `nutrients.from_harvest` applies flat tissue fractions after the fact.
 
-Against the published Tagalaht figures, computing every arm from the same dry weight:
+Against the published Tagalaht figures, computing every arm from the same published dry
+weight — a fraction-consistency check against OLAMUR's own numbers, not a run of
+`simulate()`. (That is a different question, `Anchor.reconciles`, answered per-arm in the
+YAML's `anchors:` block; the two need not agree, and today they do not.) The table below
+is kept in step with the `notes:` block in `params/species/fucus_vesiculosus.yaml`, which
+carries this arithmetic on both the kelp fractions Fucus originally shipped with and the
+Fucus-specific fractions that replaced them:
 
-| arm | from shipped fractions | published (spec §7.2) | verdict |
-|---|---|---|---|
-| phosphorus | 49.0–53.0 g | 15–120 g | inside |
-| carbon | 9.22–9.98 kg | 10–13 kg | just below, overlapping only at the top |
-| nitrogen | 0.288–0.312 kg | 1.4–3.4 kg | **4.5–11× low** |
+| arm | previously (kelp fractions, byte-copied from Saccharina) | now shipped (Fucus-specific, assumed) | published (spec §7.2) | verdict |
+|---|---|---|---|---|
+| phosphorus | 49.0–53.0 g | 57.6–62.4 g | 15–120 g | inside, both ways |
+| carbon | 9.22–9.98 kg | 8.93–9.67 kg | 10–13 kg | still marginally below |
+| nitrogen | 0.288–0.312 kg | 0.576–0.624 kg | 1.4–3.4 kg | narrows from **4.5–11× low** to **2.3–5.5× low** |
 
 **Revision 2 concluded the published figure was misread on the wrong basis. That
 conclusion does not survive its own arithmetic**: a basis error is a single
@@ -243,8 +249,9 @@ a single published range is a scaling convention, not a calibration.
    this document) — see §5.1.
 5. **Guard the anchor as a set** — dry weight, carbon and phosphorus per cage, with
    nitrogen asserted only once §2.1 is resolved. Carbon currently fails the set guard
-   (9.22–9.98 against 10–13 kg), so "assert the arms that reconcile" is today true of
-   phosphorus alone, and A0 must say so rather than implying three clean arms.
+   (8.93–9.67 against 10–13 kg, fraction consistency against the published dry weight —
+   §2.1), so "assert the arms that reconcile" is today true of phosphorus alone, and A0
+   must say so rather than implying three clean arms.
 
 Any actual re-parameterisation moves to package D1, *after* the forcing it would be
 fitted against is real.
@@ -307,13 +314,18 @@ own primary site — and would break the passing
 
 | trigger | tier | basis |
 |---|---|---|
-| Below `tolerance_floor_psu` — a *local finding* of cultivation failure | **D** | spec §7.4's own definition |
+| Below `tolerance_floor_psu` — a floor — observed or assumed — of cultivation failure | **D** | spec §7.4's own definition |
 | Outside `demonstrated_salinity_range` — extrapolation | **B or C**, with the distance from the demonstrated range named in the note | spec §7.4 rows B and C |
+
+Anything short of tier D puts a confident-looking number back at 2.0 psu, which is the
+defect section 3.3 exists to remove, and a siting tool should fail safe; the
+observed/assumed distinction is carried in the note the user reads, not in the tier.
 
 A0 therefore adds `tolerance_floor_psu` to all five species (and to `ShellfishYield`),
 sourced where possible and flagged assumed where not, as Chorda's coefficients are; and
 adds `demonstrated_salinity_range` as *provenance that widens the displayed band*, never
-as a tier D trigger. No spec §7.4 amendment is needed, which is the point.
+as a tier D trigger. The specification's tier D row (§7.4) has since been amended to
+name the floor mechanism explicitly; the table above now matches it.
 
 ### 3.4 Assessment thresholds are hard-coded against the spec's own rule
 
@@ -391,9 +403,20 @@ Both were wrong:
 
 - Spec §5.1's human-use output and spec §5.2's terms need fields `SiteConditions` lacks.
   Package D adds them; the downstream touch is part of D's effort.
-- The refactor changes four call sites: `growth.py:104`, `contracts.py:56`,
-  `contracts.py:60`, and the re-export in `__init__.py`. Package A's done-when requires
-  each to be named in the PR.
+- The refactor's call-site count was wrong in both directions, and the corrected set is
+  what package A's done-when requires the PR to name. `contracts.py:56` and `:60`
+  collapse to **one** edit — a two-method protocol has no membership operation, so the
+  guard and the lookup both become `forcing.conditions_for(region)`. Against that,
+  `growth.py` needs **two** edits, not one: `simulate()` *and* `harvest_biomass()`,
+  because `assess_site` reaches the ODE only through the latter, so threading the
+  former alone leaves a seam nothing can reach. With the additive re-export in
+  `__init__.py` that is five, documented in `14d3d4c`. A sixth requirement emerged in
+  review and is documented in `fed2e19`: the public entry points must accept and
+  forward a `ForcingSource` too — `api.assess_site`, `api._assess_one`,
+  `suitability.assess`, `suitability.assess_growth`, `scenarios.evaluate` and
+  `scenarios.compare` — or a caller can build a `SiteContext` from real anchors and
+  still have the seasonal series come from the placeholder, with nothing in
+  `SiteAssessment.caveats` marking the mismatch.
 
 ### 5.1 Calendar-day indexing, and the defect it retires
 
@@ -426,24 +449,42 @@ pattern (winter accumulation, spring-bloom drawdown) and the direction the old c
 backwards for wrapping windows. It is a placeholder, **assumed rather than sourced**, and
 package D replaces it wholesale.
 
-**It is not amplitude-preserving, and it lowers every yield.** Revisions 3 and earlier
-claimed it preserved the existing 1.0 → 0.45 amplitude exactly. It does so only over a
-full year: within any shipped window the season term never reaches 0, so over April–October
-the range is 0.450–0.891 rather than 0.450–1.000. Measured consequences at package A:
+**It is not amplitude-preserving, and it lowers the yield of every window that stops
+short of midwinter.** Revisions 3 and earlier claimed it preserved the existing
+1.0 → 0.45 amplitude exactly. It does so only over a full year: the season term reaches
+0 only at midwinter, so *Fucus*'s April–October window spans 0.450–0.891 rather than
+0.450–1.000. Revision 4 then overcorrected to "it lowers **every** yield", which is also
+false — sugar kelp's Oct–June window *does* reach midwinter (season span 0.000–1.000), so
+its ODE trajectory **rises** 0.0–2.3%. That is invisible in the shipped numbers only
+because §2.2 took *Saccharina* off the ODE; its reported harvest is bit-identical either
+way. Measured consequences at package A, all at EE-coastal (the percentages are
+site-specific — *Ulva* is −53.9% at DK-belt and −42.3% at LT-coastal):
 
-| | before | after |
-|---|---|---|
-| *Fucus* at EE-coastal | 3446 g DW/m² | **2797** |
-| *Ulva* | — | −55% |
-| *Chorda* | — | −43% |
+| | before | after | |
+|---|---|---|---|
+| *Fucus* at EE-coastal | 3446.33 g DW/m² | **2797.31** | −18.8% |
+| *Ulva* at EE-coastal | 461.43 | 207.33 | −55.1% |
+| *Chorda* at EE-coastal | 482.05 | 272.13 | −43.5% |
+| *Saccharina* at DK-belt (ODE only) | 36.90 | 37.75 | **+2.3%** |
 
-2797 is **below the hard `assert 3000.0` at `tests/test_growth.py:69`**, and four
-growth-viability verdicts flip, including *Ulva* at LT-coastal. **Package A therefore
-resets that bound in the same pull request**, downward and with the new value stated in
-the test's docstring alongside the published range it still does not meet. §3.1's rule
-that A0 does not touch the assertion stands; A does, because A is what moves it. Without
-this the suite is red for the whole B → C → D stretch with a standing instruction not to
-fix it.
+2797.31 is **below the hard `assert 3000.0` in
+`tests/test_growth.py::test_fucus_reaches_the_tagalaht_reference_range`**, and four
+growth-viability verdicts flip suitable → marginal: *Chorda* and *Ulva* at DK-belt and at
+LT-coastal. **Package A therefore resets that bound in the same pull request**, downward
+to 2500.0 and with the new value stated in the test's docstring alongside the published
+range it still does not meet. §3.1's rule that A0 does not touch the assertion stands; A
+does, because A is what moves it. Without this the suite is red for the whole B → C → D
+stretch with a standing instruction not to fix it.
+
+**One further correction to this section's own premise.** It states the defect is
+"recorded as a strict `xfail`" and package A's plan assumed that marker would XPASS when
+the formula landed. It does not: the season term has period 365.25 while the test steps a
+whole 365 days across the wrap, leaving a phase residual of 1.722e-03 relative
+(worst case 1.765e-03 over the Apr–Jun overlap) against `pytest.approx`'s default
+`rel=1e-6`. Retiring the marker and widening the tolerance to `rel=1e-2` is therefore one
+edit. The test keeps its teeth by a factor of 37 — under the old drawdown the same
+comparison differed by 37.1%. The period must **not** be changed to 365.0 to force
+exactness: that term also drives temperature and PAR, so it would move every yield above.
 
 ---
 

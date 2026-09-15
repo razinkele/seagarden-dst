@@ -12,9 +12,10 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .calibration import Calibration, Tier
 
@@ -42,6 +43,14 @@ class GrowthParams(BaseModel):
     upper_temp_c: float | None = Field(
         default=None, description="Temperature above which growth declines, degrees C"
     )
+    upper_temp_decline_c: float = Field(
+        default=3.0,
+        gt=0,
+        description=(
+            "Width, degrees C, of the Gaussian decline above upper_temp_c. ASSUMED - "
+            "no source fits this value."
+        ),
+    )
     k_nitrate: float = Field(
         gt=0, description="Half-saturation constant for nitrate, Holling type II, umol N/L"
     )
@@ -49,6 +58,14 @@ class GrowthParams(BaseModel):
     b_initial: float = Field(gt=0, description="Seeded biomass, g DW/m2")
     b_max: float | None = Field(
         default=None, description="Carrying capacity of the cultivation unit, g DW/m2"
+    )
+    b_max_basis: str | None = Field(
+        default=None,
+        description=(
+            "Where b_max comes from. 'assumed_from_anchor' means it is the "
+            "validation anchor's own upper bound, so the model cannot overshoot the "
+            "range it is checked against - not an independent source."
+        ),
     )
 
 
@@ -77,6 +94,22 @@ class SalinityResponse(BaseModel):
         default=None,
         description="Salinity below which cultivation is contraindicated (tier D), psu",
     )
+    floor_basis: Literal["observed", "assumed"] = Field(
+        default="assumed",
+        description=(
+            "Whether tolerance_floor_psu rests on an observed cultivation failure or is "
+            "assumed. Governs what contraindication() is allowed to tell the user: only "
+            "an observed floor may be reported as a finding (specification 7.4, tier D)."
+        ),
+    )
+    demonstrated_salinity_range: tuple[float, float] | None = Field(
+        default=None,
+        description=(
+            "Salinity range the parameters were actually established in. Provenance that "
+            "widens the displayed band; NOT a tier D trigger - extrapolation beyond it is "
+            "tier B or C per specification 7.4."
+        ),
+    )
 
     def factor(self, salinity_psu: float) -> float:
         if not self.applies:
@@ -101,7 +134,14 @@ class ElementalFractions(BaseModel):
     phosphorus: float = Field(ge=0, le=1, description="Mass fraction P")
     carbon: float = Field(ge=0, le=1, description="Mass fraction C")
     dry_matter: float | None = Field(
-        default=None, ge=0, le=1, description="DM fraction of FW, shellfish only"
+        default=None,
+        ge=0,
+        le=1,
+        description=(
+            "DM fraction of FW. Shellfish carry it on a fresh-weight elemental basis; "
+            "a salinity-indexed macroalga carries it too, to convert its published "
+            "t FW/ha yield into the kg DW its elemental basis expects."
+        ),
     )
 
 
@@ -123,6 +163,26 @@ class ShellfishYield(BaseModel):
     commercial_density_divisor: float = Field(
         default=3.15, description="Commercial density is this factor lower than mitigation"
     )
+    tolerance_floor_psu: float | None = Field(
+        default=None,
+        description="Salinity below which cultivation is contraindicated (tier D), psu",
+    )
+    floor_basis: Literal["observed", "assumed"] = Field(
+        default="assumed",
+        description=(
+            "Whether tolerance_floor_psu rests on an observed cultivation failure or is "
+            "assumed. Governs what contraindication() is allowed to tell the user: only "
+            "an observed floor may be reported as a finding (specification 7.4, tier D)."
+        ),
+    )
+    demonstrated_salinity_range: tuple[float, float] | None = Field(
+        default=None,
+        description=(
+            "Salinity range the parameters were actually established in. Provenance that "
+            "widens the displayed band; NOT a tier D trigger - extrapolation beyond it is "
+            "tier B or C per specification 7.4."
+        ),
+    )
 
 
 class CalibrationEntry(BaseModel):
@@ -142,6 +202,44 @@ class CalibrationEntry(BaseModel):
             calibrated_on=self.calibrated_on,
             note=self.note,
         )
+
+
+class Anchor(BaseModel):
+    """A published measurement the parameterisation is checked against.
+
+    Anchors are data rather than prose because the basis is what makes them usable: a
+    figure quoted per cage means something different from the same figure per square
+    metre, and the Tagalaht nitrogen arm could not be reconciled precisely because
+    nobody had written the basis down.
+    """
+
+    quantity: Literal["dry_weight", "carbon", "nitrogen", "phosphorus"]
+    low: float
+    high: float
+    unit: str
+    basis: str = Field(description="Per cage or per m2, DW or FW, cage area, cycle length")
+    source: str
+    reconciles: bool = Field(
+        default=True,
+        description="False where the model cannot currently reproduce this arm.",
+    )
+
+    @model_validator(mode="after")
+    def _check_the_range_is_not_inverted(self) -> Anchor:
+        """An inverted band must fail at load, not mid-analysis.
+
+        This was enforced only where a test happened to look, so an inverted range in
+        a species file added later would load clean. An anchor is what the
+        parameterisation is checked against: reversed, `low <= value <= high` can
+        never hold, and `reconciles` then records a modelling failure that is really
+        a data-entry error. `low == high` is allowed - a single published figure.
+        """
+        if self.low > self.high:
+            raise ValueError(
+                f"{self.quantity} anchor has low={self.low} above high={self.high}; "
+                "the range is inverted"
+            )
+        return self
 
 
 class SpeciesParams(BaseModel):
@@ -168,8 +266,32 @@ class SpeciesParams(BaseModel):
     max_yield_t_fw_ha: float | None = Field(
         default=None, description="Reference maximum yield before salinity scaling"
     )
+    yield_model: Literal["ode", "salinity_indexed"] = Field(
+        default="ode",
+        description=(
+            "Which model produces the harvest. 'ode' is the OLAMUR D3.2 growth "
+            "formulation (specification 7.2). 'salinity_indexed' is D2.3's published "
+            "form for Saccharina - f_salinity multiplied by max_yield_t_fw_ha, with no "
+            "ODE at all."
+        ),
+    )
     calibration: list[CalibrationEntry]
+    anchors: list[Anchor] | None = None
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _check_salinity_indexed_is_computable(self) -> SpeciesParams:
+        """A model that cannot produce a number must fail at load, not mid-analysis."""
+        if self.yield_model == "salinity_indexed":
+            if self.max_yield_t_fw_ha is None:
+                raise ValueError(
+                    "yield_model='salinity_indexed' requires max_yield_t_fw_ha to be set"
+                )
+            if self.elemental.dry_matter is None:
+                raise ValueError(
+                    "yield_model='salinity_indexed' requires elemental.dry_matter to be set"
+                )
+        return self
 
     @field_validator("cultivation_window")
     @classmethod
@@ -212,6 +334,19 @@ class SpeciesParams(BaseModel):
             note="No calibration statement for this region.",
         )
 
+    def salinity_floor(self) -> tuple[float, str] | None:
+        """The salinity below which this species is contraindicated, and whether that
+        floor is observed or assumed. Resolved in one place because two parallel
+        resolution rules are how tier D came to leak in the first place."""
+        if self.salinity is not None and self.salinity.tolerance_floor_psu is not None:
+            return self.salinity.tolerance_floor_psu, self.salinity.floor_basis
+        if (
+            self.shellfish_yield is not None
+            and self.shellfish_yield.tolerance_floor_psu is not None
+        ):
+            return self.shellfish_yield.tolerance_floor_psu, self.shellfish_yield.floor_basis
+        return None
+
 
 class MethodParams(BaseModel):
     """A cultivation method from the WP3 A3.2 system taxonomy.
@@ -238,11 +373,38 @@ class MethodParams(BaseModel):
     source: str = "placeholder - to be replaced with WP3 procurement figures"
 
 
+class AssessmentParams(BaseModel):
+    """Thresholds that decide a suitability verdict - specification section 5.2.
+
+    Both fields are ASSUMED - no source fits either of them. See
+    `params/assessment.yaml` for what each one binds and how tightly.
+
+    No defaults: this model is always constructed from `assessment.yaml`
+    (`load_parameters()` reads it unconditionally), and a default here would let a
+    missing or misspelled key load "successfully" while silently keeping the
+    Python-side value - defeating the entire point of moving these thresholds into
+    data. `extra="forbid"` is deliberately confined to this one model in this file:
+    these two fields are the only ones in the whole parameter tree whose sole reason
+    to exist is operator recalibration of a verdict threshold, so a typo here must
+    fail loudly and name itself. The other models carry many physical-model
+    constants that are shared, rarely edited per-site, and already default
+    sensibly (`None`, or a documented placeholder) when a species file omits them;
+    extending `extra="forbid"` to them is a separate, larger decision this task
+    does not make.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    salinity_factor_floor: float
+    yield_floor_kg_dw_per_m2: float
+
+
 class ParameterSet(BaseModel):
     """Everything loaded from params/."""
 
     species: dict[str, SpeciesParams]
     methods: dict[str, MethodParams]
+    assessment: AssessmentParams
 
     def species_for_group(self, group: str) -> list[SpeciesParams]:
         return [s for s in self.species.values() if s.group == group]
@@ -271,7 +433,11 @@ def load_parameters(root: Path | str | None = None) -> ParameterSet:
             parsed_method = MethodParams.model_validate(entry)
             methods[parsed_method.key] = parsed_method
 
-    return ParameterSet(species=species, methods=methods)
+    assessment_path = base / "assessment.yaml"
+    assessment_raw = yaml.safe_load(assessment_path.read_text(encoding="utf-8"))
+    assessment = AssessmentParams.model_validate(assessment_raw)
+
+    return ParameterSet(species=species, methods=methods, assessment=assessment)
 
 
 @lru_cache(maxsize=1)

@@ -1,0 +1,19 @@
+# Thresholds that decide a suitability verdict - specification section 5.2.
+#
+# These lived as Python defaults, against specification section 1's premise that
+# coefficients are data. Both are ASSUMED - no source fits either of them.
+#
+# Ulva is the only Application-Form macroalga (blue mussel is Application-Form too but is
+# shellfish, routed past both thresholds by the `species.group != "macroalga"` guard in
+# suitability.assess_growth()). Its shipped yields run 0.461-0.771 kg DW/m2 across the five
+# reportable placeholder sites, so the 0.5 floor is what decides its growth-viability verdict
+# at each of them - it flips the verdict to MARGINAL at EE-coastal (0.461) and DK-belt clears
+# it by 0.002. PL-lagoon never reaches the floor: Ulva is contraindicated there below 2.5 psu.
+#
+# Re-measured values (method-invariant - independent of cultivation area): EE 0.4614,
+# DK 0.5016, LT 0.5917, PL-coastal 0.7162, DE 0.7709.
+
+salinity_factor_floor: 0.35        # ASSUMED. Below this fraction of unscaled yield the
+                                   # environment constraint reads MARGINAL.
+yield_floor_kg_dw_per_m2: 0.5      # ASSUMED. Specification 5.2 calls this user-set;
+                                   # no control exists yet. Package E, decision D4.

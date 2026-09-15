@@ -131,33 +131,32 @@ def test_the_trajectory_integrates_over_the_wrapping_window(params, site):
     assert trajectory.biomass[-1] > kelp.growth.b_initial
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "The placeholder DIN drawdown is indexed by position in the window rather "
-        "than by calendar day. Unblocked by the section 6 climatologies; see the "
-        "README's 'What is stubbed'. Fixing it moves the Tagalaht anchor, so the "
-        "mu_max re-tune travels with it."
-    ),
-)
 def test_nutrient_forcing_is_a_property_of_the_site_not_the_query(site):
     """Two species at one site must see the same nitrogen on the same day.
 
-    They do not. On 1 April at DK-belt the site offers 3.15, 3.61 or 5.00 umol N/L
-    according to which species' window was asked about, because `daily_forcing`
-    spreads a fixed drawdown across however many days the window happens to contain.
-    Found while fixing the wrapping window, which made the discrepancy large enough
-    to change a published number - it is not caused by wrapping and predates it.
+    They now do. This carried a strict xfail while `daily_forcing` spread a fixed
+    drawdown across however many days the window happened to contain: on 1 April at
+    DK-belt it returned 3.15 umol N/L for the Oct-Jun window and 5.00 for the
+    April-start windows, a 37% discrepancy decided by which species was asked about.
+    Found while fixing the wrapping window, which made it large enough to change a
+    published number; it was not caused by wrapping and predated it.
 
-    Strict xfail on purpose: when the seasonal forcing lands this XPASSes and fails
-    the suite, so the marker has to be removed deliberately rather than the finding
-    quietly evaporating.
+    The marker is retired here rather than left to XPASS, because it would NOT have
+    XPASSed - see the tolerance note below, which is why the two changes are one edit.
     """
     days_wrapping, _, _, din_wrapping = daily_forcing(site, (10, 6))
-    days_plain, _, _, din_plain = daily_forcing(site, (1, 6))
+    days_april_start, _, _, din_april_start = daily_forcing(site, (4, 10))
 
     april = day_of_year(4, 1)
     under_wrapping = float(np.interp(april + 365, days_wrapping, din_wrapping))
-    under_plain = float(np.interp(april, days_plain, din_plain))
+    under_april_start = float(np.interp(april, days_april_start, din_april_start))
 
-    assert under_wrapping == pytest.approx(under_plain)
+    # rel=1e-2, not pytest.approx's default 1e-6. The seasonal term has period 365.25
+    # but this test steps a whole 365 days across the wrap, so an irreducible phase
+    # residual remains: 3.388175 vs 3.382352 here, 1.722e-03 relative, with a worst
+    # case of 1.765e-03 over the Apr-Jun overlap. Do NOT close the gap by changing the
+    # period to 365.0 - that term also drives temperature and PAR, so it would move
+    # every yield in the model. The bound keeps its teeth at 1e-2 regardless: under
+    # the old position-indexed drawdown the same comparison was 3.146296 vs 5.000000,
+    # a 37.1% relative difference, failing this by a factor of 37.
+    assert under_wrapping == pytest.approx(under_april_start, rel=1e-2)
