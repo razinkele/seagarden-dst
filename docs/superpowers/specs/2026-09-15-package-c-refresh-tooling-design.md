@@ -213,10 +213,9 @@ fields need it — `light_attenuation_k` (Poole-Atkins, C§3.4) and `valid` (C§
 `inputs` span every contributing layer. That is why a computed field is not simply another
 entry in some layer's `variables`: it has no single raw source to be an entry of.
 
-§6.3's rule, stated once and not
-paraphrased anywhere else in this document: a layer must carry **either a `zenodo_doi`, or
-an explicit `redistribution: forbidden` marker with a `source_url`**. A layer carrying
-neither fails §9's provenance test.
+§6.3's rule, stated once and not paraphrased anywhere else in this document: a layer must
+carry **either a `zenodo_doi`, or an explicit `redistribution: forbidden` marker with a
+`source_url`**. A layer carrying neither fails §9's provenance test.
 
 **That rule as written cannot be satisfied by anything package C produces, and this design
 had to resolve it rather than restate it.** C§1 puts the Zenodo deposit outside package C,
@@ -294,11 +293,13 @@ lon) but C§1 fixes its baseline at 2023–2025. An implementer applying the dim
 literally would write `baselines["significant_wave_m"] = []` — asserting that no window
 applies to the one variable C§4.1 cites as the whole reason `baselines` is a mapping rather
 than a single artifact-level field. The two criteria coincide for three variables and
-diverge for the fourth, which is precisely the case that matters. Omitting the key means the manifest forgot, and fails. This is the same
-instinct as §6.3's absent-input rule: an unstated thing is an error, not a permission. Note
-that the rule binds derived fields too: `valid` is claimed by a `Derivation` rather than by
-a layer, and still needs its `[]`. The fixture (C§7) carries `[]` for all three so the
-representation is exercised rather than merely documented.
+diverge for the fourth, which is precisely the case that matters.
+
+Omitting the key means the manifest forgot, and fails. This is the same instinct as §6.3's
+absent-input rule: an unstated thing is an error, not a permission. Note that the rule binds
+derived fields too: `valid` is claimed by a `Derivation` rather than by a layer, and still
+needs its `[]`. The fixture (C§7) carries `[]` for all three so the representation is exercised
+rather than merely documented.
 
 **`dataset_id` is unique across `layers`.** C§5 says splitting `copernicus_bgc_light` out
 makes *one layer, one dataset* true by construction — but nothing enforced it, and the two
@@ -446,10 +447,10 @@ code as a production refresh, with `synthetic: true` set in the manifest.
 
 It carries **one `LayerProvenance` per dataset** — five, including both BGC products —
 `derived` entries for `light_attenuation_k` and `valid`, and `[]` baselines for all three
-static fields, `valid` among them (C§4.4). Its layers carry **`archive.status: pending`**, not an
-invented DOI. That is the state a
-real first refresh produces, so the fixture exercises the path production actually takes;
-a fixture carrying a fake DOI would test a state package C never reaches.
+static fields, `valid` among them (C§4.4). Its layers carry **`archive.status: pending`**, not
+an invented DOI. That is the state a real first refresh produces, so the fixture exercises the
+path production actually takes; a fixture carrying a fake DOI would test a state package C
+never reaches.
 
 Synthetic rather than a real subset, for two reasons. Committing real Copernicus values to
 a public repository raises a redistribution question that C should not answer implicitly;
@@ -510,11 +511,11 @@ deliverable, and the one whose done-when is that **somebody else follows it end 
 
 It must carry: prerequisites, including that the Copernicus credential is **institutional,
 never personal**, and where it is held; environment setup; the command; **expected transfer
-volume** — ~170 MB of forcing on disk, but **~30 GB crossing the wire**: ~0.59 GB of
-monthly fields, ~3.6 GB of daily `zsd` (C§3.4), ~25.8 GB of hourly waves — **and runtime**; free-disk requirement; what success
-looks like; how to verify (provenance test plus checksum); how to deposit artifact and
-manifest to Zenodo and record the DOI back into the committed manifest; what each failure
-mode in C§6.1 means and what to do about it; and who to contact.
+volume** — ~170 MB of forcing on disk, but **~30 GB crossing the wire**: ~0.59 GB of monthly
+fields, ~3.6 GB of daily `zsd` (C§3.4), ~25.8 GB of hourly waves — **and runtime**; free-disk
+requirement; what success looks like; how to verify (provenance test plus checksum); how to
+deposit artifact and manifest to Zenodo and record the DOI back into the committed manifest;
+what each failure mode in C§6.1 means and what to do about it; and who to contact.
 
 It must also state plainly that **the deposited manifest and the committed manifest differ**.
 The DOI exists only after the deposit, so the sequence is: build (every layer
@@ -692,9 +693,10 @@ the one `dataset_id` a record carries. The evidence was sound; the generalisatio
 
 Resolved structurally rather than by widening the record: **a layer is one dataset**, and
 biogeochemistry is two layers (C§5). `provenance()` still returns exactly one record,
-`dataset_id` stays singular, and the table above now reads one row per *Copernicus* layer — EMODnet is absent from it for the reason given below. What the
-schema gains instead is `variables` on each record and the claimed-exactly-once rule of
-C§4.4, so that splitting a layer cannot silently drop a variable on the floor.
+`dataset_id` stays singular, and the table above now reads one row per *Copernicus* layer —
+EMODnet is absent from it for the reason given below. What the schema gains instead is
+`variables` on each record and the claimed-exactly-once rule of C§4.4, so that splitting a
+layer cannot silently drop a variable on the floor.
 
 Two things follow that the manifest must carry. The **wave product is at a different
 version** (`202411`) from physics and biogeochemistry (`202303`) — expected, since they are
