@@ -1,8 +1,11 @@
+from datetime import UTC, datetime
+
 import numpy as np
 import pytest
 from pydantic import ValidationError
 
 from seagarden_dst.refresh.grid import GridSpec
+from seagarden_dst.refresh.manifest import Archive, LayerProvenance
 
 
 def test_baltic_grid_matches_the_shipped_extent():
@@ -89,3 +92,81 @@ def test_grid_rejects_incoherent_extent():
             crs="EPSG:4326", lat_min=53.5, lat_max=100.0, lon_min=9.5, lon_max=27.0,
             lat_step=0.016666, lon_step=0.027777, n_lat=390, n_lon=630,
         )
+
+
+def _layer(**over):
+    """A valid layer record. Override one field per negative case."""
+    base = dict(
+        name="copernicus_phy",
+        source="Copernicus Marine Service",
+        product_id="BALTICSEA_MULTIYEAR_PHY_003_011",
+        dataset_id="cmems_mod_bal_phy_my_P1M-m",
+        version="202303",
+        retrieved_on=datetime(2026, 1, 1, tzinfo=UTC),
+        licence="Copernicus Marine Service licence",
+        redistribution="allowed",
+        source_url="https://data.marine.copernicus.eu/",
+        archive=Archive(
+            status="pending",
+            source_url="https://data.marine.copernicus.eu/",
+            unblocked_by="the Zenodo deposit is outside package C (C1)",
+        ),
+        variables=["salinity_psu", "temp_c"],
+    )
+    base.update(over)
+    return LayerProvenance(**base)
+
+
+def test_pending_with_a_url_and_a_note_is_accepted():
+    """C§4.1: pending is the state every layer of a first real refresh is in."""
+    assert _layer().archive.status == "pending"
+
+
+def test_deposited_needs_a_doi():
+    with pytest.raises(ValidationError, match="requires a zenodo_doi"):
+        Archive(status="deposited")
+
+
+def test_forbidden_needs_a_source_url():
+    with pytest.raises(ValidationError, match="requires a source_url"):
+        Archive(status="forbidden")
+
+
+def test_pending_without_a_source_url_is_rejected():
+    with pytest.raises(ValidationError, match="requires a source_url"):
+        Archive(status="pending", unblocked_by="a note")
+
+
+def test_pending_without_an_unblocked_by_note_is_rejected():
+    """An incomplete pending records a gap without saying what closes it."""
+    with pytest.raises(ValidationError, match="requires an unblocked_by note"):
+        Archive(status="pending", source_url="https://example.invalid/")
+
+
+def test_an_unknown_archive_status_is_rejected():
+    """The validator accepts exactly three states and nothing else.
+
+    This fails at pydantic FIELD-level validation on the `Literal`, before
+    `_check_state_is_complete` ever runs, so we match pydantic's own literal-
+    mismatch wording rather than one of our validator's messages.
+    """
+    with pytest.raises(
+        ValidationError, match="Input should be 'deposited', 'forbidden' or 'pending'"
+    ):
+        Archive(status="archived", source_url="https://example.invalid/")
+
+
+def test_a_layer_with_no_archive_state_is_rejected():
+    """C§7's FIRST archive case, and clause 10's third negative test.
+
+    `archive` is a required field with no default, so a layer without one fails
+    at load. Easy to leave untested because the other five cases all exercise a
+    malformed archive rather than an absent one — and without it, a later
+    refactor giving `archive` a `None` default would pass the whole suite while
+    making every layer's provenance optional.
+
+    This fails at pydantic FIELD-level validation (archive is required / must
+    be an Archive instance), before our model_validator runs.
+    """
+    with pytest.raises(ValidationError, match="valid dictionary or instance of Archive"):
+        _layer(archive=None)
