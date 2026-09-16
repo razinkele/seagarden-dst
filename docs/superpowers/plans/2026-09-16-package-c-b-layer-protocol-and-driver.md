@@ -529,6 +529,12 @@ class FakeLayer:
 
         Static fields get `[]`; a fake with an explicit `window` reports it whatever
         was asked for — which is how the wave layer's fixed 2023-2025 is modelled.
+
+        **Order-dependent, unlike a real layer.** Without a `window`, this reports
+        `self._last_years`, which only `build()` sets. `run_refresh` calls `_build_all`
+        before `_declared_windows`, so it is populated in time — but do not reorder
+        those two, or every yearly variable declares an empty window and then
+        "disagrees with the data". A real layer knows its window without building.
         """
         if self._window is not None:
             return {name: list(self._window) for name in self._variables}
@@ -608,7 +614,7 @@ micromamba run -n shiny python -m pytest -q
 micromamba run -n shiny python -m pytest -q -m spatial
 micromamba run -n shiny ruff check .
 ```
-Expected: the pre-existing counts (198 passed / 12 deselected, then 12 passed), ruff clean. If any test changes behaviour, the two tuples had already drifted — report it, do not paper over it.
+Expected: **unchanged from the Step 9 run** — the 198 passed / 12 deselected baseline plus this task's 8 unmarked layer tests and 7 spatial shape tests, so 206 passed / 19 deselected, then 19 passed. Ruff clean. What this step proves is that swapping the tuple for an import changed *nothing*; phrase it that way rather than chasing an absolute number, so adding a test to Task 1 later does not silently invalidate it. If any test changes behaviour, the two tuples had already drifted — report it, do not paper over it.
 
 - [ ] **Step 11: Commit**
 
@@ -681,7 +687,10 @@ def test_valid_is_the_intersection_of_two_disagreeing_masks():
 def test_coverage_reduces_the_real_four_dimensional_shape_to_two():
     # The defect a `lat`/`lon` spatial-dim tuple produces is a 0-d scalar, silently.
     a = np.ones((2, 12, 2, 2), dtype="float32")
-    a[:, :, 0, 1] = np.nan
+    # ONE cell in ONE month of ONE year, not the whole non-spatial slice. A whole-slice
+    # NaN makes `.all()` and `.any()` return the same mask, so the R5 mutation in Step 6
+    # could not redden this test — measured, not assumed.
+    a[0, 3, 0, 1] = np.nan
     phy = xr.Dataset(
         {"temp_c": (("year", "month", "latitude", "longitude"), a)},
         coords={"year": [2024, 2025], "month": _MONTHS, **_COORDS},
@@ -734,6 +743,19 @@ def test_merge_preserves_variable_attributes():
     phy["temp_c"].attrs["crs"] = "EPSG:4326"
     merged = merge_layers({"copernicus_phy": phy})
     assert merged["temp_c"].attrs["crs"] == "EPSG:4326"
+
+
+def test_merge_tolerates_layers_with_different_dataset_attributes():
+    # Real layers carry different DATASET-level attrs — EMODnet and CMEMS do not share
+    # a `source`. combine_attrs="no_conflicts" raises MergeError on exactly that, which
+    # would have made the first real refresh fail at the merge. Measured against this
+    # environment's xarray, not assumed.
+    phy = _static("temp_c", [[1.0, 1.0], [1.0, 1.0]])
+    phy.attrs["source"] = "CMEMS"
+    bathy = _static("depth_mean_m", [[1.0, 1.0], [1.0, 1.0]])
+    bathy.attrs["source"] = "EMODnet"
+    merged = merge_layers({"copernicus_phy": phy, "emodnet_bathy": bathy})
+    assert set(merged.data_vars) == {"temp_c", "depth_mean_m", "valid"}
 
 
 def test_compute_valid_refuses_when_no_coverage_layer_is_present():
@@ -842,20 +864,25 @@ def compute_valid(per_layer: dict[str, xr.Dataset]) -> xr.DataArray:
 def merge_layers(per_layer: dict[str, xr.Dataset]) -> xr.Dataset:
     """Merge every layer onto one dataset and attach `valid`.
 
-    `combine_attrs="no_conflicts"` rather than `"drop"`: C§3.2 records the CRS as a
-    variable attribute, and dropping it here would only surface when package D read
-    the artifact and found no CRS to trust.
+    `combine_attrs="drop_conflicts"`, deliberately, and neither of the two obvious
+    alternatives. `"drop"` would strip the CRS that C§3.2 records as a VARIABLE
+    attribute, surfacing only when package D read the artifact and found no CRS to
+    trust. `"no_conflicts"` raises `MergeError` the moment two layers carry different
+    DATASET-level attrs — and EMODnet and CMEMS do not share a `source`, so the first
+    real refresh would have died at the merge. `drop_conflicts` drops the conflicting
+    dataset-level attrs and leaves every variable's own attrs intact, which is the
+    behaviour both requirements point at.
     """
     import xarray as xr
 
-    merged = xr.merge(list(per_layer.values()), join="exact", combine_attrs="no_conflicts")
+    merged = xr.merge(list(per_layer.values()), join="exact", combine_attrs="drop_conflicts")
     return merged.assign(valid=compute_valid(per_layer))
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_merge.py -v -m spatial`
-Expected: 9 passed
+Expected: 10 passed
 
 - [ ] **Step 5: Commit**
 
@@ -878,9 +905,13 @@ Delete the `missing` check. `test_compute_valid_refuses_a_variable_missing_a_spa
 
 Then the **SWAP proof**: `_coverage_of` raises two messages, both describing a layer's data. Swap the bodies of the empty-dataset branch and the missing-spatial-dims branch. `test_compute_valid_refuses_a_layer_that_built_nothing` and `test_compute_valid_refuses_a_variable_missing_a_spatial_dim` must both go red. Restore, re-run green. Record every output.
 
-- [ ] **Step 9: DELETE proof — attribute preservation**
+- [ ] **Step 9: DELETE proof — the attribute policy, both directions**
 
-Change `combine_attrs="no_conflicts"` to `"drop"`. `test_merge_preserves_variable_attributes` must go red with a `KeyError`. Restore, re-run green.
+This one guard has to satisfy two opposing requirements, so prove both.
+
+Change `combine_attrs="drop_conflicts"` to `"drop"`: `test_merge_preserves_variable_attributes` must go red with a `KeyError`. Restore.
+
+Then change it to `"no_conflicts"`: `test_merge_tolerates_layers_with_different_dataset_attributes` must go red with `MergeError`, while `test_merge_preserves_variable_attributes` stays **green**. That asymmetry is the point — it shows the two tests pin opposite edges of the same decision, and that `drop_conflicts` is the only setting between them. Restore, re-run green. Record all three outputs.
 
 ---
 
@@ -968,6 +999,8 @@ from refresh_fakes import FakeLayer  # noqa: E402
 from seagarden_dst.artifact.pair import load_pair  # noqa: E402
 from seagarden_dst.refresh.driver import (  # noqa: E402
     RefreshFailed,
+    _declared_windows,
+    check_grid,
     resolve_baselines,
     run_refresh,
 )
@@ -1150,10 +1183,11 @@ def test_the_requested_year_range_reaches_the_layers(
     assert manifest.baselines["significant_wave_m"] == [2023, 2024, 2025]
 
 
-def test_a_mis_shaped_layer_is_refused_before_anything_is_written(
+def test_a_short_form_coordinate_layer_is_refused_before_anything_is_written(
     tmp_path, small_grid, nine_variable_layers
 ):
-    # R7. A layer emitting the short-form coordinates must not reach disk.
+    # Proves MERGE's per-layer guard is reached from the driver and nothing is written.
+    # This is NOT the R7 proof — see the next test for that.
     bad = FakeLayer(
         "copernicus_phy",
         ["salinity_psu", "temp_c"],
@@ -1172,6 +1206,75 @@ def test_a_mis_shaped_layer_is_refused_before_anything_is_written(
             workdir=tmp_path / "work",
         )
     assert not (target / "forcing.nc").exists()
+
+
+def test_a_transposed_variable_is_refused_before_anything_is_written(
+    tmp_path, small_grid, nine_variable_layers
+):
+    # R7 proper. Both dims are spelled correctly, so merge_layers' per-layer guard
+    # passes and `valid` still comes out (latitude, longitude). Only check_shapes can
+    # see that THIS variable has them the wrong way round.
+    bad = FakeLayer(
+        "emodnet_bathy",
+        ["depth_mean_m", "depth_min_m"],
+        shape="static",
+        data={
+            "depth_mean_m": (("longitude", "latitude"), np.ones((3, 3), dtype="float32")),
+            "depth_min_m": (("latitude", "longitude"), np.ones((3, 3), dtype="float32")),
+        },
+    )
+    target = tmp_path / "out"
+    with pytest.raises(ValueError, match="expected dims"):
+        run_refresh(
+            [*nine_variable_layers[:-1], bad],
+            grid=small_grid,
+            years=YearRange(start=2024, end=2024),
+            target_dir=target,
+            workdir=tmp_path / "work",
+        )
+    assert not (target / "forcing.nc").exists()
+
+
+def test_two_layers_declaring_one_variable_are_refused():
+    # C§5: one variable, one producing layer. Called directly rather than through
+    # run_refresh: with the guard deleted, a two-layer set falls through to C§4.4's
+    # claimed-exactly-once ValidationError at Manifest(...), so an end-to-end version
+    # would go red with the wrong exception instead of DID NOT RAISE.
+    # No build() needed: the guard fires on the variable NAME, and an unbuilt fake
+    # declares an empty window for each variable it would produce.
+    layers = [
+        FakeLayer("copernicus_phy", ["temp_c"]),
+        FakeLayer("copernicus_bgc", ["temp_c"]),
+    ]
+    with pytest.raises(RefreshFailed, match="two layers declared"):
+        _declared_windows(layers)
+
+
+def test_a_layer_set_on_the_wrong_grid_is_refused(tmp_path, small_grid):
+    # Nothing else catches this. xr.merge(join="exact") only catches layers
+    # disagreeing WITH EACH OTHER; check_shapes sees dim names and order;
+    # check_declaration sees variable names. A layer set that agrees internally and is
+    # uniformly wrong writes a manifest attesting an extent the artifact lacks — the
+    # wave-baseline trap again, on the spatial axis.
+    wrong = xr.Dataset(
+        {"depth_mean_m": (("latitude", "longitude"), np.ones((2, 2), dtype="float32"))},
+        coords={"latitude": [55.0, 55.5], "longitude": [20.0, 20.5]},
+    )
+    with pytest.raises(RefreshFailed, match="does not sit on the grid"):
+        check_grid(wrong, small_grid)
+
+
+def test_the_right_grid_passes_the_attestation_check(small_grid):
+    ok = xr.Dataset(
+        {
+            "depth_mean_m": (
+                ("latitude", "longitude"),
+                np.ones((small_grid.n_lat, small_grid.n_lon), dtype="float32"),
+            )
+        },
+        coords={"latitude": small_grid.lats(), "longitude": small_grid.lons()},
+    )
+    check_grid(ok, small_grid)
 
 
 def test_a_partial_layer_set_cannot_produce_a_manifest(tmp_path, small_grid):
@@ -1316,6 +1419,34 @@ def _absent_fields() -> list[AbsentField]:
     ]
 
 
+def check_grid(dataset: xr.Dataset, grid: GridSpec) -> None:
+    """The merged data sits on the grid the manifest is about to attest.
+
+    Nothing else checks this. `xr.merge(join="exact")` catches layers disagreeing WITH
+    EACH OTHER; `check_shapes` sees dim names and order; `check_declaration` sees
+    variable names. A layer set that agrees internally and is uniformly wrong — the
+    four Copernicus layers share one source grid, so a cell-centre/cell-edge offset
+    shifts all of them together — would otherwise write a manifest attesting an extent
+    the artifact does not have. That is the wave-baseline trap on the spatial axis.
+    """
+    import numpy as np
+
+    expected = {"latitude": grid.lats(), "longitude": grid.lons()}
+    for dim, axis in expected.items():
+        size = dataset.sizes.get(dim)
+        if size != len(axis):
+            raise RefreshFailed(
+                f"the merged data does not sit on the grid the manifest attests: "
+                f"'{dim}' has {size} points, the GridSpec declares {len(axis)}"
+            )
+        if dim in dataset.coords and not np.allclose(dataset[dim].values, axis):
+            raise RefreshFailed(
+                f"the merged data does not sit on the grid the manifest attests: "
+                f"'{dim}' coordinates differ from the GridSpec's, so the artifact "
+                "covers a different extent than the manifest claims"
+            )
+
+
 def _build_all(
     layers: Sequence[Layer], grid: GridSpec, years: YearRange, workdir: Path
 ) -> dict[str, xr.Dataset]:
@@ -1364,6 +1495,7 @@ def run_refresh(
     built = _build_all(layers, grid, years, workdir)
     merged = merge_layers(built)
     check_shapes(merged)  # R7 - names are check_declaration's job, shapes are ours
+    check_grid(merged, grid)  # and the extent is nobody else's at all
 
     manifest = Manifest(
         artifact_schema_version=ARTIFACT_SCHEMA_VERSION,
@@ -1382,7 +1514,15 @@ def run_refresh(
     return write_pair(merged, manifest, Path(target_dir))
 ```
 
-Note the ordering inside `run_refresh`: `merge_layers` raises on a mis-named spatial dim before `check_shapes` is reached, which is why the R7 test matches `"lacks the spatial dims"`. Both guards exist because they catch different things — merge catches it per *layer*, `check_shapes` catches a variable whose dims are individually plausible but wrong for that variable (a transposed static field, or a wave field that kept its year).
+**The three guards catch three different things, and each has its own test.** The ordering inside `run_refresh` matters:
+
+| Guard | Catches | Its test |
+|---|---|---|
+| `merge_layers` → `_coverage_of` | a layer whose variable has no `latitude`/`longitude` at all — the short-form case | `test_a_short_form_coordinate_layer_is_refused_before_anything_is_written` |
+| `check_shapes` | dims individually plausible but wrong for *that variable* — transposed, or a wave field that kept its `year` | `test_a_transposed_variable_is_refused_before_anything_is_written` |
+| `check_grid` | every dim spelled and ordered right, on the wrong extent | `test_a_layer_set_on_the_wrong_grid_is_refused` |
+
+Merge runs first, so the short-form case never reaches `check_shapes`. That is why the two tests match different fragments: `"lacks the spatial dims"` is merge's, `"expected dims"` is `check_shapes`'s, and `"does not sit on the grid"` is `check_grid`'s. Each fragment is unique to its guard on the driver path.
 
 - [ ] **Step 5: Remove the duplicated derivations (R4)**
 
@@ -1396,6 +1536,8 @@ def derived() -> list[Derivation]:
     return derivations()
 ```
 
+**Also delete the `COVERAGE_LAYERS` import Task 1 Step 10 added.** Once `derived()` stops building the `valid` record itself, `_COVERAGE_LAYERS` has no remaining use in that module and ruff fails it as F401 — an unused import that Task 1 needed and Task 3 orphans. Confirm with `ruff check tests/refresh_builders.py` before committing; if some other function still uses it, keep it and say so.
+
 Move the existing explanatory comment about `din_umol_l` into `driver.derivations()`'s docstring if it is not already there, rather than deleting it.
 
 **Watch for an import cycle:** `refresh_builders` is a test helper, and `driver` imports xarray only under `TYPE_CHECKING`, so importing it from an unmarked test module is safe. Confirm `pytest -q` (no marker) still collects.
@@ -1407,7 +1549,7 @@ micromamba run -n shiny python -m pytest tests/test_refresh_driver.py -v -m spat
 micromamba run -n shiny python -m pytest -q
 micromamba run -n shiny python -m pytest -q -m spatial
 ```
-Expected: 14 passed, then the full suite green both ways.
+Expected: 17 passed, then the full suite green both ways. (Seventeen is this module as written in Step 2; Task 4 Step 4 appends two more CLI-path tests and takes it to 19.)
 
 - [ ] **Step 7: Commit**
 
@@ -1426,15 +1568,27 @@ The most important proof in this plan. Replace the `if key not in declared: rais
 
 Expected red: `test_a_declared_window_survives_a_variable_with_no_year_dimension` on `[] != [2023, 2024, 2025]`, `test_the_three_baseline_shapes_come_out_different`, `test_the_requested_year_range_reaches_the_layers`, and `test_an_undeclared_window_is_refused_rather_than_defaulted`. `test_a_static_field_keeps_its_empty_window` must stay **green** — that asymmetry proves the tests distinguish "empty window" from "no window stated". Restore, re-run green. Record every output.
 
-- [ ] **Step 10: DELETE proof and SWAP proof — the disagreement guard**
+- [ ] **Step 10: DELETE proof — the disagreement guard**
 
-Delete the `if key in declared and list(declared[key]) != from_data:` branch. `test_a_declaration_disagreeing_with_the_data_is_refused` must go red.
+Delete the `if key in declared and list(declared[key]) != from_data:` branch. `test_a_declaration_disagreeing_with_the_data_is_refused` must go red with `DID NOT RAISE`. Restore, re-run green.
 
-Then the **SWAP proof**: `resolve_baselines` raises two messages that both name a baseline and a variable. Swap the bodies of the disagreement branch and the undeclared branch. `test_a_declaration_disagreeing_with_the_data_is_refused` and `test_an_undeclared_window_is_refused_rather_than_defaulted` must both go red. Restore, re-run green.
+**No SWAP proof is owed here**, and the reason is worth stating so nobody adds one later. The global standard triggers a swap only where two sibling messages share a *matched substring*; these do not. One test matches `declared baseline for 'temp_c'`, the other matches `no layer declared a baseline window`, and neither fragment occurs in the other message. The bodies are not exchangeable in any case: the disagreement message interpolates `list(declared[key])`, which raises `KeyError` inside the `key not in declared` branch — so a swap would go red on a crash rather than on a mismatched fragment, which is the "red for the wrong reason" the standard forbids.
 
 - [ ] **Step 11: DELETE proof — `check_shapes` in the driver**
 
-Delete the `check_shapes(merged)` line. Record what happens to `test_a_mis_shaped_layer_is_refused_before_anything_is_written`: it may stay green, because `merge_layers` refuses first. If it does, say so plainly and add the test isolating `check_shapes`'s own contribution — a layer whose dims are individually valid but wrong for that variable, e.g. `depth_mean_m` built as `("longitude", "latitude")`. Restore, re-run green.
+Delete the `check_shapes(merged)` line. Run with `-m spatial`.
+
+`test_a_transposed_variable_is_refused_before_anything_is_written` must go red with `DID NOT RAISE` — a transposed variable survives `xr.merge(join="exact")` and `_coverage_of`, so nothing else refuses it and the artifact would reach disk. `test_a_short_form_coordinate_layer_is_refused_before_anything_is_written` must stay **green**, because `merge_layers` refuses that one first. That asymmetry is what separates the two guards. Restore, re-run green.
+
+- [ ] **Step 12: DELETE proof — the grid attestation**
+
+Delete the `check_grid(merged, grid)` line. `test_a_layer_set_on_the_wrong_grid_is_refused` calls `check_grid` directly, so it stays green — say so in the report, then add the end-to-end case that does go red: a `nine_variable_layers` set built against a *different* `GridSpec` than the one passed to `run_refresh`, asserting no artifact is written. Restore, re-run green.
+
+Then the **SWAP proof**: `check_grid` raises two messages sharing the fragment `does not sit on the grid the manifest attests`, which is exactly what both tests would match. Swap the two trailing clauses (the point-count one and the coordinate one). The size test and a coordinate test must each go red. If you have only the size test, write the coordinate one first — a shared matched substring with only one test behind it is the gap a SWAP proof exists to find.
+
+- [ ] **Step 13: DELETE proof — the duplicate-declaration guard**
+
+Delete the `if name in declared:` branch in `_declared_windows`. `test_two_layers_declaring_one_variable_are_refused` must go red with `DID NOT RAISE`. Restore, re-run green.
 
 ---
 
@@ -1454,10 +1608,7 @@ This module and its tests are **unmarked** — they must import without xarray, 
 
 ```python
 # tests/test_refresh_cli.py
-from pathlib import Path
-
 import pytest
-import yaml
 from refresh_fakes import FakeLayer
 
 from scripts.refresh_layers import build_parser, format_probe_report, main, probe_all
@@ -1655,11 +1806,21 @@ Two things not to "tidy":
 This one is `spatial` — the only test exercising `main`'s refresh path and `GridSpec.baltic()`. Append it to `tests/test_refresh_driver.py`, so the CLI module stays unmarked:
 
 ```python
-def test_the_cli_refresh_branch_builds_a_pair(tmp_path, nine_variable_layers, monkeypatch):
+def test_the_cli_refresh_branch_builds_a_pair(
+    tmp_path, small_grid, nine_variable_layers, monkeypatch
+):
     # Clause 1 end to end: the CLI is the entry point C§5 names, and without this its
     # refresh branch is never executed by any test.
+    #
+    # `baltic` is patched to the small grid on purpose. Measured, not guessed: the real
+    # extent is 390 x 630 = 245,700 cells, so all nine variables over two years is
+    # ~126 MB resident, 2-3x that transiently inside to_netcdf, and a ~100 MB file
+    # written on every run. That is not a unit test. The patch is what keeps it one.
     import scripts.refresh_layers as cli
 
+    from seagarden_dst.artifact.grid import GridSpec
+
+    monkeypatch.setattr(GridSpec, "baltic", classmethod(lambda cls: small_grid))
     monkeypatch.setattr(cli, "REGISTRY", {ly.name: ly for ly in nine_variable_layers})
     target = tmp_path / "out"
     code = cli.main(
@@ -1671,9 +1832,27 @@ def test_the_cli_refresh_branch_builds_a_pair(tmp_path, nine_variable_layers, mo
     assert code == 0
     assert (target / "forcing.nc").exists()
     assert (target / "manifest.json").exists()
+
+
+def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(monkeypatch):
+    # The patch in the test above would hide a CLI that stopped calling `baltic`, so
+    # pin the property that makes the patch safe: there is no grid option, therefore
+    # `GridSpec.baltic()` is the only extent the refresh branch can possibly use.
+    import scripts.refresh_layers as cli
+
+    from seagarden_dst.artifact.grid import GridSpec
+
+    assert not any(action.dest == "grid" for action in cli.build_parser()._actions)
+
+    called = []
+    monkeypatch.setattr(GridSpec, "baltic", classmethod(lambda cls: called.append(cls) or None))
+    monkeypatch.setattr(cli, "REGISTRY", {"copernicus_phy": FakeLayer("copernicus_phy", ["temp_c"])})
+    with pytest.raises(Exception):  # noqa: B017 - it fails downstream on a None grid
+        cli.main(["--start-year", "2024", "--end-year", "2024"])
+    assert called, "the refresh branch never asked for the Baltic grid"
 ```
 
-`GridSpec.baltic()` is the real Baltic extent, so this builds a full-size grid. Time it. If it is slow enough to hurt the suite, add a `--grid-preset` flag rather than shrinking the test's ambition, and say so in the report.
+This second test is deliberately crude — it proves only that the refresh branch *reaches* `GridSpec.baltic()`, by making that call record itself and letting the run fail immediately afterwards. If it turns out fragile, drop the monkeypatch half and keep the no-grid-option assertion, which is the load-bearing part. Say which you kept in the report.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -1681,7 +1860,7 @@ def test_the_cli_refresh_branch_builds_a_pair(tmp_path, nine_variable_layers, mo
 micromamba run -n shiny python -m pytest tests/test_refresh_cli.py -v
 micromamba run -n shiny python -m pytest tests/test_refresh_driver.py -v -m spatial
 ```
-Expected: 8 passed, then 15 passed
+Expected: 8 passed (the CLI module), then 19 passed (the driver module: 17 from Task 3 plus the two added here)
 
 - [ ] **Step 6: Commit**
 
@@ -1872,9 +2051,20 @@ Delete the `if not doi or not doi.strip():` branch. `test_an_empty_doi_is_refuse
 
 - [ ] **Step 8: DELETE proof — the re-validation**
 
-Replace the `Manifest.model_validate(payload)` return with `Manifest.model_construct(**payload)`, which skips every validator.
+Use a mutation that isolates validator-skipping *without* collateral damage. **Not** `Manifest.model_construct(**payload)`: that leaves `layers` as plain dicts, so three tests die with `AttributeError: 'dict' object has no attribute 'archive'` — collateral that proves nothing about re-validation. Instead, mutate to a copy that keeps real models and simply never re-runs the validators:
 
-Expect `test_the_flipped_manifest_still_validates` **not** to go red — it re-validates what `record_doi` failed to, so it does not discriminate. `test_a_flip_that_would_break_the_archive_contract_is_caught` is the one that does; confirm how each behaves under both variants and say plainly in the report which moved and which did not. A mutation that changes nothing is a finding about the test, not a clean bill of health. Restore, re-run green.
+```python
+    copy = manifest.model_copy(deep=True)
+    for layer in copy.layers:
+        if layer.archive.status == "pending":
+            layer.archive.status = "deposited"
+            layer.archive.zenodo_doi = doi
+    return copy
+```
+
+`Manifest.model_config` sets only `extra="forbid"`, so `validate_assignment` is off and those assignments are unchecked.
+
+Expect `test_the_flipped_manifest_still_validates` **not** to go red — it re-validates what `record_doi` failed to, so it does not discriminate. `test_a_flip_that_would_break_the_archive_contract_is_caught` is the one that does. Confirm how each behaves, and say plainly in the report which moved and which did not: a mutation that changes nothing is a finding about the test, not a clean bill of health. Restore, re-run green.
 
 ---
 
@@ -1888,11 +2078,23 @@ Expect `test_the_flipped_manifest_still_validates` **not** to go red — it re-v
 - Consumes: `scripts/refresh_layers.py --probe` (Task 4)
 - Produces: a workflow that runs monthly and on `workflow_dispatch`, and blocks no pull request
 
-`pyyaml>=6.0` is already a core dependency (`pyproject.toml:19`), and Task 4 Step 1 already put `yaml` and `Path` at the top of the test module, so no import needs appending mid-file.
+`pyyaml>=6.0` is already a core dependency (`pyproject.toml:19`), so no new install is needed.
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `tests/test_refresh_cli.py`:
+Add `yaml` and `Path` to the imports at the **top** of `tests/test_refresh_cli.py` — they belong in this task, not Task 4, because Task 4 has no use for them and ruff would fail that task's commit on two unused imports:
+
+```python
+from pathlib import Path
+
+import pytest
+import yaml
+from refresh_fakes import FakeLayer
+
+from scripts.refresh_layers import build_parser, format_probe_report, main, probe_all
+```
+
+Then append the tests:
 
 ```python
 _WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
@@ -2040,5 +2242,7 @@ The five real layer implementations (C-c), the EMODnet regrid with `rioxarray`/`
 
 - `REGISTRY` ships empty, so `source-probe.yml` exits 1 until C-c fills it. Expected, not a regression.
 - Each of the five layers implements **five** protocol members. `baseline_years()` is the one C§5 does not mention: `copernicus_wav` returns `{"significant_wave_m": [2023, 2024, 2025]}` regardless of the requested range, and `emodnet_bathy` returns `[]` for both depth fields.
-- `EXPECTED_DIMS` in `refresh/shapes.py` is the contract each layer's output is checked against. A layer emitting `lat`/`lon` is refused at the merge.
+- `EXPECTED_DIMS` in `refresh/shapes.py` is the contract each layer's output is checked against. A layer emitting `lat`/`lon` is refused at the merge; a transposed one at `check_shapes`; one on the wrong extent at `check_grid`.
+- `merge_layers` uses `combine_attrs="drop_conflicts"`, so layers may carry different **dataset-level** attrs — they will, since EMODnet and CMEMS do not share a `source` — while each variable keeps its own attrs, including the CRS C§3.2 requires. Do not "tighten" this to `no_conflicts`: it raises `MergeError` on the first real pair of layers.
+- Unlike `FakeLayer`, a real layer must know its baseline window without having built anything: `baseline_years()` is called after `build()` today, but nothing should depend on that.
 - The free-disk precheck and the annual-refresh runbook are C-c's, and both need the real transfer volumes (~30 GB across the wire per C§8.1).
