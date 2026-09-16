@@ -228,7 +228,23 @@ SITE_COORDINATES: dict[str, SiteCoordinate] = {
             "package B warned snapping selects by accident is, here, the site itself."
         ),
     ),
-    #: LT-coastal, LT-lagoon, PL-coastal: not sited yet.
+    "PL-coastal": SiteCoordinate(
+        lat=54.5249, lon=18.5692,
+        provenance=SiteProvenance.SNAPPED,
+        depth_m=7.6, checked_on=date(2026, 9, 16),
+        note=(
+            "Open coast off Gdynia. Byte-identical to the nearest-sea-cell value package "
+            "B derived for the Gdynia pin, 2.59 km away — so like DE-coastal, snapping "
+            "chose this position rather than anybody else. Unlike DE-coastal it is the "
+            "BENIGN case: package B called it 'open coast — the only realistic one' of "
+            "the four cells it snapped, against a 3.1 m fjord at DK, a river plume at DE "
+            "and a near-fresh lagoon cell at LT. Deeper water is close if the pilot goes "
+            "further out: 11.5 m at 1.8 km, 17.9 m at 3.6 km, 33.9 m within 8 km. The "
+            "provenance stays SNAPPED regardless — it records how the position was "
+            "arrived at, not whether the water is any good."
+        ),
+    ),
+    #: LT-coastal, LT-lagoon: not sited yet.
     #: LT is two sub-sites, coastal and lagoon, and `LT-lagoon` is not in REGIONS yet.
 }
 

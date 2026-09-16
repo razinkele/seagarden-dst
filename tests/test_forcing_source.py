@@ -391,7 +391,7 @@ def test_unsited_regions_are_absent_rather_than_none():
     """
     from seagarden_dst.forcing import SITE_COORDINATES
 
-    for region in ("LT-coastal", "PL-coastal"):
+    for region in ("LT-coastal",):
         assert region not in SITE_COORDINATES
     assert all(v is not None for v in SITE_COORDINATES.values())
 
@@ -424,6 +424,21 @@ def test_the_lagoon_coordinate_is_indicative():
     pl = SITE_COORDINATES["PL-lagoon"]
     assert (round(pl.lat, 4), round(pl.lon, 4)) == (53.8416, 14.4859)
     assert pl.provenance is SiteProvenance.INDICATIVE
+
+
+def test_the_polish_coastal_coordinate_is_the_snapped_cell():
+    """Snapped like DE-coastal, but the benign case of it.
+
+    Package B called this the one realistic cell of the four it snapped: open coast
+    rather than a fjord or a river plume. The provenance is still SNAPPED, because what
+    the flag records is how the position was arrived at, not whether the water is good.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+    pl = SITE_COORDINATES["PL-coastal"]
+    assert (round(pl.lat, 4), round(pl.lon, 4)) == (54.5249, 18.5692)
+    assert pl.provenance is SiteProvenance.SNAPPED
+    assert pl.depth_m == 7.6
 
 
 def test_every_coordinate_names_a_known_region():
