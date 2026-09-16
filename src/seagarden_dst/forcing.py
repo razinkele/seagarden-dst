@@ -12,7 +12,8 @@ layer touches nothing in `growth`, `shellfish`, `nutrients` or `suitability`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, fields
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -59,6 +60,41 @@ class SiteConditions:
     #: because changing it moves every reported number.
     light_attenuation_k: float = 0.4
     cultivation_depth_m: float = 1.5
+
+    def __post_init__(self) -> None:
+        """Refuse a site whose conditions are not finite, at construction.
+
+        A land cell in a gridded product gives NaN for every variable. Nothing
+        downstream treats that as an error on its own: the tolerance tests compare
+        against NaN and return False, so a NaN site passes them; the salinity-indexed
+        yield multiplies through to NaN; and `solve_ivp` shrinks its step forever
+        rather than raising. The result was a harvest of `nan` kg DW carried at a
+        reportable tier, which the interface renders as a number with a calibration
+        badge — a land cell reading as an assessable site.
+
+        This is checked here, and not in each consumer, because `SiteConditions` is
+        the one object they all share: `contraindication`, `salinity_indexed_yield`,
+        `simulate` and the forcing series are every one of them derived from it. A
+        frozen dataclass cannot be constructed OR `dataclasses.replace`d into an
+        invalid state, so the guarantee is inherited by construction rather than by
+        each caller remembering — including by package D's `GriddedForcing`, which
+        does not exist yet.
+
+        `require_finite_series` below remains, and is a different precondition: a
+        source may hand back a non-finite SERIES built from finite site conditions.
+        """
+        bad = []
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if isinstance(value, (int, float)) and not math.isfinite(value):
+                bad.append(f"{field.name}={value}")
+        if bad:
+            raise ValueError(
+                f"site conditions for region {self.region!r} contain non-finite "
+                f"values ({', '.join(bad)}). This usually means the coordinate "
+                f"resolved to a land cell in the gridded product — check the "
+                f"coordinate, because nothing downstream will reject it."
+            )
 
     def par_at_depth(self) -> float:
         """Beer-Lambert attenuation to the cultivation depth."""
@@ -246,11 +282,19 @@ def require_finite_series(
     it underflows, so the run sat at 101% CPU producing nothing and read as a
     stiff-ODE performance problem. The cost was entirely in the diagnosis.
 
-    This is the SERIES precondition - "are these numbers usable" - and it is checked
-    at the `ForcingSource` boundary so every source inherits it, `GriddedForcing`
-    included, without each having to remember. The separate SPATIAL precondition -
-    "does this coordinate land on a valid cell, and how far is the nearest one" -
-    belongs to the data layer, which can answer it before any series is built.
+    This is the SERIES precondition - "are these numbers usable". It is called by
+    `growth.simulate`, which is a CONSUMER of the protocol, not the protocol itself:
+    an earlier version of this docstring claimed every source inherited it, and that
+    was wrong. A Protocol cannot enforce a call, so a second consumer of
+    `daily_forcing` - the shellfish path, a notebook, package D's polygon query -
+    must call this itself.
+
+    What IS inherited by construction is the SITE precondition on `SiteConditions`
+    above, which no consumer can bypass because the dataclass cannot be built in an
+    invalid state. That is the guard that closes the land-cell case; this one closes
+    a source that returns a bad series from good site conditions. The SPATIAL
+    precondition - "does this coordinate land on a valid cell, and how far is the
+    nearest one" - remains the data layer's, answerable before any series exists.
 
     One NaN is rejected as firmly as all of them: the interpolation in `simulate`
     spreads a single hole across the derivative, and a part-filled series is the

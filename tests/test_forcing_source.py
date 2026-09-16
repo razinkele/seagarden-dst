@@ -202,8 +202,9 @@ def test_compare_threads_an_injected_forcing_source():
 # performance problem rather than a data problem. Diagnosing it cost far more than
 # the bug was worth, which is the whole argument for a precondition here.
 #
-# The guard lives at the protocol boundary rather than inside any one source, so
-# `GriddedForcing` inherits it in package D without having to remember to.
+# The guard is called by `growth.simulate`. This comment used to say it lived at the
+# protocol boundary so every source inherited it; that was wrong, and the site
+# precondition below is the guarantee that actually holds for every consumer.
 
 
 class _NanForcing:
@@ -289,3 +290,76 @@ def test_a_finite_series_is_left_alone():
 
     trajectory = simulate(fucus, site)
     assert np.isfinite(trajectory.biomass).all()
+
+
+# --- The site precondition ---------------------------------------------------
+#
+# The series guard above closed the ODE path and was described, wrongly, as sitting at
+# the ForcingSource boundary so that every source inherited it. It does not: it is called
+# by one consumer, `growth.simulate`. Saccharina takes the `salinity_indexed` yield model,
+# so `harvest_biomass` never calls `simulate` for it and never reached the guard — a land
+# cell's NaN conditions produced a NaN harvest at a reportable tier instead of a refusal,
+# which is a worse failure than the hang the guard was written for.
+#
+# SiteConditions is the object every path shares: contraindication, the salinity-indexed
+# yield, the ODE and the forcing series are all derived from it. Rejecting a non-finite
+# field at CONSTRUCTION is inherited by every consumer for real, because a frozen
+# dataclass cannot be built or `replace`d into an invalid state.
+
+
+def test_a_non_finite_site_field_cannot_be_constructed():
+    from seagarden_dst.forcing import SiteConditions
+
+    with pytest.raises(ValueError, match="non-finite"):
+        SiteConditions(
+            region="XX-land", salinity_psu=float("nan"), mean_temp_c=10.0,
+            summer_temp_c=18.0, winter_temp_c=2.0, surface_par=400.0,
+            din_umol_l=5.0, dip_umol_l=0.5, depth_m=10.0, significant_wave_m=1.0,
+        )
+
+
+def test_replace_cannot_smuggle_a_non_finite_field_in():
+    """`dataclasses.replace` re-runs __post_init__, so the guard holds there too.
+
+    This is the shape the defect was actually found in: a caller takes a good site and
+    substitutes one field from a land cell.
+    """
+    import dataclasses
+
+    with pytest.raises(ValueError, match="depth_m"):
+        dataclasses.replace(PLACEHOLDER_SITES["DK-belt"], depth_m=float("nan"))
+
+
+def test_the_salinity_indexed_path_refuses_a_land_cell():
+    """The regression this exists for: Saccharina never reaches `simulate`.
+
+    Before the site precondition, this returned a Quantity of nan kg DW carrying a
+    reportable tier, which the interface renders as a number with a literature-prior
+    badge — a land cell reading as an assessable site.
+    """
+    import dataclasses
+
+    params = default_parameters()
+    saccharina = params.species["saccharina_latissima"]
+    assert saccharina.yield_model == "salinity_indexed", "test no longer covers its path"
+
+    with pytest.raises(ValueError, match="non-finite"):
+        land = dataclasses.replace(
+            PLACEHOLDER_SITES["DK-belt"],
+            salinity_psu=float("nan"), depth_m=float("nan"), din_umol_l=float("nan"),
+        )
+        harvest_biomass(saccharina, land, area_m2=10_000.0)
+
+
+def test_infinity_is_rejected_as_well_as_nan():
+    """A bad unit conversion produces inf, not NaN, and is just as unusable."""
+    import dataclasses
+
+    with pytest.raises(ValueError, match="non-finite"):
+        dataclasses.replace(PLACEHOLDER_SITES["DK-belt"], surface_par=float("inf"))
+
+
+def test_the_placeholder_sites_all_satisfy_the_precondition():
+    """Every shipped region must construct — the guard must not outlaw the defaults."""
+    for region, site in PLACEHOLDER_SITES.items():
+        assert site.region == region

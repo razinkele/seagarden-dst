@@ -82,9 +82,21 @@ element as the value, so a tier cannot be separated from the figure it qualifies
   from a land cell raised nothing: `solve_ivp` does not error on a non-finite derivative, it
   shrinks the step until it underflows, so the run consumed two minutes of CPU producing
   nothing and read as a performance problem rather than a data problem. The guard sits at
-  the `ForcingSource` boundary, so every future source — including package C's — inherits it
-  rather than having to remember it. The error names the region and the per-array finite
-  counts, because that is the part that would have saved the two minutes.
+  `growth.simulate`, which is a consumer of the seam rather than the seam itself — the
+  first version of this note claimed every source inherited it, which was wrong. The error
+  names the region and the per-array finite counts, because that is the part that would
+  have saved the two minutes.
+- **Non-finite site conditions are refused at construction.** The series guard above closed
+  the ODE path only. *Saccharina latissima* uses the `salinity_indexed` yield model, so
+  `harvest_biomass` never calls `simulate` for it and never reached that guard: a land
+  cell's NaN conditions produced a harvest of `nan` kg DW carried at a **reportable** tier,
+  which the interface renders as a number with a calibration badge, while the tolerance
+  constraints reported *suitable* because every comparison against NaN is False. A land
+  cell read as an assessable site — a false positive, and worse than the hang the first
+  guard was written for. `SiteConditions.__post_init__` now rejects any non-finite field.
+  That is inherited by every consumer for real: a frozen dataclass cannot be constructed
+  or `dataclasses.replace`d into an invalid state, so `contraindication`, both yield
+  models and package D's `GriddedForcing` are all covered without calling anything.
 
 ### Known limitations
 
