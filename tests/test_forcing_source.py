@@ -363,3 +363,152 @@ def test_the_placeholder_sites_all_satisfy_the_precondition():
     """Every shipped region must construct — the guard must not outlaw the defaults."""
     for region, site in PLACEHOLDER_SITES.items():
         assert site.region == region
+
+
+# --- Assessment coordinates --------------------------------------------------
+#
+# Where a site IS, as distinct from what the conditions there are. Package B found that
+# every published pilot coordinate in the website's data/pilots.yaml is a land cell in the
+# Copernicus grid, because those are town markers for a map and correct as such. An
+# assessment coordinate has a different job: it has to index a valid cell of the artifact
+# package D will read, so it is recorded here rather than inferred from the map.
+
+
+def test_a_sited_region_has_an_assessment_coordinate():
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+    dk = SITE_COORDINATES["DK-belt"]
+    assert (round(dk.lat, 4), round(dk.lon, 4)) == (55.4416, 10.6804)
+    assert dk.provenance is SiteProvenance.SNAPPED
+    assert dk.depth_m == 11.2
+
+
+def test_unsited_regions_are_absent_rather_than_none():
+    """Absence is the honest representation: three pilots are still `planned`.
+
+    A None or a (0, 0) placeholder would be a coordinate-shaped thing that code could
+    index and get a wrong answer from. A missing key raises.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    for region in ("LT-coastal",):
+        assert region not in SITE_COORDINATES
+    assert all(v is not None for v in SITE_COORDINATES.values())
+
+
+def test_the_german_coordinate_is_the_snapped_cell():
+    """Recorded deliberately as the snapped cell, not as a sited farm.
+
+    It is byte-identical to the nearest-sea-cell value package B derived for the Rostock
+    pin (docs/spikes/2026-09-15-package-b/06_download_sites.py), which is the Warnow
+    mouth. Valid, and biased in the way that write-up warned about. The test pins the
+    value so a later edit is a decision rather than a drift.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+    de = SITE_COORDINATES["DE-coastal"]
+    assert (round(de.lat, 4), round(de.lon, 4)) == (54.1916, 12.0971)
+    assert de.provenance is SiteProvenance.SNAPPED
+
+
+def test_the_lagoon_coordinate_is_indicative():
+    """Weaker provenance than the other two, and the test says so.
+
+    DK-belt and DE-coastal were snapped from a published position. This one was not
+    snapped from anything: no lagoon pin existed before 2026-09-16, so it is a
+    representative lagoon cell on the Wolin National Park side, chosen and then verified
+    rather than derived. Pinned so that replacing it is a decision.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+    pl = SITE_COORDINATES["PL-lagoon"]
+    assert (round(pl.lat, 4), round(pl.lon, 4)) == (53.8416, 14.4859)
+    assert pl.provenance is SiteProvenance.INDICATIVE
+
+
+def test_the_polish_coastal_coordinate_is_the_snapped_cell():
+    """Snapped like DE-coastal, but the benign case of it.
+
+    Package B called this the one realistic cell of the four it snapped: open coast
+    rather than a fjord or a river plume. The provenance is still SNAPPED, because what
+    the flag records is how the position was arrived at, not whether the water is good.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+    pl = SITE_COORDINATES["PL-coastal"]
+    assert (round(pl.lat, 4), round(pl.lon, 4)) == (54.5249, 18.5692)
+    assert pl.provenance is SiteProvenance.SNAPPED
+    assert pl.depth_m == 7.6
+
+
+def test_every_coordinate_names_a_known_region():
+    from seagarden_dst.forcing import REGIONS, SITE_COORDINATES
+
+    assert set(SITE_COORDINATES) <= set(REGIONS)
+
+
+def test_coordinates_are_inside_the_artifact_footprint():
+    """C§3.1's extent is 8-23 E, 53-58 N. A coordinate outside it cannot be assessed."""
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    for region, c in SITE_COORDINATES.items():
+        assert 53.0 <= c.lat <= 58.0, f"{region} latitude outside the footprint"
+        assert 8.0 <= c.lon <= 23.0, f"{region} longitude outside the footprint"
+
+
+def test_exactly_one_coordinate_is_sited_and_it_is_the_lagoon():
+    """LT-lagoon is the first real farm position the tool has held.
+
+    The rest are snapped from a pin somebody gave, or chosen outright. This test is the
+    one that makes promoting another entry to SITED a deliberate act rather than a quiet
+    one — which is what the field was added for.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+    sited = {r for r, c in SITE_COORDINATES.items() if c.provenance is SiteProvenance.SITED}
+    assert sited == {"LT-lagoon"}
+
+
+def test_the_lithuanian_lagoon_site_is_the_notified_position():
+    """From the KNNP notification of 2026-06-10, not from snapping.
+
+    "Eksperimento vieta: vakarinė Kuriu mariu pakrante 55.672777, 21.133870" — the
+    western shore of the Curonian Lagoon, inside Curonian Spit National Park, for a
+    10 x 2 m Ulva intestinalis installation running 15 June to 30 October 2026.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+    lt = SITE_COORDINATES["LT-lagoon"]
+    assert (round(lt.lat, 6), round(lt.lon, 6)) == (55.672777, 21.13387)
+    assert lt.provenance is SiteProvenance.SITED
+    assert lt.is_sited
+    assert lt.depth_m == 3.1
+
+
+def test_lt_lagoon_is_a_region():
+    """LT resolved to two sub-sites, so the lagoon needs its own region key."""
+    from seagarden_dst.forcing import REGIONS
+
+    assert "LT-lagoon" in REGIONS
+
+
+def test_every_provenance_says_how_to_present_a_result():
+    """Mirrors Tier.presentation: the flag has to tell a caller what it may claim."""
+    from seagarden_dst.forcing import SiteProvenance
+
+    for p in SiteProvenance:
+        assert p.label and p.presentation
+
+
+def test_a_coordinate_cannot_be_unpacked_like_a_bare_pair():
+    """Deliberately not a tuple any more.
+
+    Unpacking would let a consumer take lat and lon and drop the provenance silently,
+    which is the whole failure this field exists to close.
+    """
+    import pytest as _pytest
+
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    with _pytest.raises(TypeError):
+        _lat, _lon = SITE_COORDINATES["DK-belt"]

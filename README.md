@@ -30,6 +30,10 @@ the repository root.
 Everything runs on the **placeholder site conditions** in `seagarden_dst.forcing`.
 Nothing the prototype displays is a measurement.
 
+Deploying a release to the live instance at **https://laguna.ku.lt/seagarden-dst/** is
+[`docs/runbooks/deploy.md`](docs/runbooks/deploy.md) — written for somebody who is not its
+author, because the Application Form commits us to keeping this online to May 2034.
+
 ## Built on the NiD4OCEAN DST architecture
 
 This is deliberately the same shape as `razinkele/nid4ocean-dst`, because that shape
@@ -153,10 +157,15 @@ layer returns `UNKNOWN`, which *blocks* the verdict rather than silently passing
 ## Testing
 
 ```bash
-pytest                     # core + app smoke, 143 passed
-pytest -m engines          # needs bowtiepy / EUTROPY installed
+pytest                     # core + app smoke, 153 passed
 ruff check .
 ```
+
+`pyproject.toml` declares an `engines` marker and deselects it by default, but **no test
+carries it yet** — `pytest -m engines` collects nothing. The adapters are covered by the
+default run, which exercises their unavailable path. Note also that the `engines` extra
+installs `bowtiepy` only: EUTROPY is consumed as exported dicts by `eutropy_adapter` and is
+not a package you can install.
 
 CI runs both on every push and pull request, on Python 3.11 and 3.13, with the
 optional engines absent — so the run also proves that the adapters degrade rather
@@ -167,7 +176,7 @@ Tests worth knowing about:
 - `test_fucus_reaches_the_tagalaht_reference_range` — a loose guard on the only
   published anchor the SE Baltic parameterisation has: 4800–5200 g DW/m² per 6 m² cage
   over an April–October cycle (OLAMUR D3.2). **The model does not currently meet it.**
-  It returns 3446 g DW/m², and the test asserts 3000–5200 — a floor 37% below the
+  It returns 2797 g DW/m², and the test asserts 2500–5200 — a floor 48% below the
   published minimum. `mu_max` has never been fitted to the anchor; it carries its
   initial value. `b_max` is set from the anchor's own upper bound, so the range is not
   an independent check either. Re-sourcing the anchor and deciding what, if anything,

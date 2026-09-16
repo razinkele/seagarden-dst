@@ -32,7 +32,16 @@ from .bowtie_adapter import BowtieUnavailable, removal_framing
 from .calibration import Calibration, Quantity, Tier
 from .contracts import SiteAssessment, SiteContext, SpeciesOption
 from .eutropy_adapter import EutropyUnavailable
-from .forcing import DEFAULT_FORCING, PLACEHOLDER_SITES, REGIONS, ForcingSource, SiteConditions
+from .forcing import (
+    DEFAULT_FORCING,
+    PLACEHOLDER_SITES,
+    REGIONS,
+    SITE_COORDINATES,
+    ForcingSource,
+    SiteConditions,
+    SiteCoordinate,
+    SiteProvenance,
+)
 from .params import ParameterSet, SpeciesParams, default_parameters, load_parameters
 from .regulatory import (
     JURISDICTIONS,
@@ -63,6 +72,9 @@ __all__ = [
     "Scenario",
     "SiteAssessment",
     "SiteConditions",
+    "SiteCoordinate",
+    "SiteProvenance",
+    "SITE_COORDINATES",
     "SiteContext",
     "SpeciesOption",
     "SpeciesParams",

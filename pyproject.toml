@@ -31,10 +31,15 @@ app = [
 # Live spatial data layer (specification section 6). Not needed for the prototype,
 # which runs on the placeholder conditions in seagarden_dst.forcing.
 #
-# These are BUILD-TIME only. The data-layer design's central premise is that nothing
-# here is imported at runtime: scripts/refresh_layers.py runs once a year, writes an
-# artifact, and the tool then reads that artifact with no network, no credentials and
-# no service call. That is what keeps the tool alive to 2034 on no maintenance budget.
+# The data-layer design's central premise is that nothing here is imported by the MODEL
+# CORE: scripts/refresh_layers.py — package C, not yet written — will run once a year,
+# write an artifact, and the tool then reads that artifact with no network, no credentials
+# and no service call. That is what keeps the tool alive to 2034 on no maintenance budget.
+#
+# "Build-time only" is true of the Copernicus/raster packages, and NOT of the whole extra:
+# shinywidgets and ipyleaflet below are the map UI's runtime dependencies, and the artifact
+# reader package D adds will be a runtime NetCDF backend. The invariant is about the core,
+# not about when these are imported.
 #
 # copernicusmarine authenticates against a credential the refresh runbook requires to be
 # INSTITUTIONAL, never personal (design section 4.1) — an annual refresh that depends on
@@ -49,6 +54,12 @@ spatial = [
   "pyproj>=3.6",
   "shinywidgets>=0.3",
   "ipyleaflet>=0.18",
+  # Engines the package B spike scripts write with (docs/spikes/2026-09-15-package-b/).
+  # copernicusmarine pulls h5netcdf, which READS NetCDF4 but is a different engine:
+  # 07_format_sweep.py calls to_netcdf(engine="netcdf4") and to_zarr(), so without these
+  # the scripts shipped for reproducibility cannot be run.
+  "netCDF4>=1.6",
+  "zarr>=2.16",
 ]
 
 # Optional sibling engines from the KU MRI estate. Both are imported lazily by their

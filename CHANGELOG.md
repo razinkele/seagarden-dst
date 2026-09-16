@@ -9,11 +9,28 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ---
 
+## [Unreleased]
+
+Nothing released yet. Changes land here, not in the published section below: `0.2.0` is
+tagged, and `pyproject.toml` plus `__init__.py` still read `0.2.0`, so anything merged
+after the tag reports the tag's version in the About box. `tests/test_version.py` cannot
+catch that — it asserts the literals agree with each other and with a `## [0.2.0]` heading,
+all of which stays true. Bump the two literals and open a new section when you cut the
+next release.
+
+---
+
 ## [0.2.0] — 2026-09-16
 
 **Intermediate release for WP2 partners.** A checkpoint, not a milestone deliverable:
 the analytical core is real and tested, and the data layer that would make its numbers
 site-specific is designed but **not yet built**.
+
+### Dependencies
+
+`copernicusmarine>=2.4` is now declared in the `spatial` extra, which is this release's
+only dependency change. `netCDF4` and `zarr` join it, because the package B spike scripts
+shipped below write with both and `copernicusmarine`'s transitive `h5netcdf` only reads.
 
 ### What this release is
 
@@ -29,7 +46,8 @@ B measured one of them against the real products: at Tagalaht the placeholder DI
 values were deliberately **left uncorrected**, because replacing them is the data layer's
 job and a hand-patch would produce a number that looks sourced and is not.
 
-Every number the tool returns carries a **calibration tier** (A fitted / B literature /
+Every number the tool returns carries a **calibration tier** (A fitted locally / B fitted
+elsewhere in the Baltic /
 C analogue / D contraindicated) and the interface renders the tier badge in the same
 element as the value, so a tier cannot be separated from the figure it qualifies.
 
@@ -102,10 +120,10 @@ element as the value, so a tier cannot be separated from the figure it qualifies
 
 | Limitation | Consequence | What unblocks it |
 |---|---|---|
-| Site conditions are placeholders | Rankings are structurally correct, numerically indicative | Package C implementation |
+| Site conditions are placeholders | Ordering is by nitrogen removed, whose *Fucus* fraction is itself marked ASSUMED — so the ranking is not independent of the softest number in the model | Package **D** wires the artifact into `SiteConditions`; C only builds it |
 | **Surface PAR is a permanent placeholder** | Light-limited growth carries an unsourced input | **Nothing in the current layer set** — no integrated Baltic product carries PAR in any form |
-| Significant wave height is a placeholder | The exposure test in `assess_physical` is unsourced | Package C's wave layer (~26 GB transfer, the most likely thing to be cut) |
-| *Saccharina* yield misses its own anchor | Returns 3446 g DW/m² against a published 4800–5200 | `mu_max` has never been fitted to the anchor; deciding what is fitted is open |
+| Significant wave height is a placeholder | The exposure test in `assess_physical` is unsourced | Package C's wave layer (~26 GB transfer, the most likely thing to be cut), then package **D** to read it |
+| *Fucus* yield misses its own anchor | Returns 2797 g DW/m² against a published 4800–5200 | `mu_max` has never been fitted to the anchor; deciding what is fitted is open |
 | NaN depth produces a confident UNSUITABLE | A definitive negative verdict manufactured from missing data | Package D; recorded and owned, reachable once a real artifact is read |
 | *Chorda filum* coefficients are assumed | Tier C in every region | A3.4 harvest data |
 
@@ -114,9 +132,13 @@ element as the value, so a tier cannot be separated from the figure it qualifies
 Four decisions are blocking, and none can be resolved by writing more code:
 
 1. **Salinity fork** (spec §7.2) — open since 13 September.
-2. **Carrying capacity** (spec §2.3).
+2. **Carrying capacity** (data-layer design §2.3, *not* the functional spec — §2 there is
+   the compliance matrix and has no subsections).
 3. **Per-species salinity ranges** — review of the bounds now enforced.
-4. **Regulatory content** for four jurisdictions — GMU A2.2, due M12. The schema is ready.
+4. **Regulatory content** for four jurisdictions — GMU A2.2, due M12. The schema is ready;
+   the wiring is not. `suitability.assess_legal` returns UNKNOWN for an absent layer and
+   raises `NotImplementedError` for any populated one, so records arriving at M12 need
+   package F2 before they can reach a verdict.
 
 ### Verification
 

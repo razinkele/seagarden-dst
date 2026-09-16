@@ -553,6 +553,47 @@
         }
       ]
     },
+    "LT-lagoon": {
+      "excluded": {
+        "chorda_filum": "Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "fucus_vesiculosus": "Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "mytilus": "Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "saccharina_latissima": "Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here."
+      },
+      "ranked": [
+        {
+          "carbon": 310.774902,
+          "constraints": [
+            [
+              "Physical feasibility",
+              "suitable",
+              "Depth and exposure workable."
+            ],
+            [
+              "Environmental tolerance",
+              "suitable",
+              "Within the species' tolerance range."
+            ],
+            [
+              "Growth viability",
+              "suitable",
+              "Predicted 1.04 kg DW/m2 over one cycle (literature prior)."
+            ],
+            [
+              "Legal permissibility",
+              "unknown",
+              "No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1."
+            ]
+          ],
+          "harvest": 1035.916338,
+          "nitrogen": 31.07749,
+          "phosphorus": 2.589791,
+          "species": "ulva",
+          "tier": "C",
+          "unit": "kg DW"
+        }
+      ]
+    },
     "PL-coastal": {
       "excluded": {
         "saccharina_latissima": "Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here."
@@ -959,6 +1000,73 @@
         "Method": "Floating longline",
         "Nitrogen removed": "3.41-30.7 kg N [C]",
         "Phosphorus removed": "0.284-2.56 kg P [C]",
+        "Scenario": "ulva",
+        "Species": "Sea lettuce",
+        "Verdict": "unknown"
+      }
+    ],
+    "LT-lagoon": [
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Method": "Floating modular pontoon",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "chorda_filum",
+        "Species": "Sea lace",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Method": "Floating modular pontoon",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "fucus_vesiculosus",
+        "Species": "Bladderwrack",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.",
+        "Method": "Floating modular pontoon",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "mytilus",
+        "Species": "Blue mussel",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Environmental tolerance: Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here.",
+        "Calibration": "Contraindicated",
+        "Carbon in harvest": "-",
+        "Harvest": "not applicable - Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here.",
+        "Method": "Floating modular pontoon",
+        "Nitrogen removed": "-",
+        "Phosphorus removed": "-",
+        "Scenario": "saccharina_latissima",
+        "Species": "Sugar kelp",
+        "Verdict": "unsuitable"
+      },
+      {
+        "Area (ha)": 0.1,
+        "Binding constraint": "Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
+        "Calibration": "Literature prior",
+        "Carbon in harvest": "104-932 kg C [C]",
+        "Harvest": "345-3.11e+03 kg DW [C]",
+        "Method": "Floating modular pontoon",
+        "Nitrogen removed": "10.4-93.2 kg N [C]",
+        "Phosphorus removed": "0.863-7.77 kg P [C]",
         "Scenario": "ulva",
         "Species": "Sea lettuce",
         "Verdict": "unknown"
