@@ -1177,7 +1177,9 @@ module importing the core would drag the core into the refresh environment and
 make the core's four-dependency floor a fiction.
 
 Parsed with `ast` rather than imported, because importing a core module to see
-what it imports is exactly the coupling under test.
+what it imports is exactly the coupling under test. `tests/test_packaging.py`'s
+`test_the_core_package_does_not_import_pandas_at_module_level` is the same idiom,
+added for the same reason — read it before writing this.
 """
 
 import ast
@@ -1280,7 +1282,7 @@ In the `spatial` extra, declare the NetCDF engine directly rather than inheritin
 - [ ] **Step 2: Verify the default run excludes the spatial tests**
 
 Run: `pytest -q`
-Expected: the pre-existing count (143 at the time of writing) plus Tasks 1–3 and Task 6, and **none** of the `spatial`-marked ones. There must be no collection error mentioning `xarray`.
+Expected: the pre-existing count — **153 on `main` at `9ca82ac`**, and re-measure rather than trusting that number, it moved 120 → 137 → 143 → 153 in three days — plus Tasks 1–3 and Task 6, and **none** of the `spatial`-marked ones. There must be no collection error mentioning `xarray`.
 
 - [ ] **Step 3: Add the second CI job**
 
