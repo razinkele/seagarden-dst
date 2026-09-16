@@ -191,10 +191,15 @@ derived                 : [Derivation]
 absent                  : [AbsentField]
 ```
 
-`LayerProvenance` carries what §6.3 requires: `source`, `product_id`, `dataset_id`,
-`version`, `retrieved_on`, `licence`, `redistribution` (`allowed` | `forbidden`),
-`source_url`, an **archive state** (below), and **`variables: [str]`** — the artifact
-variables this dataset is the raw source of (C§4.4).
+`LayerProvenance` carries what §6.3 requires: **`name`**, `source`, `product_id`,
+`dataset_id`, `version`, `retrieved_on`, `licence`, `redistribution`
+(`allowed` | `forbidden`), `source_url`, an **archive state** (below), and
+**`variables: [str]`** — the artifact variables this dataset is the raw source of (C§4.4).
+
+`name` is the `REGISTRY` key and the same string as the `Layer` Protocol's `name` (C§5).
+It is carried on the record because `derived[].inputs[].layer` resolves against it: without
+it that reference names a table with no key column, and an implementer has to guess between
+list index, `dataset_id`, and an undeclared field that `extra="forbid"` would then reject.
 
 `Derivation` carries `{field, relation, inputs: [{layer, variable}]}`: the artifact variable
 produced, the named relation, and which layer and source variable it was computed from. Two
@@ -261,7 +266,7 @@ it means D and C1 validate the same way C wrote it.
 ### C§4.4 Every variable is claimed exactly once
 
 Per-dataset provenance records (C§4.1) are only worth having if nothing can slip between
-them. Two rules, both `model_validator`s on the manifest rather than prose:
+them. Four rules, all `model_validator`s on the manifest rather than prose:
 
 **Every artifact variable appears exactly once** across the union of all layers'
 `variables` and all `derived[].field`. A raw field is claimed by the dataset it came from;
@@ -281,6 +286,24 @@ instinct as §6.3's absent-input rule: an unstated thing is an error, not a perm
 that the rule binds derived fields too: `valid` is claimed by a `Derivation` rather than by
 a layer, and still needs its `[]`. The fixture (C§7) carries `[]` for all three so the
 representation is exercised rather than merely documented.
+
+**`dataset_id` is unique across `layers`.** C§5 says splitting `copernicus_bgc_light` out
+makes *one layer, one dataset* true by construction — but nothing enforced it, and the two
+records differ in one field out of ten. The copy-paste that splits a layer in two and
+forgets to change `dataset_id` yields a manifest attesting the monthly product as the source
+of a daily-derived field: the exact defect the split was introduced to remove, returning by
+transcription rather than by schema. A uniqueness check is the one line that makes the claim
+true rather than merely careful.
+
+**Every layer is claimed too, not only every variable.** A layer is reachable if it claims
+at least one entry in `variables`, or is named by at least one `derived[].inputs[].layer`.
+This is the mirror of the first rule: that one says no variable is unsourced, this one says
+no source is unrecorded. It is not redundant, because `copernicus_bgc_light` carries an
+empty `variables` (C§5) — its only output is derived — so the first rule says nothing about
+it at all. Drop that layer and the claim union is unchanged, `light_attenuation_k` is still
+claimed by its `Derivation`, and the manifest loads clean while attesting a derived field
+whose daily source is absent from `layers`. By C§3.4's own Jensen's-inequality argument that
+is the silent optimistic bias the split exists to prevent.
 
 ---
 
@@ -320,7 +343,10 @@ It also groups like with like: `copernicus_bgc_light` reduces daily data to a mo
 statistic, which is the wave layer's shape, not the monthly-passthrough shape. Its
 `variables` list is **empty**, and that is expected rather than a gap: the only field it
 produces is derived, so C§4.4 has it claimed by a `Derivation` that points back at this
-record for the dataset id.
+record by `name`. An empty `variables` would otherwise leave the layer invisible to the
+claimed-exactly-once rule, which is why C§4.4 also requires every layer to be reachable —
+by a variable claim or by a `Derivation` input — and requires `dataset_id` to be unique, so
+that *one layer, one dataset* is enforced here rather than only asserted.
 
 The driver: build each layer, merge onto `GridSpec`, validate the result against the
 expected variable set and shapes, then write the pair (C§6). Regridding EMODnet's ~115 m
@@ -431,6 +457,14 @@ Tests:
 - **Claim completeness, two in-memory cases** (C§4.4): an artifact variable claimed by no
   layer and no `derived` entry → rejected; the same variable claimed by two layers →
   rejected.
+- **Duplicate `dataset_id`, one in-memory case** (C§4.4): two layers naming the same
+  dataset → rejected. Built by copying the fixture's `copernicus_bgc` record and changing
+  only `name`, because that is the edit the rule exists to catch.
+- **Orphan layer, two in-memory cases** (C§4.4): a layer with empty `variables` that no
+  `derived[].inputs[].layer` names → rejected; the fixture's own `copernicus_bgc_light`,
+  empty `variables` but named by `light_attenuation_k`'s `Derivation` → accepted. The
+  positive case is the one that matters: it proves the rule does not simply outlaw the
+  empty list C§4.4 requires the fixture to carry.
 - **A `baselines` key missing for a static field → rejected**, and `[]` accepted (C§4.4) —
   the two are different states and the test must tell them apart.
 - A mismatched sha is refused.
