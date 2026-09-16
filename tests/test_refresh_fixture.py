@@ -1,4 +1,5 @@
 import json
+import os
 
 import pytest
 
@@ -64,3 +65,27 @@ def test_an_interrupted_write_leaves_the_previous_pair_intact(
 
     again, _ = load_pair(tmp_path)
     assert again.artifact_sha256 == first.artifact_sha256
+
+
+def test_the_artifact_is_replaced_before_the_manifest(
+    tmp_path, reference_manifest, tiny_dataset, monkeypatch
+):
+    """C§6 step 5 before step 6: swapping the two `os.replace` calls must go red.
+
+    None of the other tests distinguish ordering: `_hook` fires before *either*
+    replace, the torn-pair test corrupts the manifest by hand after a normal
+    write, and the round trip only checks the end state. This records the
+    actual sequence of `os.replace` destination basenames.
+    """
+    calls: list[str] = []
+    real_replace = os.replace
+
+    def _recording_replace(src, dst):
+        calls.append(os.path.basename(dst))
+        return real_replace(src, dst)
+
+    monkeypatch.setattr("seagarden_dst.refresh.writer.os.replace", _recording_replace)
+
+    write_pair(tiny_dataset, reference_manifest, tmp_path)
+
+    assert calls == ["forcing.nc", "manifest.json"]
