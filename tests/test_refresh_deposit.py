@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 from refresh_builders import manifest as build_manifest
 
 from seagarden_dst.artifact.manifest import Manifest
@@ -60,3 +61,17 @@ def test_a_flip_that_would_break_the_archive_contract_is_caught():
     after.layers[0].archive.zenodo_doi = None
     with pytest.raises(ValueError, match="requires a zenodo_doi"):
         Manifest.model_validate(after.model_dump())
+
+
+def test_record_doi_revalidates_the_whole_manifest_not_just_its_own_edit():
+    # `validate_assignment` is off, so a Manifest can be driven into an invalid state
+    # in place: `deposited` with no DOI, which Archive forbids. record_doi does not
+    # touch that layer — it only flips `pending` ones — so the ONLY thing that can
+    # catch it is the Manifest.model_validate on the way out. Without that call this
+    # returns an invalid manifest happily, which is the one thing this module must
+    # never do.
+    before = build_manifest()
+    before.layers[0].archive.status = "deposited"
+    before.layers[0].archive.zenodo_doi = None
+    with pytest.raises(ValidationError, match="requires a zenodo_doi"):
+        record_doi(before, _DOI)
