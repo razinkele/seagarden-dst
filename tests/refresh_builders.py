@@ -34,11 +34,12 @@ DATASET_SEED = 20260916
 def dataset(grid: GridSpec, years: list[int]):
     """A synthetic dataset carrying all nine C§3.2 variables at their C§3.2 shapes.
 
-    numpy and xarray are imported here, not at module level: this module is
-    imported at collection time by every test module in the suite (directly or
-    via `tests/conftest.py`), including under the `.[app,dev]` install that has
-    neither package, so importing them at call time only — not import time —
-    is what keeps `refresh_builders` importable there.
+    numpy and xarray are imported here, not at module level: `tests/test_refresh_
+    manifest.py` imports this module at collection time, and that module runs in
+    the `.[app,dev]` CI job, which has no xarray. numpy is not the concern —
+    `grid.py` already depends on it and it is in the core's floor — xarray is;
+    importing it at call time only, not import time, is what keeps
+    `refresh_builders` collectible in that job.
 
     float32 everywhere except `valid`, which is bool — a float32 `valid` holding
     0.0/1.0 can never be NaN, so a reader applying the is-NaN test would find
