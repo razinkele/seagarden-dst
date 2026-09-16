@@ -363,3 +363,47 @@ def test_the_placeholder_sites_all_satisfy_the_precondition():
     """Every shipped region must construct — the guard must not outlaw the defaults."""
     for region, site in PLACEHOLDER_SITES.items():
         assert site.region == region
+
+
+# --- Assessment coordinates --------------------------------------------------
+#
+# Where a site IS, as distinct from what the conditions there are. Package B found that
+# every published pilot coordinate in the website's data/pilots.yaml is a land cell in the
+# Copernicus grid, because those are town markers for a map and correct as such. An
+# assessment coordinate has a different job: it has to index a valid cell of the artifact
+# package D will read, so it is recorded here rather than inferred from the map.
+
+
+def test_a_sited_region_has_an_assessment_coordinate():
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    lat, lon = SITE_COORDINATES["DK-belt"]
+    assert (round(lat, 4), round(lon, 4)) == (55.4416, 10.6804)
+
+
+def test_unsited_regions_are_absent_rather_than_none():
+    """Absence is the honest representation: three pilots are still `planned`.
+
+    A None or a (0, 0) placeholder would be a coordinate-shaped thing that code could
+    index and get a wrong answer from. A missing key raises.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    for region in ("LT-coastal", "PL-coastal", "PL-lagoon", "DE-coastal"):
+        assert region not in SITE_COORDINATES
+    assert all(v is not None for v in SITE_COORDINATES.values())
+
+
+def test_every_coordinate_names_a_known_region():
+    from seagarden_dst.forcing import REGIONS, SITE_COORDINATES
+
+    assert set(SITE_COORDINATES) <= set(REGIONS)
+
+
+def test_coordinates_are_inside_the_artifact_footprint():
+    """C§3.1's extent is 8-23 E, 53-58 N. A coordinate outside it cannot be assessed."""
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    for region, (lat, lon) in SITE_COORDINATES.items():
+        assert 53.0 <= lat <= 58.0, f"{region} latitude outside the footprint"
+        assert 8.0 <= lon <= 23.0, f"{region} longitude outside the footprint"

@@ -102,6 +102,38 @@ class SiteConditions:
         return float(self.surface_par * attenuated)
 
 
+#: Where a site IS, as opposed to what the conditions there are — the coordinate package D
+#: will use to index the artifact. Kept apart from `SiteConditions`, which is a summary of
+#: conditions and carries no position, and apart from the website's `data/pilots.yaml`,
+#: which carries town markers for a map.
+#:
+#: That distinction is the whole reason this exists. Package B checked all four published
+#: pilot coordinates against the Copernicus land-sea mask and every one of them is a LAND
+#: cell: they are map pins, correct for a map and unusable for assessment. A coordinate here
+#: has to index a valid cell of the artifact, so it is recorded deliberately rather than
+#: borrowed from the map.
+#:
+#: **Absent, not None.** Three pilots are still `planned` and have no site. A None or a
+#: (0, 0) would be a coordinate-shaped value that code can index and get a wrong answer
+#: from; a missing key raises, which is the honest failure.
+SITE_COORDINATES: dict[str, tuple[float, float]] = {
+    #: Kerteminde, Great Belt side. SNAPPED, NOT SITED: the farm's own position
+    #: (55.4499, 10.6488) is the harbour, and its containing cell is land at the grid's
+    #: 1.86 x 1.75 km resolution. This is the nearest sea cell, 2.20 km east, depth 11.2 m
+    #: — checked against cmems_mod_bal_phy_my_static on 2026-09-16. Replace it with the
+    #: farm's actual grow-out position when that is known; 11.2 m is plausible for one,
+    #: but nobody has said this is where it is.
+    #:
+    #: Package B's warning applies and is why the depth matters: snapping selects the
+    #: shallowest, most enclosed water near a town. The previously published pin snapped
+    #: into Kerteminde Fjord at 3.1 m, which the write-up called eutrophic and enclosed;
+    #: this cell is on the open belt instead.
+    "DK-belt": (55.4416, 10.6804),
+    #: LT-coastal, LT-lagoon, PL-coastal, PL-lagoon, DE-coastal: not sited yet.
+    #: LT is two sub-sites, coastal and lagoon, and `LT-lagoon` is not in REGIONS yet.
+}
+
+
 #: Placeholder conditions per region, used by the scaffold so the application runs
 #: end to end before the data layer exists. These are plausible order-of-magnitude
 #: values, NOT measurements, and every result derived from them inherits tier C.
