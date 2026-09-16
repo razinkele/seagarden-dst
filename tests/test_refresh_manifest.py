@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from pydantic import ValidationError
 
 from seagarden_dst.refresh.grid import GridSpec
 
@@ -46,8 +47,8 @@ def test_grid_rejects_lon_inverted():
 
 
 def test_grid_rejects_non_positive_lat_step():
-    """Latitude step must be positive."""
-    with pytest.raises(ValueError):
+    """Latitude step must be positive (Field(gt=0) constraint)."""
+    with pytest.raises(ValidationError, match="greater than 0"):
         GridSpec(
             crs="EPSG:4326", lat_min=53.5, lat_max=60.0, lon_min=9.5, lon_max=27.0,
             lat_step=-0.016666, lon_step=0.027777, n_lat=390, n_lon=630,
@@ -55,8 +56,8 @@ def test_grid_rejects_non_positive_lat_step():
 
 
 def test_grid_rejects_non_positive_lon_step():
-    """Longitude step must be positive."""
-    with pytest.raises(ValueError):
+    """Longitude step must be positive (Field(gt=0) constraint)."""
+    with pytest.raises(ValidationError, match="greater than 0"):
         GridSpec(
             crs="EPSG:4326", lat_min=53.5, lat_max=60.0, lon_min=9.5, lon_max=27.0,
             lat_step=0.016666, lon_step=-0.027777, n_lat=390, n_lon=630,
@@ -64,8 +65,8 @@ def test_grid_rejects_non_positive_lon_step():
 
 
 def test_grid_rejects_non_positive_n_lat():
-    """Number of latitude cells must be positive."""
-    with pytest.raises(ValueError):
+    """Number of latitude cells must be positive (Field(gt=0) constraint)."""
+    with pytest.raises(ValidationError, match="greater than 0"):
         GridSpec(
             crs="EPSG:4326", lat_min=53.5, lat_max=60.0, lon_min=9.5, lon_max=27.0,
             lat_step=0.016666, lon_step=0.027777, n_lat=0, n_lon=630,
@@ -73,8 +74,8 @@ def test_grid_rejects_non_positive_n_lat():
 
 
 def test_grid_rejects_non_positive_n_lon():
-    """Number of longitude cells must be positive."""
-    with pytest.raises(ValueError):
+    """Number of longitude cells must be positive (Field(gt=0) constraint)."""
+    with pytest.raises(ValidationError, match="greater than 0"):
         GridSpec(
             crs="EPSG:4326", lat_min=53.5, lat_max=60.0, lon_min=9.5, lon_max=27.0,
             lat_step=0.016666, lon_step=0.027777, n_lat=390, n_lon=0,
@@ -82,8 +83,8 @@ def test_grid_rejects_non_positive_n_lon():
 
 
 def test_grid_rejects_incoherent_extent():
-    """Extent implied by origin, step and count must match declared max."""
-    with pytest.raises(ValueError):
+    """Extent implied by origin, step and count must match declared max (coherence check)."""
+    with pytest.raises(ValidationError, match="incoherent"):
         GridSpec(
             crs="EPSG:4326", lat_min=53.5, lat_max=100.0, lon_min=9.5, lon_max=27.0,
             lat_step=0.016666, lon_step=0.027777, n_lat=390, n_lon=630,
