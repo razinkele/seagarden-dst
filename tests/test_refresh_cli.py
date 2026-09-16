@@ -1,5 +1,8 @@
 # tests/test_refresh_cli.py
+from pathlib import Path
+
 import pytest
+import yaml
 from refresh_fakes import FakeLayer
 
 from scripts.refresh_layers import build_parser, format_probe_report, main, probe_all
@@ -73,3 +76,49 @@ def test_a_refresh_without_a_year_range_is_refused(capsys):
     with pytest.raises(SystemExit):
         main([])
     assert "--start-year and --end-year are required" in capsys.readouterr().err
+
+
+_WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+_PROBE = _WORKFLOWS / "source-probe.yml"
+
+
+def _workflow():
+    # PyYAML parses the unquoted key `on` as the boolean True (the Norway problem),
+    # so the triggers live under the True key. Checked against this environment's
+    # PyYAML: yaml.safe_load("on:\n  schedule: []\n") has the single key True.
+    # Do not "fix" this to the string "on".
+    return yaml.safe_load(_PROBE.read_text(encoding="utf-8"))
+
+
+def test_the_probe_workflow_is_scheduled_and_dispatchable():
+    triggers = _workflow()[True]
+    assert "schedule" in triggers
+    assert "workflow_dispatch" in triggers
+
+
+def test_the_probe_workflow_blocks_no_pull_request():
+    # C§8.2: gating merges on a third-party service would make every PR hostage to
+    # Copernicus.
+    triggers = _workflow()[True]
+    assert "pull_request" not in triggers
+    assert "push" not in triggers
+
+
+def test_ci_does_not_run_the_probe():
+    # The separation that matters is behavioural, not two files existing: ci.yml must
+    # not invoke the probe, or the separation is cosmetic.
+    assert "--probe" not in (_WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+
+
+def test_the_probe_workflow_runs_the_probe_flag():
+    steps = _workflow()["jobs"]["probe"]["steps"]
+    assert any("--probe" in str(step.get("run", "")) for step in steps)
+
+
+def test_the_probe_workflow_installs_without_the_spatial_extra():
+    # The probe path is deliberately xarray-free (C§8.2: catalogue metadata only).
+    # Installing the spatial extra here would make a reachability check depend on the
+    # scientific stack it exists to avoid needing.
+    steps = _workflow()["jobs"]["probe"]["steps"]
+    installs = " ".join(str(step.get("run", "")) for step in steps)
+    assert "spatial" not in installs
