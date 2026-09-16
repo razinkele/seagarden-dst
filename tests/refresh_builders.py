@@ -19,10 +19,10 @@ from seagarden_dst.artifact.manifest import (
     LayerProvenance,
     Manifest,
 )
+from seagarden_dst.refresh.layer import COVERAGE_LAYERS as _COVERAGE_LAYERS
 from seagarden_dst.refresh.variables import ARTIFACT_VARIABLES
 
 _YEARS = list(range(2016, 2026))
-_COVERAGE_LAYERS = ("copernicus_phy", "copernicus_bgc", "copernicus_wav", "emodnet_bathy")
 
 # Shared by every synthetic dataset this suite builds (`tests/conftest.py`'s
 # `tiny_dataset` and `scripts/make_fixture.py`'s fixture generator), so the two
