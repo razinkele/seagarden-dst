@@ -69,8 +69,20 @@ dev = ["pytest>=8", "pytest-cov>=4.1", "ruff>=0.3"]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+# `params/` stays beside the repository root, where the open-data commitment wants it,
+# and is MAPPED into the distribution as `seagarden_dst/paramdata/`. Without this a
+# wheel shipped no YAML at all and DEFAULT_PARAM_ROOT resolved above site-packages, so
+# `pip install seagarden-dst` gave a package that could not load its own parameters.
+# Only the documented editable install worked, which is why CI never saw it.
+package-dir = { "" = "src", "seagarden_dst.paramdata" = "params" }
+packages = ["seagarden_dst", "seagarden_dst.paramdata"]
+
+[tool.setuptools.package-data]
+# Two levels: params/*.yaml and params/{species,regulatory}/*.yaml. tests/test_packaging.py
+# asserts these globs still cover the whole tree, so a third level cannot be added and
+# silently dropped from the wheel while every checkout keeps working.
+"seagarden_dst.paramdata" = ["*.yaml", "*/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "app/tests"]
