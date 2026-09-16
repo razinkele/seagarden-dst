@@ -208,10 +208,33 @@ it that reference names a table with no key column, and an implementer has to gu
 list index, `dataset_id`, and an undeclared field that `extra="forbid"` would then reject.
 
 `Derivation` carries `{field, relation, inputs: [{layer, variable}]}`: the artifact variable
-produced, the named relation, and which layer and source variable it was computed from. Two
-fields need it — `light_attenuation_k` (Poole-Atkins, C§3.4) and `valid` (C§3.5), whose
-`inputs` span every contributing layer. That is why a computed field is not simply another
-entry in some layer's `variables`: it has no single raw source to be an entry of.
+produced, the named relation, and which layer and source variables it was computed from.
+
+**Three fields need it, and the test is MULTI-SOURCE, not "computed".** Every variable in
+C§3.2 is computed in some sense — `depth_mean_m` is a mean per cell, `significant_wave_m` a
+monthly p95 — and none of those needs a `Derivation`, because each has exactly one source
+variable and a statistic applied to it. `LayerProvenance.variables` says which dataset the
+field came from, and the statistic is in C§3.2's table. That is enough to reconstruct it.
+
+A field assembled from **more than one source variable** is not reconstructible that way: a
+reader holding the artifact name alone cannot recover which inputs went in, so the relation
+has to be written down. Three qualify:
+
+- `light_attenuation_k` — Poole-Atkins over daily `zsd` (C§3.4), one variable but a named
+  non-trivial relation *and* a different dataset from the monthly BGC passthrough.
+- `valid` — the intersection of every contributing layer's coverage (C§3.5).
+- `din_umol_l` — **`no3` + `nh4`**, two variables from one dataset (C§3.2).
+
+`din_umol_l` is the one this design got wrong until now. It was left claimed as a raw field
+of `copernicus_bgc`, and `LayerProvenance` has no relation field, so the manifest had
+nowhere to say the field is a sum. A reader could not tell nitrate from nitrate-plus-
+ammonium — and package B measured surface DIN at 1.047 µmol/L at Tagalaht, where the
+ammonium share is not a rounding difference. The relation is a plain **sum**, with no unit
+conversion: package B verified that `no3` and `nh4` arrive in mmol m⁻³, which "= µmol L⁻¹,
+matching `din_umol_l` directly".
+
+So a computed field is not simply another entry in some layer's `variables`: it has no
+single raw source to be an entry of.
 
 §6.3's rule, stated once and not paraphrased anywhere else in this document: a layer must
 carry **either a `zenodo_doi`, or an explicit `redistribution: forbidden` marker with a
