@@ -43,3 +43,11 @@ screenshots/
 # lines from the in-force Application Form; it stays local. The functional
 # specification and README carry everything the code depends on.
 SeaGarden_DST_proposal_extract.md
+
+# Isolated workspaces and subagent scratch. `.superpowers/sdd/<plan>/` holds the
+# execution ledger, task briefs and review packages for a plan under way: working
+# notes, never deliverables. Both are ignored because an implementer running
+# `git add -A` will otherwise sweep them into an unrelated commit — which has
+# already happened once in this repository.
+.worktrees/
+.superpowers/
