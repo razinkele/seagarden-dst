@@ -271,8 +271,67 @@ def test_a_layer_set_on_the_wrong_grid_is_refused(tmp_path, small_grid):
         {"depth_mean_m": (("latitude", "longitude"), np.ones((2, 2), dtype="float32"))},
         coords={"latitude": [55.0, 55.5], "longitude": [20.0, 20.5]},
     )
-    with pytest.raises(RefreshFailed, match="does not sit on the grid"):
+    # "points" pins the SIZE branch, distinguishing it from the coordinate branch's
+    # message below — a SWAP proof exchanging the two trailing clauses needs the two
+    # sibling tests to match different fragments, not the generic prefix both share.
+    with pytest.raises(RefreshFailed, match="points, the GridSpec declares"):
         check_grid(wrong, small_grid)
+
+
+def test_a_layer_set_built_off_grid_is_refused_end_to_end(tmp_path, small_grid):
+    # The end-to-end companion to test_a_layer_set_on_the_wrong_grid_is_refused,
+    # which calls check_grid directly. Here every layer agrees WITH EACH OTHER —
+    # same coordinates as each other, so xr.merge(join="exact") is satisfied — but
+    # all of them sit on a different GridSpec than the one passed to run_refresh.
+    # That is the "four Copernicus layers share one source grid and shift
+    # together" case check_grid's docstring names; nothing else can catch it.
+    from seagarden_dst.artifact.grid import GridSpec
+
+    wrong_grid = GridSpec(
+        crs="EPSG:4326",
+        lat_min=60.0,
+        lat_max=60.05,
+        lon_min=25.0,
+        lon_max=25.09,
+        lat_step=0.016666,
+        lon_step=0.027777,
+        n_lat=3,
+        n_lon=3,
+    )
+
+    class _OffGridLayer(FakeLayer):
+        def build(self, grid, years, workdir):
+            return super().build(wrong_grid, years, workdir)
+
+    layers = [
+        _OffGridLayer("copernicus_phy", ["salinity_psu", "temp_c"]),
+        _OffGridLayer(
+            "copernicus_bgc", ["din_umol_l", "dip_umol_l"], claims=["dip_umol_l"]
+        ),
+        _OffGridLayer("copernicus_bgc_light", ["light_attenuation_k"], claims=[]),
+        _OffGridLayer(
+            "copernicus_wav",
+            ["significant_wave_m"],
+            shape="monthly",
+            window=[2023, 2024, 2025],
+        ),
+        _OffGridLayer(
+            "emodnet_bathy", ["depth_mean_m", "depth_min_m"], shape="static"
+        ),
+    ]
+    target = tmp_path / "out"
+    # "coordinates differ" pins the COORDINATE branch — the sibling of the size
+    # test above. Same size on both sides here, only the origin moved.
+    with pytest.raises(RefreshFailed, match="coordinates differ"):
+        run_refresh(
+            layers,
+            grid=small_grid,
+            years=YearRange(start=2024, end=2024),
+            target_dir=target,
+            workdir=tmp_path / "work",
+        )
+    assert not (target / "forcing.nc").exists()
+    assert not (target / "manifest.json").exists()
 
 
 def test_the_right_grid_passes_the_attestation_check(small_grid):
