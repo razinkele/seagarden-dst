@@ -7,8 +7,9 @@ Footprint is the four pilots plus context - the same extent the website's coastl
 GeoJSON uses (8-23 E, 53-58 N), not the whole Baltic model domain, because the tool
 assesses South Baltic sites.
 """
-import copernicusmarine as cm
 from pathlib import Path
+
+import copernicusmarine as cm
 
 OUT = Path(__file__).parent / "data"
 OUT.mkdir(exist_ok=True)

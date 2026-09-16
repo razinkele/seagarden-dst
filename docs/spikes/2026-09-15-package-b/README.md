@@ -1,7 +1,7 @@
 # Package B spike scripts — 2026-09-15
 
 Throwaway measurement code, committed so the numbers in
-[`../../2026-09-15-package-b-resolution-and-format.md`](../../2026-09-15-package-b-resolution-and-format.md)
+[`../../2026-09-15-package-b-measurements.md`](../../2026-09-15-package-b-measurements.md)
 can be reproduced. **This is not production code** and nothing in the package imports it.
 
 Run in order; each writes into a `data/` directory beside itself. Needs the `spatial`
@@ -25,3 +25,19 @@ package D will have to avoid:
 - `08` initially took `np.where(valid)[0][0]`, which is the south-west corner of the
   box rather than the nearest valid cell — it put the Danish site in a brackish fjord
   (11.9 psu, DIN to 805 µmol/L) instead of near the Great Belt.
+
+## Notes on this copy
+
+These scripts ran from a working directory, not from a checkout, and two details of
+that survive here:
+
+- `03` is referenced in the bug note above but was never committed; only the seven
+  scripts in the table above exist. What it did is recorded only in its effect on `02`.
+- `05_valid_cells.py` reads `pilots.yaml` from the **website** repository, and assumes
+  it is checked out as `seagarden/` beside this one. That is deliberate: the finding was
+  that the *published* pilot coordinates are land cells, so the script has to read the
+  published file rather than a copy kept here.
+
+Paths were made checkout-relative when the scripts landed; they resolved to the same
+files on the machine that produced the numbers. Nothing else about their behaviour
+changed — see the two commits on this branch for the exact difference.

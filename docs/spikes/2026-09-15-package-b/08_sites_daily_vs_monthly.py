@@ -7,10 +7,10 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-sys.path.insert(0, "/home/razinka/seagarden-dst/src")
-from seagarden_dst.forcing import SiteConditions, day_of_year   # noqa: E402
-from seagarden_dst.growth import contraindication, simulate     # noqa: E402
-from seagarden_dst.params import default_parameters             # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+from seagarden_dst.forcing import SiteConditions, day_of_year  # noqa: E402
+from seagarden_dst.growth import contraindication, simulate  # noqa: E402
+from seagarden_dst.params import default_parameters  # noqa: E402
 
 DATA = Path(__file__).parent / "data"
 SITES = {"DK": (55.4749, 10.5137), "DE": (54.1916, 12.0971),
@@ -55,14 +55,17 @@ for code in SITES:
     bd_ = surface_cell(xr.open_dataset(DATA / f"{code}_bgc_daily.nc"), "no3", SITES[code])
     bm_ = surface_cell(xr.open_dataset(DATA / f"{code}_bgc_monthly.nc"), "no3", SITES[code])
     if any(x is None for x in (pd_, pm_, bd_, bm_)):
-        print(f"{code}: no valid cell in box"); continue
+        print(f"{code}: no valid cell in box")
+        continue
 
     din_d = (bd_["no3"] + bd_["nh4"]).values
     din_m = (bm_["no3"] + bm_["nh4"]).values
     t_d, t_m = pd_["thetao"].values, pm_["thetao"].values
     sal = pd_["so"].values
-    doy_pd, doy_pm = pd_["time"].dt.dayofyear.values.astype(float), pm_["time"].dt.dayofyear.values.astype(float)
-    doy_bd, doy_bm = bd_["time"].dt.dayofyear.values.astype(float), bm_["time"].dt.dayofyear.values.astype(float)
+    doy_pd = pd_["time"].dt.dayofyear.values.astype(float)
+    doy_pm = pm_["time"].dt.dayofyear.values.astype(float)
+    doy_bd = bd_["time"].dt.dayofyear.values.astype(float)
+    doy_bm = bm_["time"].dt.dayofyear.values.astype(float)
 
     summer = float(np.nanmean(t_d[(doy_pd >= 172) & (doy_pd <= 264)]))
     winter = float(np.nanmean(t_d[(doy_pd <= 79) | (doy_pd >= 355)]))
@@ -86,13 +89,18 @@ class Arm:
         doy_pd, t_d, doy_pm, t_m, doy_bd, din_d, doy_bm, din_m = series[self.code]
         a, b = window
         first, last = day_of_year(a, 1), day_of_year(b, 28)
-        if last < first: last += 365
+        if last < first:
+            last += 365
         days = np.arange(first, last + 1, dtype=float)
         season = 0.5 * (1.0 + np.cos(2.0 * np.pi * (days - 172.0) / 365.25))
         par = s.par_at_depth() * (0.25 + 0.75 * season)     # identical in both arms
         if self.arm == "daily":
-            return days, par, periodic_interp(days, doy_pd, t_d), periodic_interp(days, doy_bd, din_d)
-        return days, par, periodic_interp(days, doy_pm, t_m), periodic_interp(days, doy_bm, din_m)
+            return (days, par,
+                    periodic_interp(days, doy_pd, t_d),
+                    periodic_interp(days, doy_bd, din_d))
+        return (days, par,
+                periodic_interp(days, doy_pm, t_m),
+                periodic_interp(days, doy_bm, din_m))
 
 
 print(f"\n{'site':4s} {'species':22s} {'daily':>11s} {'monthly':>11s} {'rel':>9s}  reportable?")
@@ -100,12 +108,14 @@ print("-" * 80)
 all_rel = []
 for code, s in site_objs.items():
     for key, sp in sorted(params.species.items()):
-        if sp.growth is None: continue
+        if sp.growth is None:
+            continue
         bd = simulate(sp, s, forcing=Arm(code, "daily")).biomass[-1]
         bm = simulate(sp, s, forcing=Arm(code, "monthly")).biomass[-1]
         rel = (bm - bd) / bd if bd else float("nan")
         ci = contraindication(sp, s)
-        blocked = "BLOCKED: " + (ci[:28] if isinstance(ci, str) else str(ci)[:28]) if ci else "reportable"
+        detail = ci[:28] if isinstance(ci, str) else str(ci)[:28]
+        blocked = "BLOCKED: " + detail if ci else "reportable"
         if not ci:
             all_rel.append(abs(rel))
         print(f"{code:4s} {key:22s} {bd:9.1f} g {bm:9.1f} g {rel:+8.2%}  {blocked}")

@@ -5,10 +5,12 @@ the Curonian Lagoon (3.5 psu, DIN to 230 umol/L), which is the most variable wat
 the footprint. Measuring all four separates "monthly smoothing loses information" from
 "this particular cell is a river plume".
 """
-import copernicusmarine as cm
 from pathlib import Path
 
-OUT = Path(__file__).parent / "data"; OUT.mkdir(exist_ok=True)
+import copernicusmarine as cm
+
+OUT = Path(__file__).parent / "data"
+OUT.mkdir(exist_ok=True)
 PAD, YEAR, DMAX = 0.04, "2024", 3.0
 
 # nearest sea cell to each published pilot coordinate, from 05_valid_cells.py
@@ -29,7 +31,8 @@ for code, (lat, lon) in SITES.items():
     for name, ds_id, variables in DATASETS:
         target = OUT / f"{code}_{name}.nc"
         if target.exists():
-            print(f"{target.name}: present, skipping", flush=True); continue
+            print(f"{target.name}: present, skipping", flush=True)
+            continue
         cm.subset(
             dataset_id=ds_id, variables=variables,
             minimum_longitude=lon - PAD, maximum_longitude=lon + PAD,

@@ -10,13 +10,15 @@ when that mean is >= 0.5 (majority water). Any other convention shifts the numbe
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import xarray as xr
 import yaml
-from pathlib import Path
 
 DATA = Path(__file__).parent / "data"
-PILOTS = yaml.safe_load(open("/home/razinka/seagarden/data/pilots.yaml"))
+SITE_REPO = Path(__file__).resolve().parents[4] / "seagarden"
+PILOTS = yaml.safe_load((SITE_REPO / "data" / "pilots.yaml").read_text())
 
 ds = xr.open_dataset(DATA / "grid_static.nc")
 mask = ds["mask"].isel(depth=0) if "depth" in ds["mask"].dims else ds["mask"]
@@ -107,5 +109,6 @@ print("\n   cells sampled per (pilot, radius, resolution):")
 for p in PILOTS:
     for r_km in RADII_KM:
         counts = [results[(p["country"], r_km, f)][1] for f in FACTORS]
-        print(f"   {p['country']:12s} r={r_km:4.1f}km  " +
-              "  ".join(f"{dlat*KM_PER_DEG_LAT*f:.1f}km:{c:3d}" for f, c in zip(FACTORS, counts)))
+        cells = "  ".join(f"{dlat*KM_PER_DEG_LAT*f:.1f}km:{c:3d}"
+                          for f, c in zip(FACTORS, counts, strict=True))
+        print(f"   {p['country']:12s} r={r_km:4.1f}km  " + cells)

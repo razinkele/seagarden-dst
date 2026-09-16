@@ -3,8 +3,9 @@
 Lithuanian pilot (55.7033 N, 21.1443 E) - KU's own site, and the one whose species
 (Chorda filum) is tier C everywhere, so the forcing question matters most there.
 """
-import copernicusmarine as cm
 from pathlib import Path
+
+import copernicusmarine as cm
 
 OUT = Path(__file__).parent / "data"
 OUT.mkdir(exist_ok=True)

@@ -25,7 +25,8 @@ for label, ds_id in TARGETS:
                 print(f"  time: {str(v.values[0])[:10]} .. {str(v.values[-1])[:10]}  (n={v.size})")
             elif v.size > 1:
                 step = float(abs(v.values[1] - v.values[0]))
-                print(f"  {coord}: {float(v.min()):.4f} .. {float(v.max()):.4f}  step={step:.5f}  n={v.size}")
+                print(f"  {coord}: {float(v.min()):.4f} .. {float(v.max()):.4f}"
+                      f"  step={step:.5f}  n={v.size}")
     print("  variables:")
     for name, da in ds.data_vars.items():
         units = da.attrs.get("units", "?")
