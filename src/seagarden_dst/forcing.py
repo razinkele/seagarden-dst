@@ -142,7 +142,21 @@ SITE_COORDINATES: dict[str, tuple[float, float]] = {
     #: — 11.3 m at 2.6 km, 12.9 m at 4.1 km, 17.8 m within 12 km — so if the pilot is
     #: sited anywhere offshore, this value should move rather than be confirmed.
     "DE-coastal": (54.1916, 12.0971),
-    #: LT-coastal, LT-lagoon, PL-coastal, PL-lagoon: not sited yet.
+    #: Szczecin Lagoon, on the Wolin National Park side. INDICATIVE, NOT SITED — and that
+    #: is weaker than the two above, which were at least snapped from a published pin.
+    #: No lagoon pin existed before 2026-09-16: the site was added to the website that day
+    #: on partner review, so there was nothing to snap from. This is a representative
+    #: lagoon cell CHOSEN and then verified, not derived from a position anybody gave.
+    #:
+    #: Verified SEA against cmems_mod_bal_phy_my_static, depth 4.0 m. The model does
+    #: resolve the lagoon — 120 sea cells in it, 3.1-5.0 m, which matches its real
+    #: bathymetry — so the artifact will have values here. The cells at 53.94-53.96 N are
+    #: the Swina channel at 8-10 m, a different water body; do not drift north into them.
+    #:
+    #: Note the lagoon is genuinely the shallow, enclosed, river-influenced water package B
+    #: warned that snapping selects by accident. Here that is the site, not an artefact.
+    "PL-lagoon": (53.8416, 14.4859),
+    #: LT-coastal, LT-lagoon, PL-coastal: not sited yet.
     #: LT is two sub-sites, coastal and lagoon, and `LT-lagoon` is not in REGIONS yet.
 }
 

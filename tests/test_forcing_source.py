@@ -389,7 +389,7 @@ def test_unsited_regions_are_absent_rather_than_none():
     """
     from seagarden_dst.forcing import SITE_COORDINATES
 
-    for region in ("LT-coastal", "PL-coastal", "PL-lagoon"):
+    for region in ("LT-coastal", "PL-coastal"):
         assert region not in SITE_COORDINATES
     assert all(v is not None for v in SITE_COORDINATES.values())
 
@@ -406,6 +406,20 @@ def test_the_german_coordinate_is_the_snapped_cell():
 
     lat, lon = SITE_COORDINATES["DE-coastal"]
     assert (round(lat, 4), round(lon, 4)) == (54.1916, 12.0971)
+
+
+def test_the_lagoon_coordinate_is_indicative():
+    """Weaker provenance than the other two, and the test says so.
+
+    DK-belt and DE-coastal were snapped from a published position. This one was not
+    snapped from anything: no lagoon pin existed before 2026-09-16, so it is a
+    representative lagoon cell on the Wolin National Park side, chosen and then verified
+    rather than derived. Pinned so that replacing it is a decision.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    lat, lon = SITE_COORDINATES["PL-lagoon"]
+    assert (round(lat, 4), round(lon, 4)) == (53.8416, 14.4859)
 
 
 def test_every_coordinate_names_a_known_region():
