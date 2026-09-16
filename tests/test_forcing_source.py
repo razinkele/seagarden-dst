@@ -192,3 +192,100 @@ def test_compare_threads_an_injected_forcing_source():
     # Same two consumers as assess_site's chain: assess -> assess_growth ->
     # harvest_biomass, and evaluate's own headline harvest_biomass call.
     assert stub.forcing_calls == 2, "compare() did not forward forcing to evaluate()"
+
+
+# --- The series precondition -------------------------------------------------
+#
+# Package B fed `simulate` a forcing series taken from a land cell and it did not
+# raise: an all-NaN derivative makes `solve_ivp` shrink its step until it underflows,
+# so the run sat at 101% CPU for over two minutes and looked like a stiff-ODE
+# performance problem rather than a data problem. Diagnosing it cost far more than
+# the bug was worth, which is the whole argument for a precondition here.
+#
+# The guard lives at the protocol boundary rather than inside any one source, so
+# `GriddedForcing` inherits it in package D without having to remember to.
+
+
+class _NanForcing:
+    """A source returning a series with non-finite values, as a land cell does."""
+
+    def __init__(self, where: slice | None = None, array: str = "din"):
+        self.where = where
+        self.array = array
+
+    def conditions_for(self, region):
+        return DEFAULT_FORCING.conditions_for(region)
+
+    def daily_forcing(self, site, window):
+        days = np.arange(1.0, 101.0)
+        series = {
+            "par": np.full(100, 200.0),
+            "temperature": np.full(100, 12.0),
+            "din": np.full(100, 5.0),
+        }
+        target = series[self.array]
+        target[self.where if self.where is not None else slice(None)] = np.nan
+        return days, series["par"], series["temperature"], series["din"]
+
+
+def test_an_all_nan_forcing_series_raises_instead_of_spinning():
+    """The land-cell case: every value is NaN, and `solve_ivp` must never see it."""
+    params = default_parameters()
+    fucus = params.species["fucus_vesiculosus"]
+    site = PLACEHOLDER_SITES["LT-coastal"]
+
+    from seagarden_dst.growth import simulate
+
+    with pytest.raises(ValueError, match="non-finite"):
+        simulate(fucus, site, forcing=_NanForcing())
+
+
+def test_a_single_non_finite_value_raises_too():
+    """One NaN mid-series poisons the interpolated derivative exactly as badly.
+
+    A guard that only caught all-NaN would pass a series with one hole straight
+    through to the integrator, which is the harder bug to find precisely because
+    the series looks populated.
+    """
+    params = default_parameters()
+    fucus = params.species["fucus_vesiculosus"]
+    site = PLACEHOLDER_SITES["LT-coastal"]
+
+    from seagarden_dst.growth import simulate
+
+    with pytest.raises(ValueError, match="non-finite"):
+        simulate(fucus, site, forcing=_NanForcing(where=slice(40, 41)))
+
+
+def test_the_message_names_the_region_and_the_likely_cause():
+    """The message is the fix.
+
+    What made this expensive was that the failure mode pointed at the integrator.
+    Naming the region, the offending array and the land-cell explanation is what
+    turns a two-minute spin into an immediate diagnosis, so it is worth asserting.
+    """
+    params = default_parameters()
+    fucus = params.species["fucus_vesiculosus"]
+    site = PLACEHOLDER_SITES["LT-coastal"]
+
+    from seagarden_dst.growth import simulate
+
+    with pytest.raises(ValueError) as excinfo:
+        simulate(fucus, site, forcing=_NanForcing())
+
+    message = str(excinfo.value)
+    assert "LT-coastal" in message
+    assert "din" in message
+    assert "land cell" in message
+
+
+def test_a_finite_series_is_left_alone():
+    """The guard must not reject the ordinary case."""
+    params = default_parameters()
+    fucus = params.species["fucus_vesiculosus"]
+    site = PLACEHOLDER_SITES["LT-coastal"]
+
+    from seagarden_dst.growth import simulate
+
+    trajectory = simulate(fucus, site)
+    assert np.isfinite(trajectory.biomass).all()
