@@ -23,12 +23,17 @@ unreleased.
 
 **The refresh tooling gets its foundations, and five of seven sites get a position.**
 Still a prototype: the artifact these tools build has not been built yet, so nothing the
-tool displays is a measurement of the site you selected. 196 tests (143 at 0.2.0), CI on
+tool displays is a measurement of the site you selected. 198 tests (143 at 0.2.0), CI on
 Python 3.11 and 3.13 across two install states.
 
 ### Added
 
-- **Package C-a — the provenance manifest and its writer** (`seagarden_dst.refresh`). A
+- **Package C-a — the provenance manifest and its writer**, split across two packages so
+  the boundary holds. `seagarden_dst.artifact` carries the schema and the reader —
+  `GridSpec`, the manifest models, `load_pair`, `sha256_of` — and depends only on pydantic,
+  stdlib and numpy, so package D can import it without dragging in the `spatial` extra.
+  `seagarden_dst.refresh` carries the build-time writer and may import `artifact` but
+  nothing else from the core. A
   `GridSpec` fixing the artifact grid, Pydantic manifest models whose rules fail at load
   rather than mid-analysis, and an atomic artifact/manifest writer. Four completeness
   validators enforce that every artifact variable is claimed exactly once, that `baselines`
@@ -79,10 +84,10 @@ Python 3.11 and 3.13 across two install states.
 Unchanged from 0.2.0 and still the honest summary: site conditions are placeholders; surface
 PAR is a **permanent** placeholder, not a pending one; significant wave height is unsourced;
 *Fucus* misses its published anchor. Package C-a builds the tooling for the forcing artifact
-— it does not build the artifact. Two gaps are recorded for the next package: package D
-cannot reach `Manifest` or `load_pair` without crossing an import boundary its own test
-forbids, and nothing validates `source`/`product_id` across layers, so a real refresh could
-attribute five datasets to one product and pass every validator.
+— it does not build the artifact. One gap is recorded for the next package: nothing
+validates `source`/`product_id` across layers, so a real refresh could attribute five
+datasets to one Copernicus product and pass every validator. The four completeness rules
+constrain `dataset_id` uniqueness and the claim union and say nothing about attribution.
 
 ---
 
