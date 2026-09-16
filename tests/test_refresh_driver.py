@@ -361,3 +361,49 @@ def test_a_partial_layer_set_cannot_produce_a_manifest(tmp_path, small_grid):
             workdir=tmp_path / "work",
         )
     assert "dip_umol_l" in str(caught.value)  # name the unclaimed, not merely "raised"
+
+
+def test_the_cli_refresh_branch_builds_a_pair(
+    tmp_path, small_grid, nine_variable_layers, monkeypatch
+):
+    # Clause 1 end to end: the CLI is the entry point C§5 names, and without this its
+    # refresh branch is never executed by any test.
+    #
+    # `baltic` is patched to the small grid on purpose. Measured, not guessed: the real
+    # extent is 390 x 630 = 245,700 cells, so all nine variables over two years is
+    # ~126 MB resident, 2-3x that transiently inside to_netcdf, and a ~100 MB file
+    # written on every run. That is not a unit test. The patch is what keeps it one.
+    import scripts.refresh_layers as cli
+    from seagarden_dst.artifact.grid import GridSpec
+
+    monkeypatch.setattr(GridSpec, "baltic", classmethod(lambda cls: small_grid))
+    monkeypatch.setattr(cli, "REGISTRY", {ly.name: ly for ly in nine_variable_layers})
+    target = tmp_path / "out"
+    code = cli.main(
+        [
+            "--start-year", "2024", "--end-year", "2025",
+            "--target", str(target), "--workdir", str(tmp_path / "work"),
+        ]
+    )
+    assert code == 0
+    assert (target / "forcing.nc").exists()
+    assert (target / "manifest.json").exists()
+
+
+def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(monkeypatch):
+    # The patch in the test above would hide a CLI that stopped calling `baltic`, so
+    # pin the property that makes the patch safe: there is no grid option, therefore
+    # `GridSpec.baltic()` is the only extent the refresh branch can possibly use.
+    import scripts.refresh_layers as cli
+    from seagarden_dst.artifact.grid import GridSpec
+
+    assert not any(action.dest == "grid" for action in cli.build_parser()._actions)
+
+    called = []
+    monkeypatch.setattr(GridSpec, "baltic", classmethod(lambda cls: called.append(cls) or None))
+    monkeypatch.setattr(
+        cli, "REGISTRY", {"copernicus_phy": FakeLayer("copernicus_phy", ["temp_c"])}
+    )
+    with pytest.raises(Exception):  # noqa: B017 - it fails downstream on a None grid
+        cli.main(["--start-year", "2024", "--end-year", "2024"])
+    assert called, "the refresh branch never asked for the Baltic grid"
