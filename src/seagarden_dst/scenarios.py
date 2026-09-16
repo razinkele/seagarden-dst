@@ -11,8 +11,7 @@ and a small commercial unit.
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-import pandas as pd
+from typing import TYPE_CHECKING
 
 from .calibration import Quantity, for_display
 from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
@@ -21,6 +20,9 @@ from .nutrients import NutrientRemoval, from_harvest
 from .params import MethodParams, ParameterSet, SpeciesParams
 from .shellfish import harvest as shellfish_harvest
 from .suitability import Suitability, assess
+
+if TYPE_CHECKING:  # pandas is an `app` extra, not a core dependency
+    import pandas as pd
 
 #: Named scales, in m2. The mini-farm figure is the OLAMUR cage size, which is also
 #: the order of the A3.5 citizen-science kit.
@@ -133,6 +135,12 @@ def compare(
             row["Phosphorus removed"] = "-"
             row["Carbon in harvest"] = "-"
         rows.append(row)
+
+    # Imported here, not at module scope. pandas ships in the `app` extra and the core
+    # dependency list is numpy/scipy/pydantic/pyyaml; a module-level import made
+    # `import seagarden_dst` fail outright in a core install, because __init__ imports
+    # api and api imports this module. `compare()` is the only thing here that needs it.
+    import pandas as pd
 
     return pd.DataFrame(rows)
 

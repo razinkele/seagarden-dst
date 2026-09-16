@@ -41,10 +41,12 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-# params/ lives beside the repository root, not inside the package: it is data the
-# project curates and republishes under the open-data commitment, not code. Same
-# reasoning, and the same location, as `params.DEFAULT_PARAM_ROOT`.
-DEFAULT_REGULATORY_ROOT = Path(__file__).resolve().parents[2] / "params" / "regulatory"
+from .params import DEFAULT_PARAM_ROOT as _DEFAULT_PARAM_ROOT
+
+# Derived from `params.DEFAULT_PARAM_ROOT` rather than recomputed, so the packaged-copy
+# and checkout cases cannot disagree. This file used to repeat the path expression, which
+# meant two places to fix when the distribution mapping was added.
+DEFAULT_REGULATORY_ROOT = _DEFAULT_PARAM_ROOT / "regulatory"
 
 # The four jurisdictions of the Application Form. WP3 A3.1 runs permitting in each.
 JURISDICTIONS: tuple[str, ...] = ("DK", "DE", "PL", "LT")
