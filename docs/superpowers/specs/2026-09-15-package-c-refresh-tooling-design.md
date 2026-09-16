@@ -647,11 +647,38 @@ To be made when this design is accepted, not silently assumed:
   `xarray`; `.[app,dev]` does not install it. That fails at **collection**, not as a skip,
   taking both matrix legs red on every pull request — a job that cannot be made green by
   the change that introduced it. An earlier revision of this bullet offered "a second CI
-  job **or** skip markers" and this one dropped the alternative; it is restored here
-  because the two are not alternatives at all, but both halves of one mechanism. The
-  repository already has the idiom: `markers = ["engines: …", "e2e: …"]` with
-  `addopts = "-m 'not engines and not e2e'"`. A `spatial` marker deselected by default,
-  and the new job running `-m spatial`, is what makes the split work in both directions.
+  job **or** skip markers" and a later one dropped the alternative; both are needed, and
+  they are not alternatives but different halves of the problem.
+
+  **A marker is not enough on its own, and an earlier revision of this paragraph said it
+  was.** It prescribed "a `spatial` marker deselected by default, and the new job running
+  `-m spatial`" as what makes the split work. That handles *selection* and does nothing
+  about *import*: `addopts = "-m 'not spatial'"` deselects after collection, and collection
+  has already imported the module. Checked rather than reasoned about — a test module with
+  a module-level import of an absent package, carrying the marker, under those addopts,
+  still ends in `ModuleNotFoundError` and `Interrupted: 1 error during collection`.
+
+  So both, and they do different jobs:
+
+  - **`pytest.importorskip("xarray")` at the top of each spatial test module**, binding the
+    name the module uses. This is what keeps the `.[app,dev]` job green: the module is
+    imported, the helper raises `Skipped` during collection, and pytest records a skip
+    rather than an error. `collect_ignore_glob` in `tests/conftest.py` is the alternative
+    if a whole directory should not be collected. Verified in all three states: xarray
+    absent → skipped; present under the default addopts → deselected; present under
+    `-m spatial` → passed.
+  - **A `spatial` marker, deselected by default, and the new job running `-m spatial`.**
+    This decides which job *runs* the tests once they can be imported at all.
+
+  The repository's own `engines` marker is a partial precedent only: it is declared in
+  `addopts` but no test carries it, so it demonstrates the deselection half and has never
+  exercised the import half. Do not read it as a worked example.
+
+  Any module under `refresh/` has the same problem in the other direction: `writer.py`
+  importing `xarray` at module scope makes the core package unimportable without the
+  spatial extra. Import it inside the function that uses it, as `scenarios.compare` does
+  with pandas — an annotation alone needs nothing at runtime under
+  `from __future__ import annotations`.
 
   Worth deciding in the plan, not here: whether to declare `h5netcdf` directly in `spatial`
   rather than inheriting it through `copernicusmarine`. Relying on a transitive dependency
