@@ -41,7 +41,10 @@ def test_nothing_is_reportable_below_its_salinity_floor(params):
     """The leak, in executable form. Sugar kelp reported 4.52-40.7 kg DW at DE-coastal."""
     kelp = params.species["saccharina_latissima"]
     sites = _below_floor(kelp)
-    assert len(sites) == 5, "expected five placeholder sites below the 16 psu floor"
+    # Six since LT-lagoon joined: every placeholder region except EE-coastal is below
+    # sugar kelp's 16 psu floor. The count is asserted rather than left implicit so that
+    # adding a region cannot quietly shrink what this test covers.
+    assert len(sites) == 6, "expected six placeholder sites below the 16 psu floor"
 
     for site in sites:
         harvest = harvest_biomass(kelp, site, area_m2=1000.0)

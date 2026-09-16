@@ -24,6 +24,7 @@ import numpy as np
 # calibration domains, not a spatial index.
 REGIONS = {
     "LT-coastal": "Lithuanian coastal waters",
+    "LT-lagoon": "Curonian Lagoon, Lithuanian side",
     "PL-coastal": "Polish coastal waters",
     "PL-lagoon": "Szczecin Lagoon",
     "DE-coastal": "Mecklenburg-Vorpommern coastal waters",
@@ -244,7 +245,27 @@ SITE_COORDINATES: dict[str, SiteCoordinate] = {
             "arrived at, not whether the water is any good."
         ),
     ),
-    #: LT-coastal, LT-lagoon: not sited yet.
+    "LT-lagoon": SiteCoordinate(
+        lat=55.672777, lon=21.133870,
+        provenance=SiteProvenance.SITED,
+        depth_m=3.1, checked_on=date(2026, 9, 16),
+        note=(
+            "The first SITED coordinate this tool has held, and the only one not arrived "
+            "at by snapping. From KU Marine Research Institute's notification to the "
+            "Curonian Spit National Park administration, 2026-06-10: 'Eksperimento vieta: "
+            "vakarine Kursiu mariu pakrante 55.672777, 21.133870' — the western shore of "
+            "the Curonian Lagoon. A 10 x 2 m installation of growing ropes on floats and "
+            "anchors, or on stakes, cultivating Ulva intestinalis, 15 June to 30 October "
+            "2026. A position the project chose, notified and is building on, not a cell "
+            "a script picked. "
+            "Its containing cell is SEA at 3.1 m, 0.62 km from the notified point, so it "
+            "indexes the artifact directly and needs no snap. The shallow, near-fresh "
+            "water is the site rather than an artefact of snapping: package B measured "
+            "3.5 psu here, and Ulva intestinalis is the species chosen for it."
+        ),
+    ),
+    #: LT-coastal: not sited yet. Site 1 of the Lithuanian selection is the Klaipeda
+    #: Strait; WP3's folder has June 2026 field photos but no coordinate on record.
     #: LT is two sub-sites, coastal and lagoon, and `LT-lagoon` is not in REGIONS yet.
 }
 
@@ -278,6 +299,29 @@ PLACEHOLDER_SITES: dict[str, SiteConditions] = {
         dip_umol_l=0.6,
         depth_m=12.0,
         significant_wave_m=1.1,
+    ),
+    #: Curonian Lagoon, Lithuanian side — added with the LT-lagoon region so
+    #: `conditions_for` has an answer for it. UNLIKE its neighbours, two fields here are
+    #: MEASURED rather than assumed: package B read 3.5 psu and 36 umol/L DIN from the
+    #: Copernicus reanalysis in this lagoon, and depth 3.1 m is the static mask at the
+    #: notified site's own cell. The rest is placeholder in the same sense as everything
+    #: below — temperatures widened for a shallow lagoon, waves cut for a sheltered one,
+    #: surface_par carried over because no source for it exists at all.
+    #:
+    #: The salinity is the point of the entry. At 3.5 psu this water is near-fresh, which
+    #: is why `eutropy_adapter` refuses lagoon-to-coast transfers and why the site's
+    #: species is Ulva intestinalis rather than a kelp.
+    "LT-lagoon": SiteConditions(
+        region="LT-lagoon",
+        salinity_psu=3.5,        # measured, package B
+        mean_temp_c=11.0,
+        summer_temp_c=21.0,      # shallow water warms further than the open coast
+        winter_temp_c=1.0,
+        surface_par=420.0,       # no source exists for this field anywhere
+        din_umol_l=36.0,         # measured, package B — the Nemunas load
+        dip_umol_l=1.6,
+        depth_m=3.1,             # static mask at the notified site's cell
+        significant_wave_m=0.4,  # sheltered
     ),
     "PL-coastal": SiteConditions(
         region="PL-coastal",
