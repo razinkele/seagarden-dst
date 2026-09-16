@@ -111,9 +111,23 @@ curl -s -o /dev/null -w '%{http_code}\n' https://laguna.ku.lt/seagarden-dst/   #
   'import seagarden_dst; print(seagarden_dst.__version__)'           # must equal $TAG without the v
 ```
 
-The version check is the deployment-level twin of `tests/test_version.py`, which guards the two
-version literals against each other in CI. This guards the *running instance* against the tag
-it claims to be. `app/shell.py` reads the same value into the About box, so a user can confirm
+**That version check alone does not prove the service restarted**, and the trap is worth stating
+because the command looks like it does. The install is editable, so it spawns a *new* process
+that reads the checkout as it is now — it reports the new version the moment the merge lands,
+while the running service still holds the old module in memory. Assert the restart separately:
+
+```bash
+systemctl show -p ActiveEnterTimestamp --value seagarden-dst   # when the service started
+git -C ~/seagarden-dst log -1 --format=%cd HEAD                # the commit it should be serving
+```
+
+**The service must have entered active state *after* the deploy moved the checkout.** If it did
+not, the process is running code that is no longer on disk — and every other check here still
+passes.
+
+Together these are the deployment-level twin of `tests/test_version.py`, which guards the two
+version literals against each other in CI. This pair guards the *running instance* against the
+tag it claims to be. `app/shell.py` reads the same value into the About box, so a user can confirm
 it without shell access — open the app and look.
 
 Last, in a browser: load the app, run one assessment, and confirm the About box reports the
