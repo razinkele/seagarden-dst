@@ -23,7 +23,12 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 from .calibration import Calibration, Quantity, Tier
-from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
+from .forcing import (
+    DEFAULT_FORCING,
+    ForcingSource,
+    SiteConditions,
+    require_finite_series,
+)
 from .params import SpeciesParams
 
 KELVIN = 273.15
@@ -109,6 +114,7 @@ def simulate(
 
     g = species.growth
     days, par, temp, din = forcing.daily_forcing(site, species.cultivation_window)
+    require_finite_series(site.region, days, par, temp, din)
 
     f_i = np.asarray(f_irradiance(par, g.i_k), dtype=float)
     f_t = np.asarray(

@@ -232,6 +232,50 @@ def daily_forcing(
     return days, par, temperature, din
 
 
+def require_finite_series(
+    region: str,
+    days: np.ndarray,
+    par: np.ndarray,
+    temperature: np.ndarray,
+    din: np.ndarray,
+) -> None:
+    """Reject a forcing series the integrator cannot survive, before it reaches one.
+
+    Package B fed `simulate` a series drawn from a land cell and nothing raised.
+    `solve_ivp` does not error on a non-finite derivative; it shrinks the step until
+    it underflows, so the run sat at 101% CPU producing nothing and read as a
+    stiff-ODE performance problem. The cost was entirely in the diagnosis.
+
+    This is the SERIES precondition - "are these numbers usable" - and it is checked
+    at the `ForcingSource` boundary so every source inherits it, `GriddedForcing`
+    included, without each having to remember. The separate SPATIAL precondition -
+    "does this coordinate land on a valid cell, and how far is the nearest one" -
+    belongs to the data layer, which can answer it before any series is built.
+
+    One NaN is rejected as firmly as all of them: the interpolation in `simulate`
+    spreads a single hole across the derivative, and a part-filled series is the
+    harder bug precisely because it looks populated.
+    """
+    suspect = {"days": days, "par": par, "temperature": temperature, "din": din}
+    bad: dict[str, tuple[int, int]] = {}
+    for name, values in suspect.items():
+        array = np.asarray(values, dtype=float)
+        finite = int(np.isfinite(array).sum())
+        if finite != array.size:
+            bad[name] = (finite, array.size)
+
+    if not bad:
+        return
+
+    detail = ", ".join(f"{name}: {f}/{n} finite" for name, (f, n) in bad.items())
+    raise ValueError(
+        f"forcing series for region {region!r} contains non-finite values "
+        f"({detail}). A series with no finite values usually means the site "
+        f"coordinate resolved to a land cell in the gridded product - check the "
+        f"coordinate before the integrator, because solve_ivp will not reject it."
+    )
+
+
 @runtime_checkable
 class ForcingSource(Protocol):
     """Where site conditions and seasonal forcing come from.
