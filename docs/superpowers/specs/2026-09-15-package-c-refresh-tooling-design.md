@@ -559,7 +559,24 @@ To be made when this design is accepted, not silently assumed:
   pull opposite ways: C§10 clause 8 (no core module imports `refresh/`) is only meaningful
   in an install *without* `spatial`, while the fixture tests need one *with* it. Two install
   states, so a second CI job — the existing job keeps `.[app,dev]` and proves the isolation,
-  a new job installs `.[spatial]` and runs the refresh tests.
+  a new job installs `.[spatial,dev]` and runs the refresh tests.
+
+  **`,dev`, not `.[spatial]` alone.** `spatial` declares no test runner: pytest is in
+  `test` and `dev`. `pip install -e ".[spatial]"` followed by `pytest -q` fails with
+  "pytest: command not found", so the job would install everything it needs to read the
+  fixture and still be unable to run a test against it.
+
+  **And a second job is not sufficient by itself — the tests also need a marker.**
+  `pyproject.toml` sets `testpaths = ["tests", "app/tests"]` and `ci.yml` runs a bare
+  `pytest -q`, so the *existing* job still collects C§7's fixture tests, which import
+  `xarray`; `.[app,dev]` does not install it. That fails at **collection**, not as a skip,
+  taking both matrix legs red on every pull request — a job that cannot be made green by
+  the change that introduced it. An earlier revision of this bullet offered "a second CI
+  job **or** skip markers" and this one dropped the alternative; it is restored here
+  because the two are not alternatives at all, but both halves of one mechanism. The
+  repository already has the idiom: `markers = ["engines: …", "e2e: …"]` with
+  `addopts = "-m 'not engines and not e2e'"`. A `spatial` marker deselected by default,
+  and the new job running `-m spatial`, is what makes the split work in both directions.
 
   Worth deciding in the plan, not here: whether to declare `h5netcdf` directly in `spatial`
   rather than inheriting it through `copernicusmarine`. Relying on a transitive dependency
