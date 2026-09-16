@@ -37,9 +37,20 @@ app = [
 # and no service call. That is what keeps the tool alive to 2034 on no maintenance budget.
 #
 # "Build-time only" is true of the Copernicus/raster packages, and NOT of the whole extra:
-# shinywidgets and ipyleaflet below are the map UI's runtime dependencies, and the artifact
-# reader package D adds will be a runtime NetCDF backend. The invariant is about the core,
-# not about when these are imported.
+# the artifact reader package D adds will be a runtime NetCDF backend. The invariant is
+# about the core, not about when these are imported.
+#
+# The map UI is NOT declared here. Package E draws its map with `shiny_deckgl`
+# (github.com/razinkele/shiny_deckgl — a Shiny-for-Python to deck.gl/MapLibre bridge),
+# which is distributed on the `razinka` conda channel and not on PyPI. Every install path
+# this project uses is pip — CI runs `pip install -e ".[app,dev]"` and `".[spatial,dev]"`,
+# the laguna deploy runs `pip install -e ".[app]"` — so naming it as a requirement here
+# would turn all three red. It is an ENVIRONMENT PREREQUISITE instead:
+#
+#     micromamba install -n shiny -c razinka shiny-deckgl
+#
+# recorded in README.md and docs/runbooks/deploy.md. `shinywidgets` and `ipyleaflet` were
+# the previous map stack and are gone with it; nothing imports either.
 #
 # copernicusmarine authenticates against a credential the refresh runbook requires to be
 # INSTITUTIONAL, never personal (design section 4.1) — an annual refresh that depends on
@@ -52,8 +63,6 @@ spatial = [
   "geopandas>=0.14",
   "shapely>=2.0",
   "pyproj>=3.6",
-  "shinywidgets>=0.3",
-  "ipyleaflet>=0.18",
   # Engines the package B spike scripts write with (docs/spikes/2026-09-15-package-b/).
   # copernicusmarine pulls h5netcdf, which READS NetCDF4 but is a different engine:
   # 07_format_sweep.py calls to_netcdf(engine="netcdf4") and to_zarr(), so without these

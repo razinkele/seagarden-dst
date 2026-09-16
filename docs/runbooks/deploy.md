@@ -21,6 +21,7 @@ because that is a property of the app.
 | Checkout | `/home/razinka/seagarden-dst` | this repo, branch `main` |
 | Python env | `/opt/micromamba/envs/shiny` | shared with the host's other Shiny apps |
 | Install | `pip install -e ".[app]"` — **editable**, landing in `~/.local/lib/python3.13/site-packages` | see §2 and §4 |
+| Map library | `shiny_deckgl`, a **conda** prerequisite not covered by the pip install: `micromamba install -n shiny -c razinka shiny-deckgl` | `razinka` conda channel |
 | Service | `seagarden-dst.service` → `/etc/systemd/system/`, `127.0.0.1:8140` | `~/seagarden/deploy/` |
 | nginx | `laguna-seagarden-dst.location.conf`, included in the `nid4ocean` vhost | `~/seagarden/deploy/nginx/` |
 | Portal card | `/var/www/html/services.json`, id `seagarden-dst` | **not version-controlled anywhere** |
