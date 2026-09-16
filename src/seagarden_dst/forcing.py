@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, fields
+from datetime import date
+from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -102,60 +104,130 @@ class SiteConditions:
         return float(self.surface_par * attenuated)
 
 
+class SiteProvenance(StrEnum):
+    """How much a site coordinate is actually known.
+
+    The same idea as `calibration.Tier`, for position rather than parameters: a
+    coordinate that travels without saying where it came from gets promoted to a fact.
+    All three values below were recorded in comments before this existed, which package D
+    cannot read — a consumer holding a coordinate had no way to tell a default from a
+    decision.
+    """
+
+    SITED = "sited"            # a position somebody chose and confirmed
+    SNAPPED = "snapped"        # nearest valid cell to a position somebody gave
+    INDICATIVE = "indicative"  # a representative cell of the right water, chosen not derived
+
+    @property
+    def label(self) -> str:
+        return {
+            SiteProvenance.SITED: "Sited",
+            SiteProvenance.SNAPPED: "Snapped to the nearest modelled cell",
+            SiteProvenance.INDICATIVE: "Indicative of the water body",
+        }[self]
+
+    @property
+    def presentation(self) -> str:
+        """What a result computed at this coordinate may claim to be about.
+
+        Mirrors `Tier.presentation`, and for the same reason: the flag is only worth
+        carrying if it tells a caller what it is allowed to say.
+        """
+        return {
+            SiteProvenance.SITED: "result for the named site",
+            SiteProvenance.SNAPPED: (
+                "result for the nearest modelled cell, with its distance and depth named"
+            ),
+            SiteProvenance.INDICATIVE: (
+                "result labelled indicative of the water body, not of a site"
+            ),
+        }[self]
+
+    @property
+    def is_sited(self) -> bool:
+        return self is SiteProvenance.SITED
+
+
+@dataclass(frozen=True)
+class SiteCoordinate:
+    """Where a site is, and how well that is known.
+
+    Deliberately NOT a (lat, lon) tuple. It was one, and unpacking let a consumer take
+    the numbers and drop the provenance silently — which is the failure this type exists
+    to close, so `lat, lon = coordinate` now raises.
+    """
+
+    lat: float
+    lon: float
+    provenance: SiteProvenance
+    #: Model depth at the cell, m. From the static mask, not a survey.
+    depth_m: float | None = None
+    #: When the cell was last checked against the land-sea mask.
+    checked_on: date | None = None
+    #: Why this position and not another — the part no enum can carry.
+    note: str = ""
+
+    @property
+    def is_sited(self) -> bool:
+        return self.provenance.is_sited
+
+
 #: Where a site IS, as opposed to what the conditions there are — the coordinate package D
 #: will use to index the artifact. Kept apart from `SiteConditions`, which is a summary of
 #: conditions and carries no position, and apart from the website's `data/pilots.yaml`,
 #: which carries town markers for a map.
 #:
-#: That distinction is the whole reason this exists. Package B checked all four published
-#: pilot coordinates against the Copernicus land-sea mask and every one of them is a LAND
-#: cell: they are map pins, correct for a map and unusable for assessment. A coordinate here
-#: has to index a valid cell of the artifact, so it is recorded deliberately rather than
-#: borrowed from the map.
+#: Package B checked all four published pilot coordinates against the Copernicus land-sea
+#: mask and every one is a LAND cell: they are map pins, correct for a map and unusable for
+#: assessment. A coordinate here has to index a valid cell of the artifact.
 #:
-#: **Absent, not None.** Three pilots are still `planned` and have no site. A None or a
-#: (0, 0) would be a coordinate-shaped value that code can index and get a wrong answer
-#: from; a missing key raises, which is the honest failure.
-SITE_COORDINATES: dict[str, tuple[float, float]] = {
-    #: Kerteminde, Great Belt side. SNAPPED, NOT SITED: the farm's own position
-    #: (55.4499, 10.6488) is the harbour, and its containing cell is land at the grid's
-    #: 1.86 x 1.75 km resolution. This is the nearest sea cell, 2.20 km east, depth 11.2 m
-    #: — checked against cmems_mod_bal_phy_my_static on 2026-09-16. Replace it with the
-    #: farm's actual grow-out position when that is known; 11.2 m is plausible for one,
-    #: but nobody has said this is where it is.
-    #:
-    #: Package B's warning applies and is why the depth matters: snapping selects the
-    #: shallowest, most enclosed water near a town. The previously published pin snapped
-    #: into Kerteminde Fjord at 3.1 m, which the write-up called eutrophic and enclosed;
-    #: this cell is on the open belt instead.
-    "DK-belt": (55.4416, 10.6804),
-    #: Warnow mouth, off Rostock. SNAPPED, NOT SITED, and more strongly so than DK-belt:
-    #: this is not a position anybody chose, it is byte-identical to the nearest-sea-cell
-    #: value package B derived for the Rostock pin, which sat 11.04 km inland up the
-    #: Warnow (see docs/spikes/2026-09-15-package-b/06_download_sites.py). Verified SEA on
-    #: 2026-09-16 against cmems_mod_bal_phy_my_static, depth 8.5 m, exact grid match.
-    #:
-    #: Package B's bias warning applies to this cell more than any other: snapping
-    #: "systematically selects the shallowest, most enclosed, most river-influenced water
-    #: available, because that is what lies closest to a town", and this one is a river
-    #: plume at 8 umol/L DIN and 10.6 psu. Deeper, less river-influenced water is close by
-    #: — 11.3 m at 2.6 km, 12.9 m at 4.1 km, 17.8 m within 12 km — so if the pilot is
-    #: sited anywhere offshore, this value should move rather than be confirmed.
-    "DE-coastal": (54.1916, 12.0971),
-    #: Szczecin Lagoon, on the Wolin National Park side. INDICATIVE, NOT SITED — and that
-    #: is weaker than the two above, which were at least snapped from a published pin.
-    #: No lagoon pin existed before 2026-09-16: the site was added to the website that day
-    #: on partner review, so there was nothing to snap from. This is a representative
-    #: lagoon cell CHOSEN and then verified, not derived from a position anybody gave.
-    #:
-    #: Verified SEA against cmems_mod_bal_phy_my_static, depth 4.0 m. The model does
-    #: resolve the lagoon — 120 sea cells in it, 3.1-5.0 m, which matches its real
-    #: bathymetry — so the artifact will have values here. The cells at 53.94-53.96 N are
-    #: the Swina channel at 8-10 m, a different water body; do not drift north into them.
-    #:
-    #: Note the lagoon is genuinely the shallow, enclosed, river-influenced water package B
-    #: warned that snapping selects by accident. Here that is the site, not an artefact.
-    "PL-lagoon": (53.8416, 14.4859),
+#: **Absent, not None.** Regions with no site have no key. A None or a (0, 0) would be a
+#: coordinate-shaped value that code can index and get a wrong answer from.
+#:
+#: **Nothing here is SITED yet.** Two were snapped from a pin somebody gave; one is a
+#: representative cell nobody gave. Read `.provenance` before presenting any result.
+SITE_COORDINATES: dict[str, SiteCoordinate] = {
+    "DK-belt": SiteCoordinate(
+        lat=55.4416, lon=10.6804,
+        provenance=SiteProvenance.SNAPPED,
+        depth_m=11.2, checked_on=date(2026, 9, 16),
+        note=(
+            "Kerteminde, Great Belt side. The farm's own position (55.4499, 10.6488) is "
+            "the harbour, whose containing cell is land at 1.86 x 1.75 km; this is the "
+            "nearest sea cell, 2.20 km east. Package B warned that snapping selects the "
+            "shallowest, most enclosed water near a town: the previously published pin "
+            "snapped into Kerteminde Fjord at 3.1 m, and this cell is on the open belt "
+            "instead, which is what the corrected pin bought."
+        ),
+    ),
+    "DE-coastal": SiteCoordinate(
+        lat=54.1916, lon=12.0971,
+        provenance=SiteProvenance.SNAPPED,
+        depth_m=8.5, checked_on=date(2026, 9, 16),
+        note=(
+            "Warnow mouth, off Rostock. Byte-identical to the nearest-sea-cell value "
+            "package B derived for the Rostock pin, which sat 11.04 km inland up the "
+            "Warnow — so nobody chose this position, snapping did. It is the river plume "
+            "at 8 umol/L DIN and 10.6 psu, the clearest case of the bias package B "
+            "described. Deeper, less river-influenced water is close by: 11.3 m at 2.6 "
+            "km, 12.9 m at 4.1 km, 17.8 m within 12 km. Expect this to MOVE if the pilot "
+            "is sited offshore, rather than to be confirmed."
+        ),
+    ),
+    "PL-lagoon": SiteCoordinate(
+        lat=53.8416, lon=14.4859,
+        provenance=SiteProvenance.INDICATIVE,
+        depth_m=4.0, checked_on=date(2026, 9, 16),
+        note=(
+            "Szczecin Lagoon, Wolin National Park side. Weaker than the two above: no "
+            "lagoon pin existed before 2026-09-16, so there was nothing to snap from and "
+            "this cell was chosen, then verified. The model does resolve the lagoon — 120 "
+            "sea cells at 3.1-5.0 m, matching its real bathymetry. The cells at "
+            "53.94-53.96 N are the Swina channel at 8-10 m, a different water body; do "
+            "not drift north into them. The shallow, enclosed, river-influenced water "
+            "package B warned snapping selects by accident is, here, the site itself."
+        ),
+    ),
     #: LT-coastal, LT-lagoon, PL-coastal: not sited yet.
     #: LT is two sub-sites, coastal and lagoon, and `LT-lagoon` is not in REGIONS yet.
 }

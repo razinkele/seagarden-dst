@@ -375,10 +375,12 @@ def test_the_placeholder_sites_all_satisfy_the_precondition():
 
 
 def test_a_sited_region_has_an_assessment_coordinate():
-    from seagarden_dst.forcing import SITE_COORDINATES
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
 
-    lat, lon = SITE_COORDINATES["DK-belt"]
-    assert (round(lat, 4), round(lon, 4)) == (55.4416, 10.6804)
+    dk = SITE_COORDINATES["DK-belt"]
+    assert (round(dk.lat, 4), round(dk.lon, 4)) == (55.4416, 10.6804)
+    assert dk.provenance is SiteProvenance.SNAPPED
+    assert dk.depth_m == 11.2
 
 
 def test_unsited_regions_are_absent_rather_than_none():
@@ -402,10 +404,11 @@ def test_the_german_coordinate_is_the_snapped_cell():
     mouth. Valid, and biased in the way that write-up warned about. The test pins the
     value so a later edit is a decision rather than a drift.
     """
-    from seagarden_dst.forcing import SITE_COORDINATES
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
 
-    lat, lon = SITE_COORDINATES["DE-coastal"]
-    assert (round(lat, 4), round(lon, 4)) == (54.1916, 12.0971)
+    de = SITE_COORDINATES["DE-coastal"]
+    assert (round(de.lat, 4), round(de.lon, 4)) == (54.1916, 12.0971)
+    assert de.provenance is SiteProvenance.SNAPPED
 
 
 def test_the_lagoon_coordinate_is_indicative():
@@ -416,10 +419,11 @@ def test_the_lagoon_coordinate_is_indicative():
     representative lagoon cell on the Wolin National Park side, chosen and then verified
     rather than derived. Pinned so that replacing it is a decision.
     """
-    from seagarden_dst.forcing import SITE_COORDINATES
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
 
-    lat, lon = SITE_COORDINATES["PL-lagoon"]
-    assert (round(lat, 4), round(lon, 4)) == (53.8416, 14.4859)
+    pl = SITE_COORDINATES["PL-lagoon"]
+    assert (round(pl.lat, 4), round(pl.lon, 4)) == (53.8416, 14.4859)
+    assert pl.provenance is SiteProvenance.INDICATIVE
 
 
 def test_every_coordinate_names_a_known_region():
@@ -432,6 +436,41 @@ def test_coordinates_are_inside_the_artifact_footprint():
     """C§3.1's extent is 8-23 E, 53-58 N. A coordinate outside it cannot be assessed."""
     from seagarden_dst.forcing import SITE_COORDINATES
 
-    for region, (lat, lon) in SITE_COORDINATES.items():
-        assert 53.0 <= lat <= 58.0, f"{region} latitude outside the footprint"
-        assert 8.0 <= lon <= 23.0, f"{region} longitude outside the footprint"
+    for region, c in SITE_COORDINATES.items():
+        assert 53.0 <= c.lat <= 58.0, f"{region} latitude outside the footprint"
+        assert 8.0 <= c.lon <= 23.0, f"{region} longitude outside the footprint"
+
+
+def test_no_coordinate_is_sited_yet_and_the_field_says_so():
+    """The point of the field: not one of the three is a confirmed farm position.
+
+    Two are snapped from a pin somebody gave, one is a representative cell nobody gave.
+    That was recorded only in comments, which package D cannot read — a consumer holding
+    a coordinate had no way to tell a default from a decision.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+    assert not any(c.provenance is SiteProvenance.SITED for c in SITE_COORDINATES.values())
+    assert all(c.is_sited is False for c in SITE_COORDINATES.values())
+
+
+def test_every_provenance_says_how_to_present_a_result():
+    """Mirrors Tier.presentation: the flag has to tell a caller what it may claim."""
+    from seagarden_dst.forcing import SiteProvenance
+
+    for p in SiteProvenance:
+        assert p.label and p.presentation
+
+
+def test_a_coordinate_cannot_be_unpacked_like_a_bare_pair():
+    """Deliberately not a tuple any more.
+
+    Unpacking would let a consumer take lat and lon and drop the provenance silently,
+    which is the whole failure this field exists to close.
+    """
+    import pytest as _pytest
+
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    with _pytest.raises(TypeError):
+        _lat, _lon = SITE_COORDINATES["DK-belt"]
