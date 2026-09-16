@@ -18,7 +18,7 @@ rather than built).
 ```bash
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e ".[app,dev]"
-pytest                                            # 117 passed
+pytest                                            # 143 passed
 shiny run app.app                                 # http://127.0.0.1:8000
 ```
 
@@ -153,7 +153,7 @@ layer returns `UNKNOWN`, which *blocks* the verdict rather than silently passing
 ## Testing
 
 ```bash
-pytest                     # core + app smoke, 117 passed
+pytest                     # core + app smoke, 143 passed
 pytest -m engines          # needs bowtiepy / EUTROPY installed
 ruff check .
 ```
