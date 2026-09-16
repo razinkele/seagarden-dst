@@ -129,7 +129,20 @@ SITE_COORDINATES: dict[str, tuple[float, float]] = {
     #: into Kerteminde Fjord at 3.1 m, which the write-up called eutrophic and enclosed;
     #: this cell is on the open belt instead.
     "DK-belt": (55.4416, 10.6804),
-    #: LT-coastal, LT-lagoon, PL-coastal, PL-lagoon, DE-coastal: not sited yet.
+    #: Warnow mouth, off Rostock. SNAPPED, NOT SITED, and more strongly so than DK-belt:
+    #: this is not a position anybody chose, it is byte-identical to the nearest-sea-cell
+    #: value package B derived for the Rostock pin, which sat 11.04 km inland up the
+    #: Warnow (see docs/spikes/2026-09-15-package-b/06_download_sites.py). Verified SEA on
+    #: 2026-09-16 against cmems_mod_bal_phy_my_static, depth 8.5 m, exact grid match.
+    #:
+    #: Package B's bias warning applies to this cell more than any other: snapping
+    #: "systematically selects the shallowest, most enclosed, most river-influenced water
+    #: available, because that is what lies closest to a town", and this one is a river
+    #: plume at 8 umol/L DIN and 10.6 psu. Deeper, less river-influenced water is close by
+    #: — 11.3 m at 2.6 km, 12.9 m at 4.1 km, 17.8 m within 12 km — so if the pilot is
+    #: sited anywhere offshore, this value should move rather than be confirmed.
+    "DE-coastal": (54.1916, 12.0971),
+    #: LT-coastal, LT-lagoon, PL-coastal, PL-lagoon: not sited yet.
     #: LT is two sub-sites, coastal and lagoon, and `LT-lagoon` is not in REGIONS yet.
 }
 

@@ -389,9 +389,23 @@ def test_unsited_regions_are_absent_rather_than_none():
     """
     from seagarden_dst.forcing import SITE_COORDINATES
 
-    for region in ("LT-coastal", "PL-coastal", "PL-lagoon", "DE-coastal"):
+    for region in ("LT-coastal", "PL-coastal", "PL-lagoon"):
         assert region not in SITE_COORDINATES
     assert all(v is not None for v in SITE_COORDINATES.values())
+
+
+def test_the_german_coordinate_is_the_snapped_cell():
+    """Recorded deliberately as the snapped cell, not as a sited farm.
+
+    It is byte-identical to the nearest-sea-cell value package B derived for the Rostock
+    pin (docs/spikes/2026-09-15-package-b/06_download_sites.py), which is the Warnow
+    mouth. Valid, and biased in the way that write-up warned about. The test pins the
+    value so a later edit is a decision rather than a drift.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    lat, lon = SITE_COORDINATES["DE-coastal"]
+    assert (round(lat, 4), round(lon, 4)) == (54.1916, 12.0971)
 
 
 def test_every_coordinate_names_a_known_region():
