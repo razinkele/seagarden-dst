@@ -128,12 +128,12 @@ def test_deposited_needs_a_doi():
 
 
 def test_forbidden_needs_a_source_url():
-    with pytest.raises(ValidationError, match="requires a source_url"):
+    with pytest.raises(ValidationError, match="'forbidden' requires a source_url"):
         Archive(status="forbidden")
 
 
 def test_pending_without_a_source_url_is_rejected():
-    with pytest.raises(ValidationError, match="requires a source_url"):
+    with pytest.raises(ValidationError, match="'pending' requires a source_url"):
         Archive(status="pending", unblocked_by="a note")
 
 
