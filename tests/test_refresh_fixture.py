@@ -1,27 +1,23 @@
 import json
 import os
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
-# `pytestmark` below deselects this module from the default run — but `-m` filters
-# AFTER collection, and collection imports the module. In the `.[app,dev]` install
-# the xarray import below would raise ModuleNotFoundError at COLLECTION, which no
-# marker can reach, taking both CI legs red on every pull request. That is the
-# exact outcome C§11 says the mechanism must avoid, so the marker alone does not
-# implement it. `importorskip` turns the ImportError into a clean module-level skip.
-#
-# It must come BEFORE the writer import: `writer.py` imports xarray at module level
-# too, so skipping only this module's own xarray import would not help — the name
-# is bound here (not a bare `importorskip` call) precisely so nothing downstream
-# needs its own `import xarray as xr` that re-triggers the same failure.
-xr = pytest.importorskip("xarray")
+from seagarden_dst.refresh.manifest import ARTIFACT_VARIABLES
+from seagarden_dst.refresh.writer import load_pair, sha256_of, write_pair
 
-from seagarden_dst.refresh.writer import (  # noqa: E402
-    load_pair,
-    sha256_of,
-    write_pair,
-)
+# `pytestmark` below deselects this module from the default run — but `-m` filters
+# AFTER collection, and collection imports the module. `writer.py` no longer imports
+# xarray at module scope (I1 / C§11), so the `seagarden_dst.refresh.writer` import
+# above is safe in the `.[app,dev]` install with no `spatial` extra. This module's
+# own tests still call `xr.open_dataset`/`xr.testing.assert_identical` directly and
+# `write_pair` needs a real `xr.Dataset` argument at call time, so THIS module still
+# needs xarray installed — `importorskip` turns a missing extra into a clean
+# module-level skip instead of a collection-time ModuleNotFoundError that no marker
+# can reach, which is the exact outcome C§11 says the mechanism must avoid.
+xr = pytest.importorskip("xarray")
 
 pytestmark = pytest.mark.spatial
 
@@ -111,10 +107,6 @@ def test_a_malformed_sha_is_refused_before_it_reaches_disk(
     assert not (tmp_path / "forcing.nc").exists()
     assert not (tmp_path / "manifest.json").exists()
 
-
-from pathlib import Path  # noqa: E402
-
-from seagarden_dst.refresh.manifest import ARTIFACT_VARIABLES  # noqa: E402
 
 FIXTURE = Path(__file__).parent / "fixtures" / "data"
 
@@ -208,30 +200,35 @@ def test_the_fixture_can_be_rebuilt_from_its_script(tmp_path):
         xr.testing.assert_identical(a, b)
 
 
-def test_the_committed_manifests_baseline_keys_are_in_deterministic_order():
-    """The structural rebuild test above compares `model_dump()` and
-    `assert_identical`, both of which are insensitive to key order — so neither
-    would catch `_fixture_manifest` building `baselines` by iterating
-    `ARTIFACT_VARIABLES` (a `frozenset`) directly: iteration order over a set is
-    not stable across separate Python processes under hash randomization, so a
-    correct, identical-input regeneration can still produce a differently-
+def test_the_committed_manifests_baseline_keys_are_in_deterministic_order(tmp_path):
+    """`_fixture_manifest` must build `baselines` from `sorted(ARTIFACT_VARIABLES)`,
+    not by iterating the `frozenset` directly: iteration order over a set is not
+    stable across separate Python processes under hash randomization, so a
+    correct, identical-input regeneration could still produce a differently-
     ordered (but equal-valued) `baselines` block, and `git diff` on a routine
-    regeneration is never empty even when nothing has changed.
+    regeneration would never be empty even when nothing has changed.
 
-    A prior version of this test compared the raw bytes of a freshly rebuilt
-    `manifest.json` against the committed one. That reintroduced, through a
-    different door, exactly the failure mode the structural rebuild test above
-    was written to avoid: `manifest.json` also carries `artifact_sha256`, which
-    is derived from `forcing.nc`, whose bytes carry h5netcdf's `_NCProperties`
-    stamp (`version=2,h5netcdf=1.8.1,hdf5=1.14.6,h5py=3.15.1` on this machine).
-    That stamp differs across the 3.11/3.13 CI legs or after a dependency bump,
-    which would fail a byte comparison for a reason that has nothing to do with
-    key ordering.
+    This asserts the determinism property on the GENERATOR's own output — calling
+    `build_fixture` directly and reading back the `manifest.json` it just wrote —
+    rather than only on the file already committed to the repo. That distinction
+    matters: replacing `sorted(ARTIFACT_VARIABLES)` with the bare frozenset in
+    `scripts/make_fixture.py` leaves the *committed* file untouched (nothing
+    regenerates it as part of the suite), so a test that reads only the committed
+    file would stay green after the guard it is meant to protect was deleted. The
+    committed-file assertion is kept too, alongside the generator one: it is the
+    cheaper, complementary claim that the file actually checked in was produced by
+    a generator under this guard, not hand-edited into sorted order once and then
+    left to drift.
 
-    So this asserts the determinism property directly, on the already-committed
-    file, independent of the artifact's bytes, the library versions, or the
-    machine: `json.loads` preserves object key insertion order, and the
-    committed `baselines` keys must be exactly `sorted(ARTIFACT_VARIABLES)`.
+    `tmp_path` gives `build_fixture` its own directory so this asserts on
+    `manifest.json`'s key order alone, with zero coupling to `artifact_sha256`,
+    `artifact_bytes`, or the `.nc` file's bytes.
     """
-    payload = json.loads((FIXTURE / "manifest.json").read_text(encoding="utf-8"))
-    assert list(payload["baselines"]) == sorted(ARTIFACT_VARIABLES)
+    from scripts.make_fixture import build_fixture
+
+    build_fixture(tmp_path)
+    generated = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert list(generated["baselines"]) == sorted(ARTIFACT_VARIABLES)
+
+    committed = json.loads((FIXTURE / "manifest.json").read_text(encoding="utf-8"))
+    assert list(committed["baselines"]) == sorted(ARTIFACT_VARIABLES)

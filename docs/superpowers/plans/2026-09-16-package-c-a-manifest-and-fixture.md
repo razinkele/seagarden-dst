@@ -40,6 +40,24 @@ Both are recorded here rather than decided silently in code. If you disagree, ra
 
 ## File structure
 
+**RULING (recorded during the final fix wave, 2026-09-16): `seagarden_dst.artifact`
+shipped as `seagarden_dst.refresh`.** Every task brief below silently implemented
+the file structure and "Why `artifact/` is not under `refresh/`" argument that
+follow using `refresh/` in place of `artifact/`, and no ruling was recorded at the
+time. The ~24 references to `seagarden_dst.artifact.*` in this document (the table
+below, the task briefs, the code fences) are stale; they are not rewritten here —
+one note is clearer than 24 mechanical edits, and the actual shipped code is the
+source of truth for exact module paths. The ruling: `refresh/` keeps everything
+for C-a. C§4.3 names `seagarden_dst/refresh/manifest.py` explicitly, and splitting
+the schema into a new core-side package at the end of a long branch is a large,
+untested refactor that belongs to a design decision, not a cleanup at the end of
+C-a. The consequence is real: package D cannot import `Manifest` or `load_pair`
+without either importing `refresh/` (which `test_no_core_module_imports_refresh`
+forbids) or re-homing the pydantic-only half of this design into a new core-side
+package later. That is unresolved here and is left for C-b or D to settle — see
+`src/seagarden_dst/refresh/manifest.py`'s module docstring for the same note kept
+beside the code.
+
 | File | Responsibility |
 |---|---|
 | `src/seagarden_dst/artifact/__init__.py` | Package marker. Re-exports `GridSpec`, `Manifest`, `sha256_of`, `load_pair`. |

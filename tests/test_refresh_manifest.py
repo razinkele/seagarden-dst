@@ -5,6 +5,9 @@ from refresh_builders import (
     baselines as _baselines,
 )
 from refresh_builders import (
+    derived as _derived,
+)
+from refresh_builders import (
     layer as _layer,
 )
 from refresh_builders import (
@@ -15,7 +18,7 @@ from refresh_builders import (
 )
 
 from seagarden_dst.refresh.grid import GridSpec
-from seagarden_dst.refresh.manifest import ARTIFACT_VARIABLES, Archive
+from seagarden_dst.refresh.manifest import ARTIFACT_VARIABLES, Archive, DerivationInput
 
 
 def test_baltic_grid_matches_the_shipped_extent():
@@ -268,3 +271,33 @@ def test_the_empty_variables_layer_is_accepted_when_a_derivation_names_it():
 def test_an_unrecognised_schema_version_is_refused():
     with pytest.raises(ValidationError, match="artifact_schema_version"):
         _manifest(artifact_schema_version=2)
+
+
+def test_a_layer_claiming_a_variable_the_artifact_does_not_carry_is_rejected():
+    """C§3.3: `surface_par` must never be claimed — it is recorded in `absent`,
+    not carried by any layer or derivation. Claiming it alongside the layer's
+    real variables (rather than instead of them) keeps `unclaimed` empty and
+    `twice` empty, so only the "does not carry" branch can fire.
+    """
+    layers = _layers()
+    layers[0].variables = ["salinity_psu", "temp_c", "surface_par"]
+    with pytest.raises(ValidationError, match="does not carry"):
+        _manifest(layers=layers)
+
+
+def test_a_derivation_input_naming_a_nonexistent_layer_is_rejected():
+    """C§4.4's fourth rule, second half: inputs must name real layers.
+
+    Constructed by APPENDING an extra input to an existing derivation's `inputs`,
+    not by renaming one of `valid`'s existing inputs: renaming
+    `copernicus_bgc_light` out of `light_attenuation_k`'s inputs also orphans that
+    layer (it has no `variables` of its own), so the "layers reachable from
+    nothing" half of the same validator fires first, with a message containing no
+    "do not exist". Appending an extra, unknown input leaves every existing layer
+    reachable exactly as before and adds nothing to the claim union, so only the
+    unknown-input branch can fire.
+    """
+    derived = _derived()
+    derived[1].inputs.append(DerivationInput(layer="ghost_layer", variable="coverage"))
+    with pytest.raises(ValidationError, match="do not exist"):
+        _manifest(derived=derived)

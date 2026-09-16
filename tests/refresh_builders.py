@@ -24,6 +24,66 @@ from seagarden_dst.refresh.manifest import (
 _YEARS = list(range(2016, 2026))
 _COVERAGE_LAYERS = ("copernicus_phy", "copernicus_bgc", "copernicus_wav", "emodnet_bathy")
 
+# Shared by every synthetic dataset this suite builds (`tests/conftest.py`'s
+# `tiny_dataset` and `scripts/make_fixture.py`'s fixture generator), so the two
+# stop being independently-maintained copies of the same nine-variable, one
+# invalid-cell dataset with nothing comparing them.
+DATASET_SEED = 20260916
+
+
+def dataset(grid: GridSpec, years: list[int]):
+    """A synthetic dataset carrying all nine C§3.2 variables at their C§3.2 shapes.
+
+    numpy and xarray are imported here, not at module level: this module is
+    imported at collection time by every test module in the suite (directly or
+    via `tests/conftest.py`), including under the `.[app,dev]` install that has
+    neither package, so importing them at call time only — not import time —
+    is what keeps `refresh_builders` importable there.
+
+    float32 everywhere except `valid`, which is bool — a float32 `valid` holding
+    0.0/1.0 can never be NaN, so a reader applying the is-NaN test would find
+    every cell valid, everywhere, silently.
+    """
+    import numpy as np
+    import xarray as xr
+
+    rng = np.random.default_rng(DATASET_SEED)
+    months = list(range(1, 13))
+    lat = grid.lats()
+    lon = grid.lons()
+    n = grid.n_lat
+    four_d = ("year", "month", "latitude", "longitude")
+
+    def f4():
+        return (four_d, rng.random((len(years), len(months), n, n)).astype("float32"))
+
+    valid = np.ones((n, n), dtype=bool)
+    valid[0, 0] = False  # at least one invalid cell, so the field is exercised
+
+    return xr.Dataset(
+        {
+            "salinity_psu": f4(),
+            "temp_c": f4(),
+            "din_umol_l": f4(),
+            "dip_umol_l": f4(),
+            "light_attenuation_k": f4(),
+            "significant_wave_m": (
+                ("month", "latitude", "longitude"),
+                rng.random((len(months), n, n)).astype("float32"),
+            ),
+            "depth_mean_m": (
+                ("latitude", "longitude"),
+                rng.random((n, n)).astype("float32"),
+            ),
+            "depth_min_m": (
+                ("latitude", "longitude"),
+                rng.random((n, n)).astype("float32"),
+            ),
+            "valid": (("latitude", "longitude"), valid),
+        },
+        coords={"year": years, "month": months, "latitude": lat, "longitude": lon},
+    )
+
 
 def fixture_grid() -> GridSpec:
     """A 3x3 grid, internally coherent, built directly (not GridSpec.baltic()).

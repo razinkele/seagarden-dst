@@ -86,7 +86,7 @@ def _imported_modules(path: Path) -> set[str]:
     return names
 
 
-def _runtime_install_modules() -> list[Path]:
+def _core_and_app_modules() -> list[Path]:
     """Every `.py` file in the core package or the deployed app, excluding `refresh/`.
 
     Recursive over both `src/seagarden_dst/` and `app/`. `app/` is not part of the
@@ -102,7 +102,7 @@ def _runtime_install_modules() -> list[Path]:
 def test_no_core_module_imports_refresh():
     offenders = sorted(
         str(p.relative_to(REPO))
-        for p in _runtime_install_modules()
+        for p in _core_and_app_modules()
         if any(m.startswith("seagarden_dst.refresh") for m in _imported_modules(p))
     )
     assert not offenders, f"runtime-install modules importing refresh/: {offenders}"

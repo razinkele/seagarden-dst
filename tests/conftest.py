@@ -12,7 +12,6 @@ an explicit path such as `pytest tests/test_golden_snapshot.py --snapshot-update
 from __future__ import annotations
 
 import pytest
-import refresh_builders
 
 
 def pytest_addoption(parser):
@@ -30,7 +29,15 @@ def reference_manifest():
 
     Just `refresh_builders.manifest()` — the builder itself lives in
     `tests/refresh_builders.py` and is not duplicated here.
+
+    `refresh_builders` is imported here, inside the fixture body, rather than at
+    module level: this conftest is collected for every pytest run in the repo, and
+    a module-level import would pull `refresh_builders` -> `refresh.manifest` ->
+    `refresh.grid` -> numpy/pydantic into every test module's collection, whether
+    or not it needs a refresh fixture.
     """
+    import refresh_builders
+
     return refresh_builders.manifest()
 
 
@@ -41,50 +48,25 @@ def tiny_dataset():
     Coordinates come from `refresh_builders.fixture_grid()` (via `.lats()`/
     `.lons()`), not from an independent `np.linspace` over round bounds: the
     `reference_manifest` fixture's grid describes this same fixture grid, so the
-    manifest that travels with this dataset actually describes the artifact
-    beside it.
+    dataset and the manifest agree on WHERE the cells are.
 
-    float32 everywhere except `valid`, which is bool — a float32 `valid` holding
-    0.0/1.0 can never be NaN, so a reader applying the is-NaN test would find
-    every cell valid, everywhere, silently.
+    They do NOT agree on WHEN: `reference_manifest` (Task 3's rule-exercising
+    manifest) carries baselines spanning 2016-2025, while this dataset — like the
+    committed fixture — only carries `[2024, 2025]`. No test in this suite reads
+    `reference_manifest`'s baseline years against this dataset's `year`
+    coordinate (`test_the_baselines_describe_the_artifact_not_production` in
+    `tests/test_refresh_fixture.py` checks that alignment against the FIXTURE's
+    own manifest, built by `scripts/make_fixture.py` from the same years as its
+    own dataset, not against this one). Making the two genuinely agree here would
+    mean changing `reference_manifest`'s baselines, which is a Task 3 design
+    choice (and would break `test_the_wave_baseline_is_not_empty_despite_having_
+    no_year_dimension`'s deliberately-divergent wave baseline), not a docstring fix.
+
+    The dataset itself is `refresh_builders.dataset(grid, years)` — shared with
+    `scripts/make_fixture.py`'s fixture generator so the two synthetic datasets in
+    this repository are not independently-maintained copies of the same thing.
     """
-    import numpy as np
-    import xarray as xr
+    import refresh_builders
 
     grid = refresh_builders.fixture_grid()
-    rng = np.random.default_rng(20260916)
-    years, months = [2024, 2025], list(range(1, 13))
-    lat = grid.lats()
-    lon = grid.lons()
-    n = grid.n_lat
-    four_d = ("year", "month", "latitude", "longitude")
-
-    def f4():
-        return (four_d, rng.random((len(years), len(months), n, n)).astype("float32"))
-
-    valid = np.ones((n, n), dtype=bool)
-    valid[0, 0] = False  # at least one invalid cell, so the field is exercised
-
-    return xr.Dataset(
-        {
-            "salinity_psu": f4(),
-            "temp_c": f4(),
-            "din_umol_l": f4(),
-            "dip_umol_l": f4(),
-            "light_attenuation_k": f4(),
-            "significant_wave_m": (
-                ("month", "latitude", "longitude"),
-                rng.random((len(months), n, n)).astype("float32"),
-            ),
-            "depth_mean_m": (
-                ("latitude", "longitude"),
-                rng.random((n, n)).astype("float32"),
-            ),
-            "depth_min_m": (
-                ("latitude", "longitude"),
-                rng.random((n, n)).astype("float32"),
-            ),
-            "valid": (("latitude", "longitude"), valid),
-        },
-        coords={"year": years, "month": months, "latitude": lat, "longitude": lon},
-    )
+    return refresh_builders.dataset(grid, [2024, 2025])

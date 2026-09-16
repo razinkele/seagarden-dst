@@ -15,10 +15,17 @@ import os
 import tempfile
 from collections.abc import Callable  # not typing.Callable: ruff UP035
 from pathlib import Path
-
-import xarray as xr
+from typing import TYPE_CHECKING
 
 from seagarden_dst.refresh.manifest import Manifest
+
+if TYPE_CHECKING:
+    # Annotation-only: `from __future__ import annotations` (above) means the
+    # `dataset: xr.Dataset` annotation on write_pair needs nothing at runtime.
+    # A real, module-scope `import xarray` here would make the core package
+    # unimportable without the `spatial` extra (C§11) — the exact defect this
+    # guard exists to avoid.
+    import xarray as xr
 
 _ARTIFACT = "forcing.nc"
 _MANIFEST = "manifest.json"

@@ -44,9 +44,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[app,dev]"
 
-      # The optional engines are deliberately absent here. pyproject deselects the
-      # `engines` marker by default, so this run also proves the claim the adapters
-      # make: without bowtiepy or EUTROPY installed the assessment still completes.
+      # pyproject's addopts deselect `engines`, `e2e` AND `spatial` by default
+      # (`-m 'not engines and not e2e and not spatial'`), so this bare `pytest -q`
+      # leans on all three: `engines` proves the claim the adapters make — without
+      # bowtiepy or EUTROPY installed the assessment still completes; `e2e` is
+      # skipped for speed; `spatial` is skipped because this job's `.[app,dev]`
+      # install has no xarray/h5netcdf to read the fixture with (see the `spatial`
+      # job below).
       - name: Tests
         run: pytest -q
 

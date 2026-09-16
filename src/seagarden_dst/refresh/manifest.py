@@ -3,6 +3,17 @@
 Every rule the design states as prose is a validator here, so a manifest that
 would mislead a reader fails at load rather than mid-analysis — the principle
 `params._check_salinity_indexed_is_computable` and `params.Anchor` already follow.
+
+C§4.3 names these models as what package D and C1 are meant to validate against.
+The plan for this task (`docs/superpowers/plans/2026-09-16-package-c-a-manifest-
+and-fixture.md`) designed a core-side `seagarden_dst.artifact` package for exactly
+that reason: so a reader could import `Manifest`/`load_pair` without pulling in
+`refresh/` or its `spatial` extra. That package was not built — everything shipped
+here, under `refresh/`, instead (see the plan's added note for the ruling and why).
+The consequence: `seagarden_dst.refresh` cannot be imported outside `refresh/`
+(`tests/test_refresh_isolation.py::test_no_core_module_imports_refresh` forbids
+it), so how D or C1 reaches `Manifest` and `load_pair` across that boundary is
+unresolved and left for C-b/D to settle.
 """
 
 from __future__ import annotations
@@ -170,7 +181,12 @@ class Manifest(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _check_baseline_keys_are_exactly_the_claimed_set(self) -> Manifest:
+    def _check_baseline_keys_are_exactly_the_artifact_variables(self) -> Manifest:
+        # Compared against ARTIFACT_VARIABLES, not the claim set built in the
+        # validator above — equivalent today only because
+        # `_check_every_variable_is_claimed_exactly_once` already forces the claim
+        # set to equal ARTIFACT_VARIABLES (rule 1); a manifest that failed here
+        # without also failing there would mean that invariant broke.
         keys = set(self.baselines)
         if keys != set(ARTIFACT_VARIABLES):
             raise ValueError(
