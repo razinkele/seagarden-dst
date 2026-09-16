@@ -9,10 +9,14 @@ C§5's "thin layer-plugin package" is meant to protect. Nothing about the core's
 declared dependency floor is at stake in that direction; it is a coupling concern,
 not a dependency-declaration one.
 
-Both directions are checked over the whole runtime install, not just
-`src/seagarden_dst/`: `app/` ships with it too, and a Shiny module reaching into
-`refresh/` would be exactly the same defect. The scan is recursive so a future
-nested package (a `refresh/layers/` subpackage, a deeper `app/` module) stays
+Both directions are checked over `src/seagarden_dst/` and `app/` together, not just
+the installed package. `app/` is not part of the built wheel — `pyproject.toml` maps
+only `seagarden_dst` and `seagarden_dst.paramdata` under `package-dir`/`packages` — but
+it is the actual production consumer of the core: it runs by executing the checkout
+directly (`shiny run app.app`, per `app/app.py` and the README), not by installing the
+distribution. A Shiny module reaching into `refresh/` would be a real production defect
+regardless of packaging mechanics, so it belongs in the same scan. The scan is recursive
+so a future nested package (a `refresh/layers/` subpackage, a deeper `app/` module) stays
 covered instead of silently falling outside a glob written for today's shape.
 
 Parsed with `ast` rather than imported, because importing a core module to see
@@ -83,11 +87,12 @@ def _imported_modules(path: Path) -> set[str]:
 
 
 def _runtime_install_modules() -> list[Path]:
-    """Every `.py` file that ships in the runtime install, excluding `refresh/`.
+    """Every `.py` file in the core package or the deployed app, excluding `refresh/`.
 
-    Recursive over both `src/seagarden_dst/` and `app/`: the boundary claim is
-    about what the runtime install carries, and `app/` carries it as much as the
-    core package does.
+    Recursive over both `src/seagarden_dst/` and `app/`. `app/` is not part of the
+    built wheel, but it is what actually runs in production (a checkout, run
+    directly, not an installed distribution), so it belongs in the same scan as
+    the core package.
     """
     core_files = [p for p in CORE.rglob("*.py") if REFRESH not in p.parents and p != REFRESH]
     app_files = list(APP.rglob("*.py")) if APP.is_dir() else []
