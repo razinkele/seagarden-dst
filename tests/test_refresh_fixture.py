@@ -110,3 +110,81 @@ def test_a_malformed_sha_is_refused_before_it_reaches_disk(
 
     assert not (tmp_path / "forcing.nc").exists()
     assert not (tmp_path / "manifest.json").exists()
+
+
+from pathlib import Path  # noqa: E402
+
+from seagarden_dst.refresh.manifest import ARTIFACT_VARIABLES  # noqa: E402
+
+FIXTURE = Path(__file__).parent / "fixtures" / "data"
+
+
+def test_the_committed_fixture_loads_and_its_checksum_matches():
+    """This IS section 9's provenance test."""
+    manifest, _ = load_pair(FIXTURE)
+    assert manifest.synthetic is True
+    assert len(manifest.layers) == 5
+    assert {layer.archive.status for layer in manifest.layers} == {"pending"}
+    assert set(manifest.baselines) == ARTIFACT_VARIABLES
+
+
+def test_the_fixture_carries_every_variable_at_its_shape():
+    _, artifact = load_pair(FIXTURE)
+    with xr.open_dataset(artifact, engine="h5netcdf") as ds:
+        assert set(ds.data_vars) == set(ARTIFACT_VARIABLES)
+        assert ds["salinity_psu"].dims == ("year", "month", "latitude", "longitude")
+        assert ds["significant_wave_m"].dims == ("month", "latitude", "longitude")
+        assert ds["depth_mean_m"].dims == ("latitude", "longitude")
+        assert ds["salinity_psu"].dtype == "float32"
+        assert ds["valid"].dtype == bool
+
+
+def test_the_three_static_fields_carry_an_empty_baseline():
+    manifest, _ = load_pair(FIXTURE)
+    for name in ("depth_mean_m", "depth_min_m", "valid"):
+        assert manifest.baselines[name] == []
+    # And the one that is NOT the dimensional test: significant_wave_m has no
+    # year dimension but does have a baseline window (C§4.4).
+    assert manifest.baselines["significant_wave_m"] != []
+
+
+def test_the_baselines_describe_the_artifact_not_production():
+    """C§6/C§4.4: a manifest attesting coverage the artifact does not have is
+    the exact failure this design exists to prevent. Every non-empty baseline
+    must match the artifact's actual `year` coordinate.
+    """
+    manifest, artifact = load_pair(FIXTURE)
+    with xr.open_dataset(artifact, engine="h5netcdf") as ds:
+        actual_years = sorted(int(y) for y in ds["year"].values)
+    for name, years in manifest.baselines.items():
+        if years:
+            assert sorted(years) == actual_years, (
+                f"baseline for {name!r} is {years} but the artifact's years are "
+                f"{actual_years}"
+            )
+
+
+def test_the_fixture_can_be_rebuilt_from_its_script(tmp_path):
+    """C§7: written by the same writer and manifest code as a production refresh.
+
+    Compares STRUCTURE, not bytes. h5netcdf stamps `_NCProperties` into every
+    file with its own version and those of hdf5 and h5py — measured on the
+    development machine as `version=2,h5netcdf=1.8.1,hdf5=1.14.6,h5py=3.15.1`.
+    Two builds are byte-identical on one machine with one set of versions, and
+    differ across the 3.11 and 3.13 CI legs or after any dependency bump. A
+    sha comparison would be green locally and red in CI for a reason that has
+    nothing to do with the fixture, which is worse than no test.
+    """
+    from scripts.make_fixture import build_fixture
+
+    build_fixture(tmp_path)
+    committed, committed_artifact = load_pair(FIXTURE)
+    rebuilt, rebuilt_artifact = load_pair(tmp_path)
+
+    skip = {"artifact_sha256", "artifact_bytes"}
+    assert rebuilt.model_dump(exclude=skip) == committed.model_dump(exclude=skip)
+    with (
+        xr.open_dataset(committed_artifact, engine="h5netcdf") as a,
+        xr.open_dataset(rebuilt_artifact, engine="h5netcdf") as b,
+    ):
+        xr.testing.assert_identical(a, b)

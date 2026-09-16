@@ -1,0 +1,192 @@
+{
+  "artifact_schema_version": 1,
+  "built_on": "2026-01-01T00:00:00Z",
+  "artifact_filename": "forcing.nc",
+  "artifact_sha256": "8ed64dcd5e73eef767181a8493ca5a82e3ac79feb60b404d360cadd21fd4d300",
+  "artifact_bytes": 51622,
+  "synthetic": true,
+  "grid": {
+    "crs": "EPSG:4326",
+    "lat_min": 54.0,
+    "lat_max": 54.049998,
+    "lon_min": 20.0,
+    "lon_max": 20.083331,
+    "lat_step": 0.016666,
+    "lon_step": 0.027777,
+    "n_lat": 3,
+    "n_lon": 3
+  },
+  "baselines": {
+    "salinity_psu": [
+      2024,
+      2025
+    ],
+    "temp_c": [
+      2024,
+      2025
+    ],
+    "din_umol_l": [
+      2024,
+      2025
+    ],
+    "dip_umol_l": [
+      2024,
+      2025
+    ],
+    "light_attenuation_k": [
+      2024,
+      2025
+    ],
+    "significant_wave_m": [
+      2024,
+      2025
+    ],
+    "depth_mean_m": [],
+    "depth_min_m": [],
+    "valid": []
+  },
+  "layers": [
+    {
+      "name": "copernicus_phy",
+      "source": "Copernicus Marine Service",
+      "product_id": "BALTICSEA_MULTIYEAR_PHY_003_011",
+      "dataset_id": "cmems_mod_bal_phy_my_P1M-m",
+      "version": "synthetic",
+      "retrieved_on": "2026-01-01T00:00:00Z",
+      "licence": "Copernicus Marine Service licence",
+      "redistribution": "allowed",
+      "source_url": "https://data.marine.copernicus.eu/",
+      "archive": {
+        "status": "pending",
+        "zenodo_doi": null,
+        "source_url": "https://data.marine.copernicus.eu/",
+        "unblocked_by": "the Zenodo deposit is outside package C (C1)"
+      },
+      "variables": [
+        "salinity_psu",
+        "temp_c"
+      ]
+    },
+    {
+      "name": "copernicus_bgc",
+      "source": "Copernicus Marine Service",
+      "product_id": "BALTICSEA_MULTIYEAR_PHY_003_011",
+      "dataset_id": "cmems_mod_bal_bgc_my_P1M-m",
+      "version": "synthetic",
+      "retrieved_on": "2026-01-01T00:00:00Z",
+      "licence": "Copernicus Marine Service licence",
+      "redistribution": "allowed",
+      "source_url": "https://data.marine.copernicus.eu/",
+      "archive": {
+        "status": "pending",
+        "zenodo_doi": null,
+        "source_url": "https://data.marine.copernicus.eu/",
+        "unblocked_by": "the Zenodo deposit is outside package C (C1)"
+      },
+      "variables": [
+        "din_umol_l",
+        "dip_umol_l"
+      ]
+    },
+    {
+      "name": "copernicus_bgc_light",
+      "source": "Copernicus Marine Service",
+      "product_id": "BALTICSEA_MULTIYEAR_PHY_003_011",
+      "dataset_id": "cmems_mod_bal_bgc_my_P1D-m",
+      "version": "synthetic",
+      "retrieved_on": "2026-01-01T00:00:00Z",
+      "licence": "Copernicus Marine Service licence",
+      "redistribution": "allowed",
+      "source_url": "https://data.marine.copernicus.eu/",
+      "archive": {
+        "status": "pending",
+        "zenodo_doi": null,
+        "source_url": "https://data.marine.copernicus.eu/",
+        "unblocked_by": "the Zenodo deposit is outside package C (C1)"
+      },
+      "variables": []
+    },
+    {
+      "name": "copernicus_wav",
+      "source": "Copernicus Marine Service",
+      "product_id": "BALTICSEA_MULTIYEAR_PHY_003_011",
+      "dataset_id": "cmems_mod_bal_wav_my_PT1H-i",
+      "version": "synthetic",
+      "retrieved_on": "2026-01-01T00:00:00Z",
+      "licence": "Copernicus Marine Service licence",
+      "redistribution": "allowed",
+      "source_url": "https://data.marine.copernicus.eu/",
+      "archive": {
+        "status": "pending",
+        "zenodo_doi": null,
+        "source_url": "https://data.marine.copernicus.eu/",
+        "unblocked_by": "the Zenodo deposit is outside package C (C1)"
+      },
+      "variables": [
+        "significant_wave_m"
+      ]
+    },
+    {
+      "name": "emodnet_bathy",
+      "source": "Copernicus Marine Service",
+      "product_id": "BALTICSEA_MULTIYEAR_PHY_003_011",
+      "dataset_id": "emodnet_bathymetry_2024",
+      "version": "synthetic",
+      "retrieved_on": "2026-01-01T00:00:00Z",
+      "licence": "Copernicus Marine Service licence",
+      "redistribution": "allowed",
+      "source_url": "https://data.marine.copernicus.eu/",
+      "archive": {
+        "status": "pending",
+        "zenodo_doi": null,
+        "source_url": "https://data.marine.copernicus.eu/",
+        "unblocked_by": "the Zenodo deposit is outside package C (C1)"
+      },
+      "variables": [
+        "depth_mean_m",
+        "depth_min_m"
+      ]
+    }
+  ],
+  "derived": [
+    {
+      "field": "light_attenuation_k",
+      "relation": "Poole-Atkins k = 1.7/z_SD, computed daily then averaged monthly",
+      "inputs": [
+        {
+          "layer": "copernicus_bgc_light",
+          "variable": "zsd"
+        }
+      ]
+    },
+    {
+      "field": "valid",
+      "relation": "intersection of contributing layer coverage",
+      "inputs": [
+        {
+          "layer": "copernicus_phy",
+          "variable": "coverage"
+        },
+        {
+          "layer": "copernicus_bgc",
+          "variable": "coverage"
+        },
+        {
+          "layer": "copernicus_wav",
+          "variable": "coverage"
+        },
+        {
+          "layer": "emodnet_bathy",
+          "variable": "coverage"
+        }
+      ]
+    }
+  ],
+  "absent": [
+    {
+      "field": "surface_par",
+      "reason": "no integrated Baltic product carries PAR in any form",
+      "unblocked_by": "a source outside the current layer set"
+    }
+  ]
+}
