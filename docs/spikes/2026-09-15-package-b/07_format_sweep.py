@@ -65,6 +65,13 @@ for factor in (1, 2, 4):
     for fmt in ("netcdf", "zarr"):
         if fmt == "netcdf":
             target = WORK / f"r{factor}.nc"
+            # complevel 5, and every document citing this measurement records the
+            # DECISION as complevel 4 — the package B write-up's size table, the
+            # data-layer design, and package C's "~170 MB at B's measured 3.5x
+            # NetCDF4+zlib4 ratio". The 5 is what actually ran; the discrepancy is
+            # recorded here rather than edited away, because this file exists to show
+            # what produced the numbers. Re-run at 4 before treating the ratio as
+            # attributable to the level the design names.
             enc = {v: {"zlib": True, "complevel": 5, "dtype": "float32"} for v in ds.data_vars}
             ds.to_netcdf(target, encoding=enc, engine="netcdf4")
         else:
