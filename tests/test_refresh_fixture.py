@@ -2,6 +2,7 @@ import json
 import os
 
 import pytest
+from pydantic import ValidationError
 
 # `pytestmark` below deselects this module from the default run — but `-m` filters
 # AFTER collection, and collection imports the module. In the `.[app,dev]` install
@@ -89,3 +90,23 @@ def test_the_artifact_is_replaced_before_the_manifest(
     write_pair(tiny_dataset, reference_manifest, tmp_path)
 
     assert calls == ["forcing.nc", "manifest.json"]
+
+
+def test_a_malformed_sha_is_refused_before_it_reaches_disk(
+    tmp_path, reference_manifest, tiny_dataset, monkeypatch
+):
+    """`write_pair` re-validates the stamped manifest via `Manifest.model_validate`
+    because `model_copy(update=)` does not re-run validators. That call has
+    something to catch only because `artifact_sha256` is now constrained to
+    64 lowercase hex characters (manifest.py); this drives a malformed digest
+    through the stamping path and asserts it is rejected rather than written.
+    """
+    monkeypatch.setattr(
+        "seagarden_dst.refresh.writer.sha256_of", lambda _path: "not-a-sha"
+    )
+
+    with pytest.raises(ValidationError, match="artifact_sha256"):
+        write_pair(tiny_dataset, reference_manifest, tmp_path)
+
+    assert not (tmp_path / "forcing.nc").exists()
+    assert not (tmp_path / "manifest.json").exists()

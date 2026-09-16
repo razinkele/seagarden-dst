@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from seagarden_dst.refresh.grid import GridSpec
 
@@ -125,8 +125,8 @@ class Manifest(BaseModel):
     artifact_schema_version: int
     built_on: datetime
     artifact_filename: str
-    artifact_sha256: str
-    artifact_bytes: int
+    artifact_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    artifact_bytes: int = Field(gt=0)
     synthetic: bool
     grid: GridSpec
     baselines: dict[str, list[int]]
