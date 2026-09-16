@@ -94,9 +94,15 @@ recorded as a variable attribute and in the manifest.
 The **Copernicus fields are taken at the surface level, 0.50 m** — the shallowest of the
 reanalysis's 56 levels, the choice package B made and §6.1 now records. That is a
 *model level*, and has nothing to do with `depth_mean_m`/`depth_min_m`, which are seabed
-bathymetry from EMODnet. All fields are float32; land and out-of-domain cells are NaN,
-which is the validity mask D reads for §6.2's containing-cell rule — but see C§3.5, because
-there is more than one of them.
+bathymetry from EMODnet. All fields are float32 **except `valid`, which is boolean**
+(C§3.5); land and out-of-domain cells in the float32 fields are NaN, which is the validity
+mask D reads for §6.2's containing-cell rule — but see C§3.5, because there is more than one
+of them.
+
+The carve-out is not pedantry. A float32 `valid` holding 0.0/1.0 can never be NaN, so a
+reader applying the is-NaN test this paragraph describes to *that* field would find every
+cell valid, everywhere, silently — the failure C§3.5 introduced an explicit field to avoid.
+`valid` is read by its value; the other eight are read by their NaNs.
 
 `light_attenuation_k` is stored **derived rather than raw**: the artifact carries k, not
 `zsd`, with the Poole–Atkins relation named in the manifest. Storing the derivation rather
@@ -278,10 +284,17 @@ reading. Both fail at load.
 **`baselines` keys are exactly that same set.** Not a subset: a variable with no baseline
 entry is a variable whose temporal coverage the manifest does not state.
 
-**A static field carries `[]`, and `[]` is not omission.** Three have no `year` dimension:
+**A static field carries `[]`, and `[]` is not omission.** Three carry `[]`:
 `depth_mean_m`, `depth_min_m`, and the derived `valid` (C§3.5). Their baseline is the empty
-list, meaning *this variable has no year dimension and no baseline window applies* — a
-positive statement. Omitting the key means the manifest forgot, and fails. This is the same
+list, meaning *no baseline window applies to this variable* — a positive statement.
+
+The criterion is **no baseline window**, not "no `year` dimension", and the two are not the
+same test. `significant_wave_m` also has no `year` dimension (C§3.2 gives it month, lat,
+lon) but C§1 fixes its baseline at 2023–2025. An implementer applying the dimensional test
+literally would write `baselines["significant_wave_m"] = []` — asserting that no window
+applies to the one variable C§4.1 cites as the whole reason `baselines` is a mapping rather
+than a single artifact-level field. The two criteria coincide for three variables and
+diverge for the fourth, which is precisely the case that matters. Omitting the key means the manifest forgot, and fails. This is the same
 instinct as §6.3's absent-input rule: an unstated thing is an error, not a permission. Note
 that the rule binds derived fields too: `valid` is claimed by a `Derivation` rather than by
 a layer, and still needs its `[]`. The fixture (C§7) carries `[]` for all three so the
@@ -339,8 +352,18 @@ product for `zsd` (C§3.4). A single BGC layer would have to describe both throu
 `LayerProvenance`, which carries one `dataset_id` — so it could name only one of them, and
 the manifest would attest the wrong source for whichever it dropped. Splitting makes *one
 layer, one dataset* true by construction instead of a rule an implementer has to remember.
-It also groups like with like: `copernicus_bgc_light` reduces daily data to a monthly
-statistic, which is the wave layer's shape, not the monthly-passthrough shape. Its
+What the two share is a *reduction while streaming*: `copernicus_bgc_light` reduces daily
+data to a monthly statistic, as `copernicus_wav` reduces hourly data to one. It is not the
+wave layer's **shape** — this document uses shape to mean dims (C§3.2), and the wave layer
+collapses the `year` dimension over a 2023–2025 sub-baseline while `light_attenuation_k`
+keeps it over 2016–2025. Taking "the wave layer's shape" literally would build a 12-month
+climatology of k, the collapse package B's §10.2 measurement refuted at −57% to +179%
+interannual spread.
+
+So `copernicus_bgc_light` resembles neither existing kind: it streams and reduces like the
+wave layer, and keeps the year dimension like the monthly passthrough. That is a third
+pattern, not a member of an existing one, and an implementer should expect to write it
+rather than copy it. Its
 `variables` list is **empty**, and that is expected rather than a gap: the only field it
 produces is derived, so C§4.4 has it claimed by a `Derivation` that points back at this
 record by `name`. An empty `variables` would otherwise leave the layer invisible to the
