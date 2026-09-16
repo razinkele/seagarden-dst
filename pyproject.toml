@@ -90,6 +90,7 @@ pythonpath = ["src", "."]    # "." so `import app.*` resolves from the repo root
 markers = [
   "engines: needs an optional sibling engine (bowtiepy, EUTROPY); deselected by default",
   "e2e: boots the real app (slow); deselected by default — run with -m e2e",
+  "spatial: needs the spatial extra (xarray, netCDF); deselected by default — run with -m spatial",
 ]
 addopts = "-m 'not engines and not e2e'"
 
