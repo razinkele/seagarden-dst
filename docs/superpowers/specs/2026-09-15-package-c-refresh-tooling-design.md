@@ -128,8 +128,10 @@ x > 0 — the monthly-input route is systematically **lower**. A lower k means l
 attenuation, so **more** PAR at cultivation depth, so an **optimistic** growth bias. It
 would be a silent one: the field would look correct and carry no marker.
 
-So the BGC layer pulls **daily** `zsd` from `cmems_mod_bal_bgc_my_P1D-m`, computes k per
-day, and averages k over the month. Every other variable is linear in its source, so
+So a **separate** layer, `copernicus_bgc_light` (C§5), pulls **daily** `zsd` from
+`cmems_mod_bal_bgc_my_P1D-m`, computes k per day, and averages k over the month. It is its
+own layer rather than part of `copernicus_bgc` because it reads its own dataset, and one
+layer describes one dataset. Every other variable is linear in its source, so
 monthly-mean inputs are correct for them and the monthly product is used.
 
 This was established by re-reading package B's own pull: B computed 0.198 at Tagalaht from
@@ -182,22 +184,31 @@ artifact_sha256         : str          C§6's atomicity mechanism
 artifact_bytes          : int
 synthetic               : bool         true only for the test fixture (C§7)
 grid                    : GridSpec     crs, bounds, steps, n_lat, n_lon
-baselines               : {name: [years]}   per-variable, not per-artifact
-layers                  : [LayerProvenance]
+baselines               : {variable: [years]}  per-variable, not per-artifact (C§4.4)
+layers                  : [LayerProvenance]  one per *dataset*, not per source service
 derived                 : [Derivation]
 absent                  : [AbsentField]
 ```
 
 `LayerProvenance` carries what §6.3 requires: `source`, `product_id`, `dataset_id`,
 `version`, `retrieved_on`, `licence`, `redistribution` (`allowed` | `forbidden`),
-`source_url`, and an **archive state** (below). §6.3's rule, stated once and not
+`source_url`, an **archive state** (below), and **`variables: [str]`** — the artifact
+variables this dataset is the raw source of (C§4.4).
+
+`Derivation` carries `{field, relation, inputs: [{layer, variable}]}`: the artifact variable
+produced, the named relation, and which layer and source variable it was computed from. Two
+fields need it — `light_attenuation_k` (Poole-Atkins, C§3.4) and `valid` (C§3.5), whose
+`inputs` span two layers. That is why a computed field is not simply another entry in some
+layer's `variables`: it has no single raw source to be an entry of.
+
+§6.3's rule, stated once and not
 paraphrased anywhere else in this document: a layer must carry **either a `zenodo_doi`, or
 an explicit `redistribution: forbidden` marker with a `source_url`**. A layer carrying
 neither fails §9's provenance test.
 
 **That rule as written cannot be satisfied by anything package C produces, and this design
 had to resolve it rather than restate it.** C§1 puts the Zenodo deposit outside package C,
-so at manifest-construction time no layer has a DOI. All four layers are genuinely
+so at manifest-construction time no layer has a DOI. All five layers are genuinely
 redistributable, so `redistribution: forbidden` is not a truthful alternative — and setting
 it to clear the validator would be precisely the mis-marked provenance this whole design
 exists to prevent. Under the rule as written, C§6 step 4 fails on **every real refresh**,
@@ -221,7 +232,7 @@ does.
 
 `baselines` is a mapping rather than a single field because C§1 gave waves a different
 baseline from the forcing variables. A single `baseline_years` at artifact level would be
-a lie about one of them.
+a lie about one of them. What a *static* layer puts there is settled in C§4.4.
 
 ### C§4.2 Two additions beyond §6.3
 
@@ -246,6 +257,28 @@ URL and an `unblocked_by` note (C§4.1) — **fails at load**, not mid-analysis;
 This makes §9's provenance test a model-load rather than a list of ad-hoc assertions, and
 it means D and C1 validate the same way C wrote it.
 
+### C§4.4 Every variable is claimed exactly once
+
+Per-dataset provenance records (C§4.1) are only worth having if nothing can slip between
+them. Two rules, both `model_validator`s on the manifest rather than prose:
+
+**Every artifact variable appears exactly once** across the union of all layers'
+`variables` and all `derived[].field`. A raw field is claimed by the dataset it came from;
+a computed field is claimed by its `Derivation`, which names the layer its input came from.
+Unclaimed means a variable sits in the artifact with no dataset behind it; claimed twice
+means two datasets assert the same field and the manifest cannot say which one D is
+reading. Both fail at load.
+
+**`baselines` keys are exactly that same set.** Not a subset: a variable with no baseline
+entry is a variable whose temporal coverage the manifest does not state.
+
+**A static layer carries `[]`, and `[]` is not omission.** `depth_mean_m` and `depth_min_m`
+have no `year` dimension. Their baseline is the empty list, meaning *this variable has no
+year dimension and no baseline window applies* — a positive statement. Omitting the key
+means the manifest forgot, and fails. This is the same instinct as §6.3's absent-input rule:
+an unstated thing is an error, not a permission. The fixture (C§7) carries `[]` for both
+depth fields so the representation is exercised rather than merely documented.
+
 ---
 
 ## C§5 The layer protocol
@@ -269,9 +302,19 @@ one month-of-year at a time, with peak disk ~1 GB. Forcing that through a fetch/
 seam would contort every other layer to accommodate the one that cannot use it. Each layer
 decides internally whether it streams; the driver sees only a dataset.
 
-Four implementations — `copernicus_phy`, `copernicus_bgc`, `copernicus_wav`,
+**`provenance()` returns one record, so a layer is one dataset.** Five implementations —
+`copernicus_phy`, `copernicus_bgc`, `copernicus_bgc_light`, `copernicus_wav`,
 `emodnet_bathy` — and a `REGISTRY` that the driver and the probe job both read, so the
 source list exists in exactly one place.
+
+`copernicus_bgc_light` is split out from `copernicus_bgc` rather than folded into it
+because the two read **different datasets**: the monthly product for nutrients, the daily
+product for `zsd` (C§3.4). A single BGC layer would have to describe both through one
+`LayerProvenance`, which carries one `dataset_id` — so it could name only one of them, and
+the manifest would attest the wrong source for whichever it dropped. Splitting makes *one
+layer, one dataset* true by construction instead of a rule an implementer has to remember.
+It also groups like with like: `copernicus_bgc_light` reduces daily data to a monthly
+statistic, which is the wave layer's shape, not the monthly-passthrough shape.
 
 The driver: build each layer, merge onto `GridSpec`, validate the result against the
 expected variable set and shapes, then write the pair (C§6). Regridding EMODnet's ~115 m
@@ -346,7 +389,10 @@ The fixture is **synthetic-valued but structurally real**: a 3 × 3-cell, 2-year
 carrying every variable at its correct shape, written by the *same* writer and manifest
 code as a production refresh, with `synthetic: true` set in the manifest.
 
-Its layers carry **`archive.status: pending`**, not an invented DOI. That is the state a
+It carries **one `LayerProvenance` per dataset** — five, including both BGC products —
+`[]` baselines for the two depth fields (C§4.4), and `derived` entries for
+`light_attenuation_k` and `valid`. Its layers carry **`archive.status: pending`**, not an
+invented DOI. That is the state a
 real first refresh produces, so the fixture exercises the path production actually takes;
 a fixture carrying a fake DOI would test a state package C never reaches.
 
@@ -367,7 +413,20 @@ Tests:
 - The committed manifest loads against the Pydantic model — this **is** §9's provenance
   test, and it fails on any layer without one of the three archive states of C§4.1.
 - The committed artifact's sha256 matches its manifest.
-- A layer with neither DOI nor marker is rejected (negative test, constructed in-memory).
+- **Archive state, three in-memory cases** (the negative test, rewritten for C§4.1's
+  three states — a layer with neither DOI nor `forbidden` marker is *valid* if it is
+  honestly `pending`, so the old "neither DOI nor marker is rejected" would now reject the
+  state every real refresh produces):
+  - a layer with **no** archive state → rejected;
+  - `pending` **without** a `source_url` or **without** an `unblocked_by` note → rejected,
+    one case each, because an incomplete `pending` records a gap without saying what closes
+    it;
+  - `pending` **complete** → accepted.
+- **Claim completeness, two in-memory cases** (C§4.4): an artifact variable claimed by no
+  layer and no `derived` entry → rejected; the same variable claimed by two layers →
+  rejected.
+- **A `baselines` key missing for a static field → rejected**, and `[]` accepted (C§4.4) —
+  the two are different states and the test must tell them apart.
 - A mismatched sha is refused.
 - `refresh/` is not imported by any core module.
 
@@ -507,14 +566,27 @@ on 15 September 2026:
 
 | layer | dataset | version | coverage | interim variant |
 |---|---|---|---|---|
-| waves | `cmems_mod_bal_wav_my_PT1H-i` | `202411` | 1980-01-01 → 2026-07-01 | **none — `_myint_` absent from catalogue** |
-| physics | `cmems_mod_bal_phy_my_P1M-m` | `202303` | 1993-01-01 → 2026-05-31 | **none** |
-| biogeochemistry (monthly) | `cmems_mod_bal_bgc_my_P1M-m` | `202303` | 1993-01-01 → 2026-05-31 | **none** |
-| biogeochemistry (daily `zsd`, C§3.4) | `cmems_mod_bal_bgc_my_P1D-m` | `202303` | 1993-01-01 → 2026-05-31 | **none** |
+| `copernicus_wav` | `cmems_mod_bal_wav_my_PT1H-i` | `202411` | 1980-01-01 → 2026-07-01 | **none — `_myint_` absent from catalogue** |
+| `copernicus_phy` | `cmems_mod_bal_phy_my_P1M-m` | `202303` | 1993-01-01 → 2026-05-31 | **none** |
+| `copernicus_bgc` | `cmems_mod_bal_bgc_my_P1M-m` | `202303` | 1993-01-01 → 2026-05-31 | **none** |
+| `copernicus_bgc_light` (C§3.4) | `cmems_mod_bal_bgc_my_P1D-m` | `202303` | 1993-01-01 → 2026-05-31 | **none** |
 
 **Every baseline this design uses falls inside a single `_my_` dataset at a single
-version.** 2016–2025 for forcing, 2023–2025 for waves. No layer is split, so one
-`LayerProvenance` per layer is sufficient and the schema stands unchanged.
+version.** 2016–2025 for forcing, 2023–2025 for waves. No dataset is split across a
+reanalysis and an interim product, so no single record has to straddle two versions.
+
+**That is where the finding ends, and an earlier revision of this section carried it one
+step too far.** It concluded that one `LayerProvenance` *per layer* therefore sufficed.
+That does not follow: the check ruled out a split along **version**, and the table above
+shows a split along **`dataset_id`** — biogeochemistry draws monthly fields from `P1M-m`
+and daily `zsd` from `P1D-m` (C§3.4). Matching versions do not merge two dataset ids into
+the one `dataset_id` a record carries. The evidence was sound; the generalisation was not.
+
+Resolved structurally rather than by widening the record: **a layer is one dataset**, and
+biogeochemistry is two layers (C§5). `provenance()` still returns exactly one record,
+`dataset_id` stays singular, and the table above now reads one row per layer. What the
+schema gains instead is `variables` on each record and the claimed-exactly-once rule of
+C§4.4, so that splitting a layer cannot silently drop a variable on the floor.
 
 Two things follow that the manifest must carry. The **wave product is at a different
 version** (`202411`) from physics and biogeochemistry (`202303`) — expected, since they are
@@ -538,9 +610,6 @@ version string of this form, and it remains the least-specified layer in this de
 - **The runbook's done-when depends on a second person.** Nothing in the implementation can
   discharge it, and it is the deliverable that most directly addresses spec §14's
   key-person risk.
-- **`baselines` cannot express a layer with no years.** `depth_mean_m` and `depth_min_m` are
-  static. Their entry is either absent or an empty list, and this design does not say which.
-  Pick one in the plan.
 - **`artifact_schema_version` starts at 1 with no negotiation mechanism.** If D and C
   disagree about the shape, the failure is a refusal to load — loud, but total. That is the
   intended trade, recorded so it is not a surprise.
