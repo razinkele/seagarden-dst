@@ -458,8 +458,10 @@ def _layers():
     return [
         _layer(name="copernicus_phy", dataset_id="cmems_mod_bal_phy_my_P1M-m",
                variables=["salinity_psu", "temp_c"]),
+        # din_umol_l is NOT here: it is no3 + nh4, so C§4.1 claims it by Derivation.
+        # dip_umol_l is po4 alone and stays a raw claim.
         _layer(name="copernicus_bgc", dataset_id="cmems_mod_bal_bgc_my_P1M-m",
-               variables=["din_umol_l", "dip_umol_l"]),
+               variables=["dip_umol_l"]),
         # Empty `variables` is expected, not a gap: its only output is derived.
         _layer(name="copernicus_bgc_light", dataset_id="cmems_mod_bal_bgc_my_P1D-m",
                variables=[]),
@@ -481,6 +483,19 @@ def _derived():
             field="valid",
             relation="intersection of contributing layer coverage",
             inputs=[DerivationInput(layer=n, variable="coverage") for n in _COVERAGE_LAYERS],
+        ),
+        # Two source variables from ONE dataset, which is still multi-source: nothing in
+        # LayerProvenance can say a field is a sum, so a raw claim would leave a reader
+        # unable to tell nitrate from nitrate-plus-ammonium. No unit conversion — package B
+        # verified no3 and nh4 arrive in mmol m-3, "= umol L-1, matching din_umol_l
+        # directly" — so the relation is a plain sum and says so.
+        Derivation(
+            field="din_umol_l",
+            relation="sum of dissolved inorganic nitrogen species, no unit conversion",
+            inputs=[
+                DerivationInput(layer="copernicus_bgc", variable="no3"),
+                DerivationInput(layer="copernicus_bgc", variable="nh4"),
+            ],
         ),
     ]
 
@@ -529,7 +544,21 @@ def test_a_variable_claimed_by_nobody_is_rejected():
 
 def test_a_variable_claimed_by_two_layers_is_rejected():
     layers = _layers()
-    layers[1].variables = ["din_umol_l", "dip_umol_l", "temp_c"]
+    # temp_c belongs to copernicus_phy; claiming it on the BGC layer too collides.
+    layers[1].variables = ["dip_umol_l", "temp_c"]
+    with pytest.raises(ValueError, match="claimed more than once"):
+        _manifest(layers=layers)
+
+
+def test_a_variable_claimed_by_a_layer_and_a_derivation_is_rejected():
+    """The cross-kind collision, which the two-layers case does not cover.
+
+    din_umol_l is the live example: it was a raw claim on copernicus_bgc until C§4.1
+    made it a Derivation, and the rule is stated over the UNION of layer claims and
+    derivations — so re-adding the raw claim must fail rather than silently double it.
+    """
+    layers = _layers()
+    layers[1].variables = ["din_umol_l", "dip_umol_l"]
     with pytest.raises(ValueError, match="claimed more than once"):
         _manifest(layers=layers)
 
