@@ -130,9 +130,22 @@ version literals against each other in CI. This pair guards the *running instanc
 tag it claims to be. `app/shell.py` reads the same value into the About box, so a user can confirm
 it without shell access — open the app and look.
 
-Last, in a browser: load the app, run one assessment, and confirm the About box reports the
-expected version. The websocket is the part that breaks when proxying Shiny, and only a real
-session exercises it; `curl` returning 200 does not.
+**The websocket is the part that breaks when proxying Shiny**, and a 200 on the page does not
+exercise it. It can be asserted without a browser — ask nginx for the upgrade directly and
+require `101 Switching Protocols`:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}
+'   -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13'   -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ=='   https://laguna.ku.lt/seagarden-dst/websocket/
+```
+
+Anything other than `101` — typically `502`, or a `200` from nginx swallowing the upgrade —
+means the proxy is serving the page but no session will ever start. The app looks fine and is
+unusable.
+
+Last, in a browser, and only this part needs one: load the app, run one assessment, and confirm
+the About box reports the expected version. `app/shell.py` reads it from the package, so this is
+how somebody without shell access checks what is deployed.
 
 ## 6. Rollback
 
