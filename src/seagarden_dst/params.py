@@ -20,8 +20,19 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .calibration import Calibration, Tier
 
 # params/ lives beside the repository root, not inside the package: it is data the
-# project curates and republishes under the open-data commitment, not code.
-DEFAULT_PARAM_ROOT = Path(__file__).resolve().parents[2] / "params"
+# project curates and republishes under the open-data commitment, not code. That is why
+# it needs mapping rather than moving: pyproject's [tool.setuptools.package-dir] copies
+# the tree into a distribution as `seagarden_dst/paramdata/`, so an installed package
+# carries its own parameters while the repository layout stays as curated.
+#
+# Prefer the packaged copy; fall back to the checkout, which is what `pip install -e`
+# and a plain source run see. Before the mapping existed there was only the checkout
+# path, and it resolved above site-packages in a real install.
+_PACKAGED_PARAM_ROOT = Path(__file__).resolve().parent / "paramdata"
+_CHECKOUT_PARAM_ROOT = Path(__file__).resolve().parents[2] / "params"
+DEFAULT_PARAM_ROOT = (
+    _PACKAGED_PARAM_ROOT if _PACKAGED_PARAM_ROOT.is_dir() else _CHECKOUT_PARAM_ROOT
+)
 
 
 class GrowthParams(BaseModel):
