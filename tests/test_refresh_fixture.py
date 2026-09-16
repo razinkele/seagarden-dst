@@ -206,3 +206,29 @@ def test_the_fixture_can_be_rebuilt_from_its_script(tmp_path):
         xr.open_dataset(rebuilt_artifact, engine="h5netcdf") as b,
     ):
         xr.testing.assert_identical(a, b)
+
+
+def test_regenerating_the_fixture_produces_byte_identical_manifest_json(tmp_path):
+    """The structural rebuild test above compares `model_dump()` and
+    `assert_identical`, both of which are insensitive to key order — so neither
+    would have caught `_fixture_manifest` building `baselines` by iterating
+    `ARTIFACT_VARIABLES` directly. `ARTIFACT_VARIABLES` is a `frozenset`, and
+    set iteration order is not stable across separate Python processes under
+    hash randomization: two correct, identical-input regenerations produced two
+    differently-ordered (but equal-valued) `baselines` blocks, so `git diff`
+    on a routine regeneration was never empty even when nothing had changed.
+
+    This compares the raw bytes of `manifest.json`, which is what "a rebuild is
+    comparable" (the reason `retrieved_on`/`built_on` are a fixed timestamp
+    rather than build time) actually requires. On this machine `forcing.nc` is
+    reproducibly byte-identical across regenerations (confirmed separately via
+    `sha256sum`), so `artifact_sha256`/`artifact_bytes` are stable here too;
+    this test therefore does not need to exclude them the way the structural
+    rebuild test above does.
+    """
+    from scripts.make_fixture import build_fixture
+
+    build_fixture(tmp_path)
+    committed_bytes = (FIXTURE / "manifest.json").read_bytes()
+    rebuilt_bytes = (tmp_path / "manifest.json").read_bytes()
+    assert rebuilt_bytes == committed_bytes

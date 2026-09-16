@@ -17,16 +17,24 @@
     "n_lon": 3
   },
   "baselines": {
-    "salinity_psu": [
-      2024,
-      2025
-    ],
     "depth_mean_m": [],
+    "depth_min_m": [],
     "din_umol_l": [
       2024,
       2025
     ],
-    "valid": [],
+    "dip_umol_l": [
+      2024,
+      2025
+    ],
+    "light_attenuation_k": [
+      2024,
+      2025
+    ],
+    "salinity_psu": [
+      2024,
+      2025
+    ],
     "significant_wave_m": [
       2024,
       2025
@@ -35,15 +43,7 @@
       2024,
       2025
     ],
-    "light_attenuation_k": [
-      2024,
-      2025
-    ],
-    "dip_umol_l": [
-      2024,
-      2025
-    ],
-    "depth_min_m": []
+    "valid": []
   },
   "layers": [
     {

@@ -101,9 +101,16 @@ def _fixture_dataset(grid) -> xr.Dataset:
 
 
 def _fixture_manifest(grid):
+    # `ARTIFACT_VARIABLES` is a `frozenset`, whose iteration order is not stable
+    # across separate Python processes under hash randomization — iterating it
+    # directly here made a fresh regeneration of `manifest.json` byte-different
+    # from the committed one on every run, purely from `baselines` key order,
+    # for no reason that would show up in a review diff. `sorted()` here fixes
+    # a deterministic key order at the point of serialisation, without touching
+    # `ARTIFACT_VARIABLES` itself.
     fixture_baselines = {
         name: ([] if name in _STATIC_FIELDS else _YEARS)
-        for name in ARTIFACT_VARIABLES
+        for name in sorted(ARTIFACT_VARIABLES)
     }
 
     fixture_layers = [
