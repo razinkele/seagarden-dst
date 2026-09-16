@@ -191,6 +191,8 @@ artifact_sha256         : str          C§6's atomicity mechanism
 artifact_bytes          : int
 synthetic               : bool         true only for the test fixture (C§7)
 grid                    : GridSpec     crs, bounds, steps, n_lat, n_lon
+variables               : [str]        what the artifact carries — the reference set C§4.4
+                                       resolves against, anchored by C§6 (below)
 baselines               : {variable: [years]}  per-variable, not per-artifact (C§4.4)
 layers                  : [LayerProvenance]  one per *dataset*, not per source service
 derived                 : [Derivation]
@@ -224,6 +226,24 @@ has to be written down. Three qualify:
   non-trivial relation *and* a different dataset from the monthly BGC passthrough.
 - `valid` — the intersection of every contributing layer's coverage (C§3.5).
 - `din_umol_l` — **`no3` + `nh4`**, two variables from one dataset (C§3.2).
+
+`Derivation` names **layers, not source variables**: `{field, relation, input_layers: [str]}`.
+`input_layers` resolves against `layers[].name`, which is a namespace this manifest closes.
+Source variable names live in `relation`, as prose, and nowhere else.
+
+That is a deliberate retreat from a structured `{layer, variable}` input, and the reason is
+that the promise could not be kept. A structured source-variable field looks like provenance
+and would be validated against nothing: this repository has a download-verified variable
+inventory for **one** of the five layers. Package B enumerated BGC_003_012 (`chl, nh4, no3,
+nppv, o2, o2b, ph, po4, spco2, zsd`). PHY's variables were requested but never listed. WAV is
+catalogue-verified by one author on one day. EMODnet has no catalogue, no version string, and
+an invented `dataset_id`. Four records of unchecked assertion wearing the costume of a foreign
+key is worse than prose, because prose does not claim to have been checked.
+
+So `relation` must name every source variable it reads, spelled as the source dataset spells
+it — `no3`, `nh4`, `zsd`. It is read by C§8's probe job and by a reviewer, which is one more
+reader than a `variable=` keyword argument had. `valid` needs no invented source variable at
+all: it names the layers whose coverage it intersects, which is exactly what C§3.5 asks for.
 
 `din_umol_l` is the one this design got wrong until now. It was left claimed as a raw field
 of `copernicus_bgc`, and `LayerProvenance` has no relation field, so the manifest had
@@ -297,7 +317,24 @@ Per-dataset provenance records (C§4.1) are only worth having if nothing can sli
 them. Four rules, all `model_validator`s on the manifest rather than prose:
 
 **Every artifact variable appears exactly once** across the union of all layers'
-`variables` and all `derived[].field`. A raw field is claimed by the dataset it came from;
+`variables` and all `derived[].field` — measured against **`Manifest.variables`**, the
+artifact's own declaration of what it carries.
+
+The reference set is a manifest field rather than a constant in the code, because a constant
+is a package-C fact and C§4.3 has D and C1 importing the same models: nine forcing-variable
+names in a shared module make C1's GeoPackage manifest unloadable. Package C keeps its own
+list in `refresh/`, where the driver asserts the artifact it just built matches it.
+
+**A self-declared set is not yet a reference set, and this is the part that needs C§6.**
+`Manifest.variables` can be wrong in the one direction that matters: drop a variable from
+both `variables` and `layers[].variables` and every rule below still passes, while the
+artifact on disk still carries it — the exact silent-drop case C§11.1 says these rules exist
+to prevent. So the declaration is anchored outside the manifest, by
+`artifact.pair.check_declaration(manifest, actual: set[str])`, where the caller supplies what
+the artifact really holds: `data_vars` for a NetCDF, table names for a GeoPackage. It is
+stdlib-and-pydantic only, so **D runs it on read exactly as C ran it on write**, which is what
+C§4.3 means by validating the same way. Without that, the rules below check a claim against
+itself. A raw field is claimed by the dataset it came from;
 a computed field is claimed by its `Derivation`, which names the layer its input came from.
 Unclaimed means a variable sits in the artifact with no dataset behind it; claimed twice
 means two datasets assert the same field and the manifest cannot say which one D is

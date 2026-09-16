@@ -207,8 +207,8 @@ git commit -m "The artifact grid, defined in one place"
 - Produces:
   - `Archive(status: Literal["deposited","forbidden","pending"], zenodo_doi: str | None = None, source_url: str | None = None, unblocked_by: str | None = None)`
   - `LayerProvenance(name: str, source: str, product_id: str, dataset_id: str, version: str, retrieved_on: datetime, licence: str, redistribution: Literal["allowed","forbidden"], source_url: str, archive: Archive, variables: list[str])`
-  - `DerivationInput(layer: str, variable: str)`
-  - `Derivation(field: str, relation: str, inputs: list[DerivationInput])`
+  - `Derivation(field: str, relation: str, input_layers: list[str])` — layer names only;
+    source variable names live in `relation` as prose (C§4.1)
   - `AbsentField(field: str, reason: str, unblocked_by: str)`
 
 - [ ] **Step 1: Write the failing tests**
@@ -373,25 +373,25 @@ class LayerProvenance(BaseModel):
     variables: list[str]
 
 
-class DerivationInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    layer: str
-    variable: str
-
-
 class Derivation(BaseModel):
-    """A computed field, and what it was computed from.
+    """A computed field, the layers it drew on, and the relation.
 
     A computed field has no single raw source, so it cannot be an entry in some
     layer's `variables`; it is claimed here instead (C§4.4).
+
+    `input_layers` names LayerProvenance.name values — the one namespace this
+    manifest can close. Source variable names live in `relation`, as prose, and
+    nowhere else: nothing here enumerates a dataset's contents, so a structured
+    {layer, variable} pair would carry a referential integrity no validator can
+    keep (C§4.1). `relation` must therefore name every source variable it reads,
+    spelled as the source dataset spells it.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     field: str
-    relation: str
-    inputs: list[DerivationInput]
+    relation: str = Field(min_length=1)
+    input_layers: list[str] = Field(min_length=1)
 
 
 class AbsentField(BaseModel):
@@ -429,7 +429,8 @@ git commit -m "Provenance records, and a third honest archive state"
 
 **Interfaces:**
 - Consumes: Task 2's models, Task 1's `GridSpec`.
-- Produces: `ARTIFACT_VARIABLES: frozenset[str]` and `Manifest(artifact_schema_version: int, built_on: datetime, artifact_filename: str, artifact_sha256: str, artifact_bytes: int, synthetic: bool, grid: GridSpec, baselines: dict[str, list[int]], layers: list[LayerProvenance], derived: list[Derivation], absent: list[AbsentField])`.
+- Produces: `Manifest(artifact_schema_version: int, built_on: datetime, artifact_filename: str, artifact_sha256: str, artifact_bytes: int, synthetic: bool, grid: GridSpec, variables: list[str], baselines: dict[str, list[int]], layers: list[LayerProvenance], derived: list[Derivation], absent: list[AbsentField])`, and `ARTIFACT_VARIABLES: frozenset[str]` in `refresh/variables.py` — NOT in the shared `artifact/` module (C§4.4).
+- Also produces `artifact.pair.check_declaration(manifest, actual: set[str])`: the anchor for `Manifest.variables`. Nothing inside the file can check the declaration the rules resolve against, so the caller holding the real artifact supplies `actual` — `data_vars` for a NetCDF, table names for a GeoPackage. stdlib and pydantic only, so package D runs it on READ exactly as C runs it on write.
 
 **The four rules (C§4.4), each with a C§7 case that fails without it:**
 
@@ -446,7 +447,6 @@ from seagarden_dst.artifact.manifest import (
     ARTIFACT_VARIABLES,
     AbsentField,
     Derivation,
-    DerivationInput,
     Manifest,
 )
 
@@ -476,13 +476,13 @@ def _derived():
     return [
         Derivation(
             field="light_attenuation_k",
-            relation="Poole-Atkins k = 1.7/z_SD, computed daily then averaged monthly",
-            inputs=[DerivationInput(layer="copernicus_bgc_light", variable="zsd")],
+            relation="Poole-Atkins k = 1.7/z_SD over daily zsd, computed daily then averaged monthly",
+            input_layers=["copernicus_bgc_light"],
         ),
         Derivation(
             field="valid",
             relation="intersection of contributing layer coverage",
-            inputs=[DerivationInput(layer=n, variable="coverage") for n in _COVERAGE_LAYERS],
+            input_layers=list(_COVERAGE_LAYERS),
         ),
         # Two source variables from ONE dataset, which is still multi-source: nothing in
         # LayerProvenance can say a field is a sum, so a raw claim would leave a reader
@@ -491,11 +491,8 @@ def _derived():
         # directly" — so the relation is a plain sum and says so.
         Derivation(
             field="din_umol_l",
-            relation="sum of dissolved inorganic nitrogen species, no unit conversion",
-            inputs=[
-                DerivationInput(layer="copernicus_bgc", variable="no3"),
-                DerivationInput(layer="copernicus_bgc", variable="nh4"),
-            ],
+            relation="din_umol_l = no3 + nh4: sum of dissolved inorganic nitrogen species, no unit conversion",
+            input_layers=["copernicus_bgc"],
         ),
     ]
 
@@ -655,6 +652,12 @@ Expected: FAIL — `ImportError: cannot import name 'ARTIFACT_VARIABLES'`
 ```python
 # The nine variables the artifact carries (C§3.2). `surface_par` is deliberately
 # absent and is recorded in `absent`, not here.
+# NOTE: this constant lives in `src/seagarden_dst/refresh/variables.py`, NOT in
+# `artifact/manifest.py`. It is a package-C fact, and C§4.3 has package D and package C1
+# importing the same manifest models — nine forcing-variable names in that shared module
+# make a C1 GeoPackage manifest unloadable. The manifest resolves its rules against
+# `Manifest.variables` instead; this constant is what C-b's driver asserts the artifact it
+# just built against, and what the fixture is written from.
 ARTIFACT_VARIABLES: frozenset[str] = frozenset({
     "salinity_psu", "temp_c", "din_umol_l", "dip_umol_l", "light_attenuation_k",
     "significant_wave_m", "depth_mean_m", "depth_min_m", "valid",
@@ -702,13 +705,14 @@ class Manifest(BaseModel):
                 "these variables are claimed more than once, so the manifest cannot "
                 f"say which source produced them: {twice}"
             )
-        unclaimed = ARTIFACT_VARIABLES - set(claims)
+        declared = set(self.variables)
+        unclaimed = declared - set(claims)
         if unclaimed:
             raise ValueError(
                 "these artifact variables are claimed by no layer and no derivation, "
                 f"so they sit in the artifact with nothing behind them: {sorted(unclaimed)}"
             )
-        extra = set(claims) - ARTIFACT_VARIABLES
+        extra = set(claims) - declared
         if extra:
             raise ValueError(f"claimed variables the artifact does not carry: {sorted(extra)}")
         return self
@@ -716,12 +720,12 @@ class Manifest(BaseModel):
     @model_validator(mode="after")
     def _check_baseline_keys_are_exactly_the_claimed_set(self) -> "Manifest":
         keys = set(self.baselines)
-        if keys != set(ARTIFACT_VARIABLES):
+        if keys != set(self.variables):
             raise ValueError(
                 "baselines keys must be exactly the artifact's variables — a variable "
                 "with no entry is one whose temporal coverage the manifest does not "
-                f"state. missing={sorted(ARTIFACT_VARIABLES - keys)} "
-                f"extra={sorted(keys - ARTIFACT_VARIABLES)}"
+                f"state. missing={sorted(set(self.variables) - keys)} "
+                f"extra={sorted(keys - set(self.variables))}"
             )
         return self
 
@@ -1454,7 +1458,7 @@ findings are verified rather than applied.
 
 **Deliberately out of scope,** each named in Scope so it is not mistaken for a gap: clauses 1, 5, 6, 9, 11 (C-b) and 7 (C-c). Clause 8's *test* lands here in Task 6; the driver it will eventually guard is C-b's.
 
-**Interface consistency.** `GridSpec` (Task 1) is consumed by `Manifest.grid` (Task 3) and the fixture (Task 5). `Archive`, `LayerProvenance`, `Derivation`, `DerivationInput`, `AbsentField` (Task 2) are consumed by `Manifest` (Task 3). `Manifest` is consumed by `write_pair`/`load_pair` (Task 4) and by every fixture test (Task 5). `sha256_of` is used by Task 4's tests and by `write_pair` itself. `ARTIFACT_VARIABLES` is defined in Task 3 and used in Tasks 3 and 5. No name appears in a later task that an earlier one does not define.
+**Interface consistency.** `GridSpec` (Task 1) is consumed by `Manifest.grid` (Task 3) and the fixture (Task 5). `Archive`, `LayerProvenance`, `Derivation`, `AbsentField` (Task 2) are consumed by `Manifest` (Task 3). `Manifest` is consumed by `write_pair`/`load_pair` (Task 4) and by every fixture test (Task 5). `sha256_of` is used by Task 4's tests and by `write_pair` itself. `ARTIFACT_VARIABLES` is defined in Task 3 and used in Tasks 3 and 5. No name appears in a later task that an earlier one does not define.
 
 **One deliberate duplication to watch.** Task 3 defines the reference manifest builder in the test module; Task 4 step 1 moves it into `conftest.py` and has Task 3's module import it. If you execute Task 3 and stop, the builder is in the wrong place — that is expected mid-plan, not a defect, but do not leave it there.
 
