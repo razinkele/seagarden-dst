@@ -258,6 +258,19 @@ def test_an_unknown_archive_status_is_rejected():
     """The validator accepts exactly three states and nothing else."""
     with pytest.raises(ValueError):
         Archive(status="archived", source_url="https://example.invalid/")
+
+
+def test_a_layer_with_no_archive_state_is_rejected():
+    """C§7's FIRST archive case, and clause 10's third negative test.
+
+    `archive` is a required field with no default, so a layer without one fails
+    at load. Easy to leave untested because the other five cases all exercise a
+    malformed archive rather than an absent one — and without it, a later
+    refactor giving `archive` a `None` default would pass the whole suite while
+    making every layer's provenance optional.
+    """
+    with pytest.raises(ValueError):
+        _layer(archive=None)
 ```
 
 - [ ] **Step 2: Run them and watch them fail**
@@ -383,7 +396,7 @@ class AbsentField(BaseModel):
 - [ ] **Step 4: Run them and watch them pass**
 
 Run: `pytest tests/test_refresh_manifest.py -q`
-Expected: 8 passed
+Expected: 9 passed (2 from Task 1, 7 here)
 
 - [ ] **Step 5: Commit**
 
@@ -552,12 +565,28 @@ def test_a_duplicate_dataset_id_is_rejected():
 
 
 def test_an_orphan_layer_is_rejected():
-    """Drop k's derivation and copernicus_bgc_light is attested by nothing."""
-    derived = [d for d in _derived() if d.field != "light_attenuation_k"]
-    b = _baselines()
-    del b["light_attenuation_k"]
+    """A sixth layer with empty `variables` that no derivation names.
+
+    Constructed by ADDING a layer, not by deleting `light_attenuation_k`'s
+    derivation. That obvious construction does not work: dropping the derivation
+    also unclaims `light_attenuation_k`, so `_check_every_variable_is_claimed_
+    exactly_once` — defined earlier, and `model_validator(mode="after")` runs in
+    definition order with the first raise winning — fires instead, with a message
+    containing no "reachable". The test would fail, and the natural repair
+    (loosening `match=`) would leave C§4.4's fourth rule with no case that
+    discriminates it, which is what done-when clause 12 forbids.
+
+    Adding an unreferenced layer violates rule 4 and nothing else: the claim union
+    is unchanged, `baselines` is unchanged, and the dataset_id is new.
+    """
+    layers = _layers()
+    layers.append(_layer(
+        name="copernicus_orphan",
+        dataset_id="cmems_mod_bal_orphan_my_P1M-m",
+        variables=[],
+    ))
     with pytest.raises(ValueError, match="reachable"):
-        _manifest(derived=derived, baselines=b)
+        _manifest(layers=layers)
 
 
 def test_the_empty_variables_layer_is_accepted_when_a_derivation_names_it():
@@ -688,7 +717,7 @@ class Manifest(BaseModel):
 - [ ] **Step 4: Run them and watch them pass**
 
 Run: `pytest tests/test_refresh_manifest.py -q`
-Expected: 20 passed
+Expected: 21 passed (9 from Tasks 1-2, 12 here)
 
 - [ ] **Step 5: Commit**
 
@@ -767,9 +796,25 @@ def tiny_dataset():
 import json
 
 import pytest
-import xarray as xr
 
-from seagarden_dst.refresh.writer import load_pair, sha256_of, write_pair
+# `pytestmark` below deselects this module from the default run — but `-m` filters
+# AFTER collection, and collection imports the module. In the `.[app,dev]` install
+# the xarray import two lines down raises ModuleNotFoundError at COLLECTION, which
+# no marker can reach, taking both CI legs red on every pull request. That is the
+# exact outcome C§11 says the mechanism must avoid, so the marker alone does not
+# implement it. `importorskip` turns the ImportError into a clean module-level skip.
+#
+# It must come BEFORE the writer import: `writer.py` imports xarray at module level
+# too, so skipping only this module's own xarray import would not help.
+pytest.importorskip("xarray")
+
+import xarray as xr  # noqa: E402
+
+from seagarden_dst.refresh.writer import (  # noqa: E402
+    load_pair,
+    sha256_of,
+    write_pair,
+)
 
 pytestmark = pytest.mark.spatial
 
@@ -842,8 +887,8 @@ import hashlib
 import json
 import os
 import tempfile
+from collections.abc import Callable  # not typing.Callable: ruff UP035
 from pathlib import Path
-from typing import Callable
 
 import xarray as xr
 
@@ -863,7 +908,10 @@ def sha256_of(path: Path) -> str:
 
 
 def _fsync(path: Path) -> None:
-    with path.open("rb") as fh:
+    # "rb+", not "rb": on Windows os.fsync maps to _commit()/FlushFileBuffers,
+    # which needs write access, and a read-only handle raises
+    # OSError [Errno 9] Bad file descriptor. Verified on the development machine.
+    with path.open("rb+") as fh:
         os.fsync(fh.fileno())
 
 
@@ -970,7 +1018,20 @@ C§7: synthetic-valued but structurally real — 3×3 cells, 2 years, every vari
 
 **Structural decisions the script must make, all fixed here.** If you find yourself making a structural choice not on this list, stop — it belongs in this plan, not in the script.
 
-- The grid is a 3×3 `GridSpec` built directly, **not** `GridSpec.baltic()`: `lat_min=54.0, lat_max=54.1, lon_min=20.0, lon_max=20.1, n_lat=3, n_lon=3`, steps as in `GridSpec.baltic()`, `crs="EPSG:4326"`.
+- The grid is a 3×3 `GridSpec` built directly, **not** `GridSpec.baltic()`. Its bounds are
+  **derived from the steps** rather than chosen independently: `lat_min=54.0`,
+  `lon_min=20.0`, the production steps `lat_step=0.016666` and `lon_step=0.027777`,
+  `n_lat=n_lon=3`, so `lat_max=54.0 + 3*0.016666 = 54.049998` and
+  `lon_max=20.0 + 3*0.027777 = 20.083331`. `crs="EPSG:4326"`.
+  **Do not pick round bounds.** Three cells at the production steps span 0.050 and 0.083,
+  not 0.1, and `GridSpec` validates only inversion — so a `lat_max=54.1` would produce a
+  committed manifest whose steps, cell counts and bounds cannot all be true at once. C§7
+  requires the fixture to be *structurally real*, and D or C1 reconstructing cell centres
+  from those steps would land on different cells than the artifact carries.
+- **`tiny_dataset`'s coordinates must come from the same `GridSpec`**, via `grid.lats()` and
+  `grid.lons()` — not from an independent `np.linspace`. Task 4's fixture uses `linspace`
+  over round bounds, which gives a 0.05 spacing in both axes and matches neither production
+  step; update it when you write the generator so the two agree by construction.
 - Years are `[2024, 2025]`; months `1..12`.
 - Values come from `numpy.random.default_rng(20260916)` — a fixed seed, so a rebuild is byte-comparable.
 - `valid` has `[0, 0]` set `False`; every other cell `True`.
@@ -1019,13 +1080,29 @@ def test_the_three_static_fields_carry_an_empty_baseline():
 
 
 def test_the_fixture_can_be_rebuilt_from_its_script(tmp_path):
-    """C§7: written by the same writer and manifest code as a production refresh."""
+    """C§7: written by the same writer and manifest code as a production refresh.
+
+    Compares STRUCTURE, not bytes. h5netcdf stamps `_NCProperties` into every
+    file with its own version and those of hdf5 and h5py — measured on the
+    development machine as `version=2,h5netcdf=1.8.1,hdf5=1.14.6,h5py=3.15.1`.
+    Two builds are byte-identical on one machine with one set of versions, and
+    differ across the 3.11 and 3.13 CI legs or after any dependency bump. A
+    sha comparison would be green locally and red in CI for a reason that has
+    nothing to do with the fixture, which is worse than no test.
+    """
     from scripts.make_fixture import build_fixture
 
-    _, rebuilt_manifest = build_fixture(tmp_path)
-    committed, _ = load_pair(FIXTURE)
-    rebuilt, _ = load_pair(tmp_path)
-    assert rebuilt.artifact_sha256 == committed.artifact_sha256
+    build_fixture(tmp_path)
+    committed, committed_artifact = load_pair(FIXTURE)
+    rebuilt, rebuilt_artifact = load_pair(tmp_path)
+
+    skip = {"artifact_sha256", "artifact_bytes"}
+    assert rebuilt.model_dump(exclude=skip) == committed.model_dump(exclude=skip)
+    with (
+        xr.open_dataset(committed_artifact, engine="h5netcdf") as a,
+        xr.open_dataset(rebuilt_artifact, engine="h5netcdf") as b,
+    ):
+        xr.testing.assert_identical(a, b)
 ```
 
 - [ ] **Step 2: Run them and watch them fail**
@@ -1043,7 +1120,17 @@ Add the `.gitignore` exception C§7 anticipates, directly beneath the existing `
 !tests/fixtures/data/*.nc
 ```
 
-Run: `micromamba run -n shiny python scripts/make_fixture.py`
+Run it as a **module**, from the repository root:
+
+```bash
+micromamba run -n shiny python -m scripts.make_fixture
+```
+
+`python scripts/make_fixture.py` puts `scripts/` on `sys.path` instead of the repository
+root, so `import seagarden_dst` resolves only by accident of the editable install. `-m`
+keeps the root on the path, which is also what makes Task 5's
+`from scripts.make_fixture import build_fixture` work under pytest's
+`pythonpath = ["src", "."]`.
 
 - [ ] **Step 4: Run them and watch them pass**
 
@@ -1052,8 +1139,16 @@ Expected: 7 passed
 
 Confirm the artifact is actually tracked — `.gitignore` exceptions fail silently:
 
-Run: `git check-ignore -v tests/fixtures/data/forcing.nc`
-Expected: exit 1, no output.
+```bash
+git add tests/fixtures/data/forcing.nc
+git ls-files --error-unmatch tests/fixtures/data/forcing.nc
+```
+
+Expected: the path echoed, exit 0. **Do not use `git check-ignore -v` for this.** With `-v`
+it reports the *matching* pattern — including a negated one — and exits **0**, so a correctly
+un-ignored file looks exactly like a failure. Only the bare `git check-ignore` exits 1 on a
+non-ignored path, and `git ls-files --error-unmatch` answers the question actually being
+asked, which is whether git is tracking the file.
 
 - [ ] **Step 5: Commit**
 
@@ -1093,13 +1188,28 @@ REFRESH = CORE / "refresh"
 
 
 def _imported_modules(path: Path) -> set[str]:
+    """Absolute module names, with relative imports resolved to absolute.
+
+    A relative import — `from .grid import GridSpec`, `from ..api import x` —
+    carries `level > 0` and a `module` that is a bare suffix or None, so matching
+    on the string alone misses it completely. That is exactly how a core import
+    would slip into `refresh/` past a test claiming to forbid it.
+    """
     tree = ast.parse(path.read_text(encoding="utf-8"))
+    package = (
+        "seagarden_dst.refresh" if path.parent.name == "refresh" else "seagarden_dst"
+    )
     names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             names.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            names.add(node.module)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                parts = package.split(".")
+                base = ".".join(parts[: len(parts) - node.level + 1])
+                names.add(f"{base}.{node.module}" if node.module else base)
+            elif node.module:
+                names.add(node.module)
     return names
 
 
@@ -1217,6 +1327,43 @@ git commit -m "Two install states, so two CI jobs and a marker"
 ```
 
 ---
+
+## Review record
+
+A four-lens adversarial review of this plan raised 31 findings; 19 survived refutation and
+collapsed to 10 distinct defects, all fixed above. Recorded because the defects are more
+interesting than the fixes, and because two of them are patterns worth watching for in C-b
+and C-c.
+
+**Three were blocking.** Two were found independently by three or four lenses.
+
+1. **A pytest marker cannot stop a collection-time import.** C§11 prescribes "a `spatial`
+   marker deselected by default" as the mechanism that keeps the `.[app,dev]` job from
+   collecting the fixture tests. The plan implemented exactly that — and it does not work:
+   `-m` filters *after* collection, and collection imports the module. Verified empirically:
+   a marked module whose import fails yields `Interrupted: 1 error during collection`, not a
+   skip. `pytest.importorskip` before the import is what actually implements C§11's
+   requirement; the marker only implements its *wording*.
+2. **The orphan-layer test could never reach the validator it named.** It built the orphan by
+   deleting `light_attenuation_k`'s derivation, which also unclaims that variable — so the
+   claimed-exactly-once validator, defined earlier, fired first with a message containing no
+   "reachable". The natural repair (loosen `match=`) would have left C§4.4's fourth rule with
+   no discriminating case, which is precisely what done-when clause 12 forbids.
+3. **`_fsync` opened the file read-only.** On Windows `os.fsync` maps to `FlushFileBuffers`
+   and needs write access; verified on the development machine as
+   `OSError [Errno 9] Bad file descriptor`. Every `write_pair` call would have raised before
+   reaching the interruption hook, so all of Task 4 and the whole of Task 5 were dead.
+
+**The pattern in 1 and 2** is a check that looks like it proves more than it does: a marker
+that appears to prevent a failure it cannot reach, and a test that appears to guard a rule it
+never triggers. When writing C-b, ask of every new validator: *if I deleted this, which test
+goes red?* If the answer is "one that would also go red for another reason", the rule is
+untested.
+
+**One refutation worth keeping.** A lens argued the fixture's boolean `valid` could not
+survive NetCDF, which has no native bool type. Measured instead: h5netcdf round-trips
+`dtype == bool` correctly. The concern was real and the conclusion was wrong, which is why
+findings are verified rather than applied.
 
 ## Self-review
 
