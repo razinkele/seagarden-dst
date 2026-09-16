@@ -11,10 +11,82 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
-Nothing released yet. Changes land here, not in the published section below: `0.2.0` is
-tagged, and `pyproject.toml` plus `__init__.py` still read `0.2.0`, so anything merged
-after the tag reports the tag's version in the About box. `tests/test_version.py` cannot
-catch that — it asserts the literals agree with each other and with a `## [0.2.0]` heading,
+Nothing yet. Changes land here, not in the published sections below. When you cut the next
+release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
+open a section for it — `tests/test_version.py` asserts the literals agree with each other
+and with a matching heading here, but it cannot tell you that a merged change went
+unreleased.
+
+---
+
+## [0.3.0] — 2026-09-16
+
+**The refresh tooling gets its foundations, and five of seven sites get a position.**
+Still a prototype: the artifact these tools build has not been built yet, so nothing the
+tool displays is a measurement of the site you selected. 196 tests (143 at 0.2.0), CI on
+Python 3.11 and 3.13 across two install states.
+
+### Added
+
+- **Package C-a — the provenance manifest and its writer** (`seagarden_dst.refresh`). A
+  `GridSpec` fixing the artifact grid, Pydantic manifest models whose rules fail at load
+  rather than mid-analysis, and an atomic artifact/manifest writer. Four completeness
+  validators enforce that every artifact variable is claimed exactly once, that `baselines`
+  keys are exactly that claimed set, that `dataset_id` is unique across layers, and that
+  every layer is reachable. Each was verified by mutation: neutralise any one and at least
+  one test goes red.
+- **A committed synthetic fixture** (`tests/fixtures/data/`), 3x3 cells and two years,
+  written by the same code a production refresh uses. Its layers carry
+  `archive.status: pending` — the state a first real refresh produces — not an invented DOI.
+- **Atomicity that a filesystem can actually provide.** The spec asked for the artifact and
+  manifest to be "written atomically as a pair"; no filesystem offers that. The artifact is
+  replaced first and the manifest last, linked by a sha256, so an interrupted publication is
+  **refused on the next read** rather than silently serving new data under old provenance.
+- **Site coordinates, with how well each is known** (`forcing.SITE_COORDINATES`). Five of the
+  seven regions now carry a position: `LT-lagoon` SITED, `DK-belt`, `DE-coastal` and
+  `PL-coastal` SNAPPED to a model cell, `PL-lagoon` INDICATIVE. `LT-coastal` and `EE-coastal`
+  have none yet. The type is deliberately not a `(lat, lon)` tuple — unpacking let a consumer
+  take the numbers and drop the provenance, so `lat, lon = coordinate` now raises.
+- **A deploy runbook** (`docs/runbooks/deploy.md`) for the laguna.ku.lt instance: preflight,
+  update, verification and rollback, written for somebody who is not its author.
+- **An import boundary that is enforced, not intended.** `refresh/` is build-time only;
+  tests assert in both directions, recursively, across `src/` and `app/`, resolving relative
+  imports. The one hole — a dynamic `importlib` import — is documented rather than hidden.
+
+### Changed
+
+- **`din_umol_l` is now a `Derivation`, not a raw field.** It is `no3 + nh4`, and nothing in
+  a `LayerProvenance` could say so. A reader holding the artifact could not tell nitrate from
+  nitrate-plus-ammonium, and package B measured surface DIN at 1.047 µmol/L at Tagalaht,
+  where the ammonium share is not a rounding difference.
+- `params/` now ships inside the built wheel. A `pip install` previously produced a package
+  that could not load its own parameter files; only editable installs were ever exercised.
+- `import seagarden_dst` no longer requires pandas. The core declares four dependencies and
+  `scenarios.py` imported pandas at module scope, which made that declaration false.
+
+### Fixed
+
+- **Nine factual claims in the 0.2.0 release notes and README were wrong and are corrected.**
+  The calibration tier glossary had B and C swapped — a partner reading it would have taken a
+  value for one tier better calibrated than it is. The anchor-miss row named the wrong species
+  and a superseded figure: *Fucus* misses, not *Saccharina*, which never runs the ODE at all.
+- **A non-finite forcing series is refused before the solver sees it.** `solve_ivp` does not
+  error on a non-finite derivative — it shrinks the step until it underflows, so a series
+  drawn from a land cell consumed minutes of CPU and read as a performance problem.
+
+### Known limitations
+
+Unchanged from 0.2.0 and still the honest summary: site conditions are placeholders; surface
+PAR is a **permanent** placeholder, not a pending one; significant wave height is unsourced;
+*Fucus* misses its published anchor. Package C-a builds the tooling for the forcing artifact
+— it does not build the artifact. Two gaps are recorded for the next package: package D
+cannot reach `Manifest` or `load_pair` without crossing an import boundary its own test
+forbids, and nothing validates `source`/`product_id` across layers, so a real refresh could
+attribute five datasets to one product and pass every validator.
+
+---
+
+## [0.2.0]` heading,
 all of which stays true. Bump the two literals and open a new section when you cut the
 next release.
 
