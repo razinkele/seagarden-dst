@@ -252,7 +252,7 @@ SITE_COORDINATES: dict[str, SiteCoordinate] = {
         note=(
             "The first SITED coordinate this tool has held, and the only one not arrived "
             "at by snapping. From KU Marine Research Institute's notification to the "
-            "Curonian Spit National Park administration, 2026-06-10: 'Eksperimento vieta: "
+            "Curonian Spit National Park administration, signed 2026-06-12: 'Eksperimento vieta: "
             "vakarine Kursiu mariu pakrante 55.672777, 21.133870' — the western shore of "
             "the Curonian Lagoon. A 10 x 2 m installation of growing ropes on floats and "
             "anchors, or on stakes, cultivating Ulva intestinalis, 15 June to 30 October "
@@ -264,8 +264,15 @@ SITE_COORDINATES: dict[str, SiteCoordinate] = {
             "3.5 psu here, and Ulva intestinalis is the species chosen for it."
         ),
     ),
-    #: LT-coastal: not sited yet. Site 1 of the Lithuanian selection is the Klaipeda
-    #: Strait; WP3's folder has June 2026 field photos but no coordinate on record.
+    #: LT-coastal: NOT SITED, and searched for rather than assumed. WP3's Lithuanian
+    #: site-selection folder holds Site 1 (Klaipeda Strait) and Site 2 (northern Curonian
+    #: Lagoon); only Site 2 has a coordinate anywhere, in the KNNP notification above.
+    #: Site 1's photos carry no GPS EXIF, and the only Lithuanian pilot review
+    #: (Chorda_Lithuania_pilot_review.docx) RECOMMENDS rather than sites: "a two-tier
+    #: pilot: a land-and-strait-based nursery and instrumented micro-trial at Klaipeda
+    #: (existing 'Sea Valley' infrastructure), paired with a small engineered, submerged
+    #: longline trial on the open coast". A nursery at existing infrastructure and an
+    #: open-coast longline are two different positions, and neither has been chosen.
     #: LT is two sub-sites, coastal and lagoon, and `LT-lagoon` is not in REGIONS yet.
 }
 
