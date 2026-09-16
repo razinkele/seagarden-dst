@@ -20,6 +20,33 @@ def _static(name, values):
     )
 
 
+def _static_two(a_name, a_values, b_name, b_values):
+    return xr.Dataset(
+        {
+            a_name: (("latitude", "longitude"), np.array(a_values, dtype="float32")),
+            b_name: (("latitude", "longitude"), np.array(b_values, dtype="float32")),
+        },
+        coords=_COORDS,
+    )
+
+
+def test_coverage_intersects_the_variables_within_one_layer():
+    # Every real coverage layer carries two variables (EXPECTED_DIMS in shapes.py):
+    # copernicus_phy has salinity_psu + temp_c, copernicus_bgc has din_umol_l +
+    # dip_umol_l, emodnet_bathy has depth_mean_m + depth_min_m. `covered = covered &
+    # mask` must intersect them: a last-wins bug or an `|` bug would let one variable's
+    # gap paper over the other's, silently widening `valid`.
+    phy = _static_two(
+        "salinity_psu",
+        [[1.0, np.nan], [1.0, 1.0]],
+        "temp_c",
+        [[1.0, 1.0], [np.nan, 1.0]],
+    )
+    valid = compute_valid({"copernicus_phy": phy})
+    assert valid.dims == ("latitude", "longitude")
+    np.testing.assert_array_equal(valid.values, np.array([[True, False], [False, True]]))
+
+
 def test_valid_is_the_intersection_of_two_disagreeing_masks():
     # C§10 clause 11. Copernicus says the top row is wet; EMODnet says the left
     # column is. They agree only on the top-left cell — the coastline case C§3.5
