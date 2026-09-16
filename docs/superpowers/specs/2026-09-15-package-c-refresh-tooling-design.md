@@ -445,7 +445,7 @@ Tests:
 - The committed manifest loads against the Pydantic model — this **is** §9's provenance
   test, and it fails on any layer without one of the three archive states of C§4.1.
 - The committed artifact's sha256 matches its manifest.
-- **Archive state, three in-memory cases** (the negative test, rewritten for C§4.1's
+- **Archive state, four in-memory cases** (the negative test, rewritten for C§4.1's
   three states — a layer with neither DOI nor `forbidden` marker is *valid* if it is
   honestly `pending`, so the old "neither DOI nor marker is rejected" would now reject the
   state every real refresh produces):
@@ -454,9 +454,12 @@ Tests:
     one case each, because an incomplete `pending` records a gap without saying what closes
     it;
   - `pending` **complete** → accepted.
-- **Claim completeness, two in-memory cases** (C§4.4): an artifact variable claimed by no
+- **Claim completeness, three in-memory cases** (C§4.4): an artifact variable claimed by no
   layer and no `derived` entry → rejected; the same variable claimed by two layers →
-  rejected.
+  rejected; the same variable claimed by a layer **and** by a `derived` entry → rejected.
+  The third is not covered by the second: the rule is stated over the *union* of layer
+  claims and derivations, so a collision across the two kinds is the case an implementer
+  reading "claimed by two layers" would not think to write.
 - **Duplicate `dataset_id`, one in-memory case** (C§4.4): two layers naming the same
   dataset → rejected. Built by copying the fixture's `copernicus_bgc` record and changing
   only `name`, because that is the edit the rule exists to catch.
@@ -466,7 +469,10 @@ Tests:
   positive case is the one that matters: it proves the rule does not simply outlaw the
   empty list C§4.4 requires the fixture to carry.
 - **A `baselines` key missing for a static field → rejected**, and `[]` accepted (C§4.4) —
-  the two are different states and the test must tell them apart.
+  the two are different states and the test must tell them apart. An **extra** `baselines`
+  key, for a variable in neither `variables` nor `derived`, is rejected too: C§4.4 says the
+  key set is exactly the claimed set, "Not a subset", and only the missing direction was
+  being tested.
 - A mismatched sha is refused.
 - `refresh/` is not imported by any core module.
 
@@ -549,9 +555,20 @@ end-to-end by someone else."* Both stand. Expanded, so the row is checkable:
    can fail — which was true of this design until review caught it.
 10. **A `pending` manifest validates and a mis-stated one does not.** Positive test: every
     layer `pending` with a `source_url` loads. Negative tests: `pending` without a
-    `source_url`, and a layer with no archive state at all, both fail at load.
+    `source_url`, `pending` without an `unblocked_by` note, and a layer with no archive
+    state at all, all three fail at load. The `unblocked_by` case was missing here while
+    C§7 required it — an incomplete `pending` records a gap without saying what closes it,
+    which is half the contract this clause exists to pin.
 11. **The `valid` field is the intersection** of contributing layer coverage, proven by a
     test with two deliberately disagreeing masks (C§3.5).
+12. **Nothing slips between the provenance records.** C§4.4's four `model_validator`s each
+    have a C§7 case that fails without them: every artifact variable claimed exactly once
+    across layers and derivations; `baselines` keys exactly that set, with `[]` and
+    omission told apart; `dataset_id` unique across layers; and every layer reachable, by a
+    variable claim or by a `derived[].inputs[].layer`. Listed here because C§7 is narrative
+    and this is the list the implementer signs off against — a validator with no clause can
+    be skipped with every numbered row still green, which is the failure clause 9 was added
+    to close.
 
 ---
 
