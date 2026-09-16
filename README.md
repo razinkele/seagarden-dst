@@ -30,6 +30,10 @@ the repository root.
 Everything runs on the **placeholder site conditions** in `seagarden_dst.forcing`.
 Nothing the prototype displays is a measurement.
 
+Deploying a release to the live instance at **https://laguna.ku.lt/seagarden-dst/** is
+[`docs/runbooks/deploy.md`](docs/runbooks/deploy.md) — written for somebody who is not its
+author, because the Application Form commits us to keeping this online to May 2034.
+
 ## Built on the NiD4OCEAN DST architecture
 
 This is deliberately the same shape as `razinkele/nid4ocean-dst`, because that shape
