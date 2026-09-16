@@ -12,6 +12,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from seagarden_dst.refresh.grid import GridSpec
+
 ARTIFACT_SCHEMA_VERSION = 1
 
 
@@ -105,3 +107,108 @@ class AbsentField(BaseModel):
     field: str
     reason: str
     unblocked_by: str
+
+
+# The nine variables the artifact carries (C§3.2). `surface_par` is deliberately
+# absent and is recorded in `absent`, not here.
+ARTIFACT_VARIABLES: frozenset[str] = frozenset({
+    "salinity_psu", "temp_c", "din_umol_l", "dip_umol_l", "light_attenuation_k",
+    "significant_wave_m", "depth_mean_m", "depth_min_m", "valid",
+})
+
+
+class Manifest(BaseModel):
+    """The artifact's provenance, beside it and validated with it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    artifact_schema_version: int
+    built_on: datetime
+    artifact_filename: str
+    artifact_sha256: str
+    artifact_bytes: int
+    synthetic: bool
+    grid: GridSpec
+    baselines: dict[str, list[int]]
+    layers: list[LayerProvenance]
+    derived: list[Derivation]
+    absent: list[AbsentField]
+
+    @model_validator(mode="after")
+    def _check_schema_version(self) -> Manifest:
+        if self.artifact_schema_version != ARTIFACT_SCHEMA_VERSION:
+            raise ValueError(
+                f"artifact_schema_version {self.artifact_schema_version} is not "
+                f"{ARTIFACT_SCHEMA_VERSION}; refusing rather than guessing the shape"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_every_variable_is_claimed_exactly_once(self) -> Manifest:
+        claims: dict[str, list[str]] = {}
+        for layer in self.layers:
+            for name in layer.variables:
+                claims.setdefault(name, []).append(f"layer {layer.name}")
+        for d in self.derived:
+            claims.setdefault(d.field, []).append(f"derivation {d.field}")
+
+        twice = {name: who for name, who in claims.items() if len(who) > 1}
+        if twice:
+            raise ValueError(
+                "these variables are claimed more than once, so the manifest cannot "
+                f"say which source produced them: {twice}"
+            )
+        unclaimed = ARTIFACT_VARIABLES - set(claims)
+        if unclaimed:
+            raise ValueError(
+                "these artifact variables are claimed by no layer and no derivation, "
+                f"so they sit in the artifact with nothing behind them: {sorted(unclaimed)}"
+            )
+        extra = set(claims) - ARTIFACT_VARIABLES
+        if extra:
+            raise ValueError(f"claimed variables the artifact does not carry: {sorted(extra)}")
+        return self
+
+    @model_validator(mode="after")
+    def _check_baseline_keys_are_exactly_the_claimed_set(self) -> Manifest:
+        keys = set(self.baselines)
+        if keys != set(ARTIFACT_VARIABLES):
+            raise ValueError(
+                "baselines keys must be exactly the artifact's variables — a variable "
+                "with no entry is one whose temporal coverage the manifest does not "
+                f"state. missing={sorted(ARTIFACT_VARIABLES - keys)} "
+                f"extra={sorted(keys - ARTIFACT_VARIABLES)}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_dataset_ids_are_unique(self) -> Manifest:
+        seen: dict[str, str] = {}
+        for layer in self.layers:
+            if layer.dataset_id in seen:
+                raise ValueError(
+                    f"layers {seen[layer.dataset_id]!r} and {layer.name!r} share "
+                    f"dataset_id {layer.dataset_id!r}; one layer means one dataset"
+                )
+            seen[layer.dataset_id] = layer.name
+        return self
+
+    @model_validator(mode="after")
+    def _check_every_layer_is_reachable(self) -> Manifest:
+        named = {i.layer for d in self.derived for i in d.inputs}
+        orphans = [
+            layer.name for layer in self.layers
+            if not layer.variables and layer.name not in named
+        ]
+        if orphans:
+            raise ValueError(
+                "these layers are reachable from nothing — no variable claim and no "
+                "derivation input names them, so the manifest attests a source nothing "
+                f"uses, or uses a source it never attests: {orphans}"
+            )
+        unknown = named - {layer.name for layer in self.layers}
+        if unknown:
+            raise ValueError(
+                f"derivation inputs name layers that do not exist: {sorted(unknown)}"
+            )
+        return self
