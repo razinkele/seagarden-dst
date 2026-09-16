@@ -60,6 +60,10 @@ spatial = [
   # the scripts shipped for reproducibility cannot be run.
   "netCDF4>=1.6",
   "zarr>=2.16",
+  # h5netcdf is what writer.py WRITES the artifact with (to_netcdf(engine="h5netcdf")).
+  # It currently arrives transitively via copernicusmarine; declared directly here so a
+  # first-class capability doesn't break quietly on a version bump of that transitive dep.
+  "h5netcdf>=1.4",
 ]
 
 # Optional sibling engines from the KU MRI estate. Both are imported lazily by their
@@ -103,7 +107,7 @@ markers = [
   "e2e: boots the real app (slow); deselected by default — run with -m e2e",
   "spatial: needs the spatial extra (xarray, netCDF); deselected by default — run with -m spatial",
 ]
-addopts = "-m 'not engines and not e2e'"
+addopts = "-m 'not engines and not e2e and not spatial'"
 
 [tool.ruff]
 line-length = 100
