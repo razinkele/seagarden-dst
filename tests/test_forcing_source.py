@@ -456,17 +456,40 @@ def test_coordinates_are_inside_the_artifact_footprint():
         assert 8.0 <= c.lon <= 23.0, f"{region} longitude outside the footprint"
 
 
-def test_no_coordinate_is_sited_yet_and_the_field_says_so():
-    """The point of the field: not one of the three is a confirmed farm position.
+def test_exactly_one_coordinate_is_sited_and_it_is_the_lagoon():
+    """LT-lagoon is the first real farm position the tool has held.
 
-    Two are snapped from a pin somebody gave, one is a representative cell nobody gave.
-    That was recorded only in comments, which package D cannot read — a consumer holding
-    a coordinate had no way to tell a default from a decision.
+    The rest are snapped from a pin somebody gave, or chosen outright. This test is the
+    one that makes promoting another entry to SITED a deliberate act rather than a quiet
+    one — which is what the field was added for.
     """
     from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
 
-    assert not any(c.provenance is SiteProvenance.SITED for c in SITE_COORDINATES.values())
-    assert all(c.is_sited is False for c in SITE_COORDINATES.values())
+    sited = {r for r, c in SITE_COORDINATES.items() if c.provenance is SiteProvenance.SITED}
+    assert sited == {"LT-lagoon"}
+
+
+def test_the_lithuanian_lagoon_site_is_the_notified_position():
+    """From the KNNP notification of 2026-06-10, not from snapping.
+
+    "Eksperimento vieta: vakarinė Kuriu mariu pakrante 55.672777, 21.133870" — the
+    western shore of the Curonian Lagoon, inside Curonian Spit National Park, for a
+    10 x 2 m Ulva intestinalis installation running 15 June to 30 October 2026.
+    """
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+    lt = SITE_COORDINATES["LT-lagoon"]
+    assert (round(lt.lat, 6), round(lt.lon, 6)) == (55.672777, 21.13387)
+    assert lt.provenance is SiteProvenance.SITED
+    assert lt.is_sited
+    assert lt.depth_m == 3.1
+
+
+def test_lt_lagoon_is_a_region():
+    """LT resolved to two sub-sites, so the lagoon needs its own region key."""
+    from seagarden_dst.forcing import REGIONS
+
+    assert "LT-lagoon" in REGIONS
 
 
 def test_every_provenance_says_how_to_present_a_result():
