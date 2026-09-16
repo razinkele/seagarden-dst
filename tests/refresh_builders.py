@@ -11,15 +11,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from seagarden_dst.refresh.grid import GridSpec
-from seagarden_dst.refresh.manifest import (
+from seagarden_dst.artifact.grid import GridSpec
+from seagarden_dst.artifact.manifest import (
     AbsentField,
     Archive,
     Derivation,
-    DerivationInput,
     LayerProvenance,
     Manifest,
 )
+from seagarden_dst.refresh.variables import ARTIFACT_VARIABLES
 
 _YEARS = list(range(2016, 2026))
 _COVERAGE_LAYERS = ("copernicus_phy", "copernicus_bgc", "copernicus_wav", "emodnet_bathy")
@@ -155,7 +155,9 @@ def layers() -> list[LayerProvenance]:
               variables=["salinity_psu", "temp_c"]),
         layer(name="copernicus_bgc", dataset_id="cmems_mod_bal_bgc_my_P1M-m",
               product_id="FIXTURE_PLACEHOLDER_BGC_PRODUCT_ID",
-              variables=["din_umol_l", "dip_umol_l"]),
+              # din_umol_l is NOT here: it is no3 + nh4, so C§4.1 claims it by
+              # Derivation. dip_umol_l is po4 alone and stays a raw claim.
+              variables=["dip_umol_l"]),
         # Empty `variables` is expected, not a gap: its only output is derived.
         layer(name="copernicus_bgc_light", dataset_id="cmems_mod_bal_bgc_my_P1D-m",
               product_id="FIXTURE_PLACEHOLDER_BGC_LIGHT_PRODUCT_ID",
@@ -183,13 +185,25 @@ def derived() -> list[Derivation]:
     return [
         Derivation(
             field="light_attenuation_k",
-            relation="Poole-Atkins k = 1.7/z_SD, computed daily then averaged monthly",
-            inputs=[DerivationInput(layer="copernicus_bgc_light", variable="zsd")],
+            relation=("Poole-Atkins k = 1.7/z_SD over daily zsd, computed daily "
+                      "then averaged monthly"),
+            input_layers=["copernicus_bgc_light"],
         ),
         Derivation(
             field="valid",
             relation="intersection of contributing layer coverage",
-            inputs=[DerivationInput(layer=n, variable="coverage") for n in _COVERAGE_LAYERS],
+            input_layers=list(_COVERAGE_LAYERS),
+        ),
+        # Third since 2bf119e: din_umol_l is no3 + nh4, and C§4.1's test is
+        # MULTI-SOURCE, not "computed" — one source variable plus a statistic stays a
+        # raw claim, more than one needs a named relation. No unit conversion: package
+        # B verified no3 and nh4 arrive in mmol m-3, "= umol L-1, matching din_umol_l
+        # directly".
+        Derivation(
+            field="din_umol_l",
+            relation=("din_umol_l = no3 + nh4: sum of dissolved inorganic nitrogen "
+                      "species, no unit conversion"),
+            input_layers=["copernicus_bgc"],
         ),
     ]
 
@@ -212,6 +226,7 @@ def manifest(**over) -> Manifest:
         artifact_bytes=1,
         synthetic=True,
         grid=fixture_grid(),
+        variables=sorted(ARTIFACT_VARIABLES),
         baselines=baselines(),
         layers=layers(),
         derived=derived(),

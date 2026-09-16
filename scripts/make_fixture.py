@@ -49,7 +49,7 @@ for _p in (_SRC_DIR, _TESTS_DIR):
 # so this is again a development-environment fact, not a repository-wide one.
 from refresh_builders import dataset, derived, fixture_grid, layers, manifest  # noqa: E402
 
-from seagarden_dst.refresh.manifest import ARTIFACT_VARIABLES  # noqa: E402
+from seagarden_dst.refresh.variables import ARTIFACT_VARIABLES  # noqa: E402
 from seagarden_dst.refresh.writer import write_pair  # noqa: E402
 
 # The criterion C§4.4 states is "no baseline window applies", not "the production

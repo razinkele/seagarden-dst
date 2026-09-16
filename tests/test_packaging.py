@@ -105,3 +105,23 @@ def test_the_core_package_does_not_import_pandas_at_module_level():
                 "pandas must be imported inside the function that needs it, not at "
                 "module level: it is an `app` extra and the core must import without it"
             )
+
+
+def test_every_source_subpackage_is_declared():
+    """A subpackage created but not listed is missing from every wheel.
+
+    `[tool.setuptools] packages` is an explicit list, not `find:`, so creating
+    `src/seagarden_dst/<name>/` without adding it here yields a distribution without
+    it — and the editable install CI uses cannot tell the difference. That is the
+    same defect this file was written for, one release earlier, when the wheel
+    carried no parameter YAML at all.
+    """
+    declared = set(_pyproject()["tool"]["setuptools"]["packages"])
+    src = REPO / "src" / "seagarden_dst"
+    found = {
+        f"seagarden_dst.{d.name}"
+        for d in src.iterdir()
+        if d.is_dir() and (d / "__init__.py").is_file()
+    }
+    missing = sorted(found - declared)
+    assert not missing, f"not in [tool.setuptools] packages: {missing}"

@@ -91,7 +91,12 @@ build-backend = "setuptools.build_meta"
 # `pip install seagarden-dst` gave a package that could not load its own parameters.
 # Only the documented editable install worked, which is why CI never saw it.
 package-dir = { "" = "src", "seagarden_dst.paramdata" = "params" }
-packages = ["seagarden_dst", "seagarden_dst.paramdata"]
+packages = [
+  "seagarden_dst",
+  "seagarden_dst.artifact",   # manifest schema + reader: package D imports these
+  "seagarden_dst.refresh",
+  "seagarden_dst.paramdata",
+]
 
 [tool.setuptools.package-data]
 # Two levels: params/*.yaml and params/{species,regulatory}/*.yaml. tests/test_packaging.py
