@@ -86,6 +86,7 @@ decision and it propagates into the manifest (C§4) and into D's reader.
 | `significant_wave_m` | **month, lat, lon** | hourly `VHM0` | **monthly p95**, 2023–2025 |
 | `depth_mean_m` | **lat, lon** | EMODnet | mean per cell |
 | `depth_min_m` | **lat, lon** | EMODnet | min per cell |
+| `valid` | **lat, lon** | all layers, **derived** | intersection of layer coverage — see C§3.5 |
 
 Coordinates: `year` (2016–2025), `month` (1–12), `latitude`, `longitude`. CRS EPSG:4326,
 recorded as a variable attribute and in the manifest.
@@ -198,8 +199,8 @@ variables this dataset is the raw source of (C§4.4).
 `Derivation` carries `{field, relation, inputs: [{layer, variable}]}`: the artifact variable
 produced, the named relation, and which layer and source variable it was computed from. Two
 fields need it — `light_attenuation_k` (Poole-Atkins, C§3.4) and `valid` (C§3.5), whose
-`inputs` span two layers. That is why a computed field is not simply another entry in some
-layer's `variables`: it has no single raw source to be an entry of.
+`inputs` span every contributing layer. That is why a computed field is not simply another
+entry in some layer's `variables`: it has no single raw source to be an entry of.
 
 §6.3's rule, stated once and not
 paraphrased anywhere else in this document: a layer must carry **either a `zenodo_doi`, or
@@ -272,12 +273,14 @@ reading. Both fail at load.
 **`baselines` keys are exactly that same set.** Not a subset: a variable with no baseline
 entry is a variable whose temporal coverage the manifest does not state.
 
-**A static layer carries `[]`, and `[]` is not omission.** `depth_mean_m` and `depth_min_m`
-have no `year` dimension. Their baseline is the empty list, meaning *this variable has no
-year dimension and no baseline window applies* — a positive statement. Omitting the key
-means the manifest forgot, and fails. This is the same instinct as §6.3's absent-input rule:
-an unstated thing is an error, not a permission. The fixture (C§7) carries `[]` for both
-depth fields so the representation is exercised rather than merely documented.
+**A static field carries `[]`, and `[]` is not omission.** Three have no `year` dimension:
+`depth_mean_m`, `depth_min_m`, and the derived `valid` (C§3.5). Their baseline is the empty
+list, meaning *this variable has no year dimension and no baseline window applies* — a
+positive statement. Omitting the key means the manifest forgot, and fails. This is the same
+instinct as §6.3's absent-input rule: an unstated thing is an error, not a permission. Note
+that the rule binds derived fields too: `valid` is claimed by a `Derivation` rather than by
+a layer, and still needs its `[]`. The fixture (C§7) carries `[]` for all three so the
+representation is exercised rather than merely documented.
 
 ---
 
@@ -314,7 +317,10 @@ product for `zsd` (C§3.4). A single BGC layer would have to describe both throu
 the manifest would attest the wrong source for whichever it dropped. Splitting makes *one
 layer, one dataset* true by construction instead of a rule an implementer has to remember.
 It also groups like with like: `copernicus_bgc_light` reduces daily data to a monthly
-statistic, which is the wave layer's shape, not the monthly-passthrough shape.
+statistic, which is the wave layer's shape, not the monthly-passthrough shape. Its
+`variables` list is **empty**, and that is expected rather than a gap: the only field it
+produces is derived, so C§4.4 has it claimed by a `Derivation` that points back at this
+record for the dataset id.
 
 The driver: build each layer, merge onto `GridSpec`, validate the result against the
 expected variable set and shapes, then write the pair (C§6). Regridding EMODnet's ~115 m
@@ -390,8 +396,8 @@ carrying every variable at its correct shape, written by the *same* writer and m
 code as a production refresh, with `synthetic: true` set in the manifest.
 
 It carries **one `LayerProvenance` per dataset** — five, including both BGC products —
-`[]` baselines for the two depth fields (C§4.4), and `derived` entries for
-`light_attenuation_k` and `valid`. Its layers carry **`archive.status: pending`**, not an
+`derived` entries for `light_attenuation_k` and `valid`, and `[]` baselines for all three
+static fields, `valid` among them (C§4.4). Its layers carry **`archive.status: pending`**, not an
 invented DOI. That is the state a
 real first refresh produces, so the fixture exercises the path production actually takes;
 a fixture carrying a fake DOI would test a state package C never reaches.
@@ -595,7 +601,7 @@ the one `dataset_id` a record carries. The evidence was sound; the generalisatio
 
 Resolved structurally rather than by widening the record: **a layer is one dataset**, and
 biogeochemistry is two layers (C§5). `provenance()` still returns exactly one record,
-`dataset_id` stays singular, and the table above now reads one row per layer. What the
+`dataset_id` stays singular, and the table above now reads one row per *Copernicus* layer — EMODnet is absent from it for the reason given below. What the
 schema gains instead is `variables` on each record and the claimed-exactly-once rule of
 C§4.4, so that splitting a layer cannot silently drop a variable on the floor.
 
