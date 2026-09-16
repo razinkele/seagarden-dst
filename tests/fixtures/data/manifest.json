@@ -2,7 +2,7 @@
   "artifact_schema_version": 1,
   "built_on": "2026-01-01T00:00:00Z",
   "artifact_filename": "forcing.nc",
-  "artifact_sha256": "8ed64dcd5e73eef767181a8493ca5a82e3ac79feb60b404d360cadd21fd4d300",
+  "artifact_sha256": "07e4e8131d319356e5905c316a9267824c68f0825d50a983d6a7d7ab439c3dee",
   "artifact_bytes": 51622,
   "synthetic": true,
   "grid": {
@@ -16,6 +16,17 @@
     "n_lat": 3,
     "n_lon": 3
   },
+  "variables": [
+    "depth_mean_m",
+    "depth_min_m",
+    "din_umol_l",
+    "dip_umol_l",
+    "light_attenuation_k",
+    "salinity_psu",
+    "significant_wave_m",
+    "temp_c",
+    "valid"
+  ],
   "baselines": {
     "depth_mean_m": [],
     "depth_min_m": [],
@@ -84,7 +95,6 @@
         "unblocked_by": "the Zenodo deposit is outside package C (C1)"
       },
       "variables": [
-        "din_umol_l",
         "dip_umol_l"
       ]
     },
@@ -151,34 +161,26 @@
   "derived": [
     {
       "field": "light_attenuation_k",
-      "relation": "Poole-Atkins k = 1.7/z_SD, computed daily then averaged monthly",
-      "inputs": [
-        {
-          "layer": "copernicus_bgc_light",
-          "variable": "zsd"
-        }
+      "relation": "Poole-Atkins k = 1.7/z_SD over daily zsd, computed daily then averaged monthly",
+      "input_layers": [
+        "copernicus_bgc_light"
       ]
     },
     {
       "field": "valid",
       "relation": "intersection of contributing layer coverage",
-      "inputs": [
-        {
-          "layer": "copernicus_phy",
-          "variable": "coverage"
-        },
-        {
-          "layer": "copernicus_bgc",
-          "variable": "coverage"
-        },
-        {
-          "layer": "copernicus_wav",
-          "variable": "coverage"
-        },
-        {
-          "layer": "emodnet_bathy",
-          "variable": "coverage"
-        }
+      "input_layers": [
+        "copernicus_phy",
+        "copernicus_bgc",
+        "copernicus_wav",
+        "emodnet_bathy"
+      ]
+    },
+    {
+      "field": "din_umol_l",
+      "relation": "din_umol_l = no3 + nh4: sum of dissolved inorganic nitrogen species, no unit conversion",
+      "input_layers": [
+        "copernicus_bgc"
       ]
     }
   ],

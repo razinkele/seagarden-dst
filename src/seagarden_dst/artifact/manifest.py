@@ -23,7 +23,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from seagarden_dst.refresh.grid import GridSpec
+from seagarden_dst.artifact.grid import GridSpec
 
 ARTIFACT_SCHEMA_VERSION = 1
 
@@ -66,7 +66,7 @@ class LayerProvenance(BaseModel):
     """One record per *dataset*, not per source service (C§4.1).
 
     `name` is the REGISTRY key, carried on the record because
-    `derived[].inputs[].layer` resolves against it — without it that reference
+    `derived[].input_layers` resolves against it — without it that reference
     names a table with no key column.
     """
 
@@ -85,25 +85,28 @@ class LayerProvenance(BaseModel):
     variables: list[str]
 
 
-class DerivationInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    layer: str
-    variable: str
-
-
 class Derivation(BaseModel):
-    """A computed field, and what it was computed from.
+    """A computed field, the layers it drew on, and the relation (C§4.1).
 
     A computed field has no single raw source, so it cannot be an entry in some
     layer's `variables`; it is claimed here instead (C§4.4).
+
+    `input_layers` names `LayerProvenance.name` values — the one namespace this
+    manifest can close. Source variable names live in `relation`, as prose, and
+    nowhere else. That is a deliberate retreat from a structured {layer, variable}
+    pair: this repository has a download-verified source-variable inventory for ONE
+    of the five layers, so the structured field would promise a referential
+    integrity no validator could keep, and four records of unchecked assertion
+    wearing the costume of a foreign key are worse than prose — prose does not claim
+    to have been checked. `relation` must therefore name every source variable it
+    reads, spelled as the source dataset spells it.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     field: str
-    relation: str
-    inputs: list[DerivationInput]
+    relation: str = Field(min_length=1)
+    input_layers: list[str] = Field(min_length=1)
 
 
 class AbsentField(BaseModel):
@@ -120,12 +123,6 @@ class AbsentField(BaseModel):
     unblocked_by: str
 
 
-# The nine variables the artifact carries (C§3.2). `surface_par` is deliberately
-# absent and is recorded in `absent`, not here.
-ARTIFACT_VARIABLES: frozenset[str] = frozenset({
-    "salinity_psu", "temp_c", "din_umol_l", "dip_umol_l", "light_attenuation_k",
-    "significant_wave_m", "depth_mean_m", "depth_min_m", "valid",
-})
 
 
 class Manifest(BaseModel):
@@ -140,6 +137,18 @@ class Manifest(BaseModel):
     artifact_bytes: int = Field(gt=0)
     synthetic: bool
     grid: GridSpec
+    #: What the artifact carries — the reference set every C§4.4 rule resolves
+    #: against. A manifest FIELD rather than a constant in this module because
+    #: C§4.3 has package D and package C1 importing these same models, and C1's
+    #: GeoPackage carries human-use and exclusion vectors, none of the nine forcing
+    #: names; a hardcoded list here would make every C1 manifest unloadable. Package
+    #: C keeps its own list in `refresh/variables.py`, where the driver asserts it.
+    #:
+    #: NOT self-checking. Drop a variable from both this and `layers[].variables` and
+    #: every rule below still passes while the artifact holds it — the silent drop
+    #: C§11.1 says those rules exist to prevent. `artifact.pair.check_declaration`
+    #: anchors it against the real artifact, on write and on read alike.
+    variables: list[str] = Field(min_length=1)
     baselines: dict[str, list[int]]
     layers: list[LayerProvenance]
     derived: list[Derivation]
@@ -169,31 +178,35 @@ class Manifest(BaseModel):
                 "these variables are claimed more than once, so the manifest cannot "
                 f"say which source produced them: {twice}"
             )
-        unclaimed = ARTIFACT_VARIABLES - set(claims)
+        declared = set(self.variables)
+        unclaimed = declared - set(claims)
         if unclaimed:
             raise ValueError(
                 "these artifact variables are claimed by no layer and no derivation, "
                 f"so they sit in the artifact with nothing behind them: {sorted(unclaimed)}"
             )
-        extra = set(claims) - ARTIFACT_VARIABLES
+        extra = set(claims) - declared
         if extra:
             raise ValueError(f"claimed variables the artifact does not carry: {sorted(extra)}")
         return self
 
     @model_validator(mode="after")
     def _check_baseline_keys_are_exactly_the_artifact_variables(self) -> Manifest:
-        # Compared against ARTIFACT_VARIABLES, not the claim set built in the
+        # Compared against `self.variables`, not the claim set built in the
         # validator above — equivalent today only because
         # `_check_every_variable_is_claimed_exactly_once` already forces the claim
-        # set to equal ARTIFACT_VARIABLES (rule 1); a manifest that failed here
-        # without also failing there would mean that invariant broke.
+        # set to equal it (rule 1); a manifest that failed here without also failing
+        # there would mean that invariant broke.
+        #
+        # `variables` is the artifact's own declaration, so it is not self-checking:
+        # `artifact.pair.check_declaration` anchors it against the real artifact.
         keys = set(self.baselines)
-        if keys != set(ARTIFACT_VARIABLES):
+        if keys != set(self.variables):
             raise ValueError(
                 "baselines keys must be exactly the artifact's variables — a variable "
                 "with no entry is one whose temporal coverage the manifest does not "
-                f"state. missing={sorted(ARTIFACT_VARIABLES - keys)} "
-                f"extra={sorted(keys - ARTIFACT_VARIABLES)}"
+                f"state. missing={sorted(set(self.variables) - keys)} "
+                f"extra={sorted(keys - set(self.variables))}"
             )
         return self
 
@@ -211,7 +224,7 @@ class Manifest(BaseModel):
 
     @model_validator(mode="after")
     def _check_every_layer_is_reachable(self) -> Manifest:
-        named = {i.layer for d in self.derived for i in d.inputs}
+        named = {name for d in self.derived for name in d.input_layers}
         orphans = [
             layer.name for layer in self.layers
             if not layer.variables and layer.name not in named

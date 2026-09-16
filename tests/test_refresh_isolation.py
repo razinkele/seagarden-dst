@@ -28,7 +28,7 @@ while this scans the AST for import targets by name, resolving relative imports
 to absolute so a `from .grid import X` cannot slip past a check that only matches
 strings.
 
-KNOWN GAP: this check is static. `importlib.import_module("seagarden_dst.refresh.grid")`
+KNOWN GAP: this check is static. `importlib.import_module("seagarden_dst.artifact.grid")`
 or any other string-built dynamic import is invisible to an AST walk over `Import`/
 `ImportFrom` nodes and is NOT caught by either test below, in either direction. That is
 a documented hole, not an oversight: catching it would mean chasing string literals
@@ -108,14 +108,44 @@ def test_no_core_module_imports_refresh():
     assert not offenders, f"runtime-install modules importing refresh/: {offenders}"
 
 
-def test_refresh_imports_nothing_from_the_core():
+#: The one thing `refresh/` may import from outside itself. `artifact/` is the manifest
+#: schema and the read side — pydantic, stdlib and numpy only — and C§4.1 makes it the
+#: shared contract both directions are meant to agree on. Without this exception
+#: `write_pair` could not take a `Manifest`, and the boundary would be enforcing a
+#: separation the design does not want.
+#:
+#: It is narrow on purpose: `artifact/` pulls in nothing from the `spatial` extra, so
+#: importing it drags neither the extra into the core nor the core into the refresh
+#: environment, which is what this test exists to prevent.
+_SHARED = "seagarden_dst.artifact"
+
+
+def test_refresh_imports_nothing_from_the_core_except_the_shared_schema():
     offenders = {}
     for p in REFRESH.rglob("*.py"):
         bad = sorted(
             m for m in _imported_modules(p)
             if m.startswith("seagarden_dst")
             and not m.startswith("seagarden_dst.refresh")
+            and not (m == _SHARED or m.startswith(_SHARED + "."))
         )
         if bad:
             offenders[str(p.relative_to(REPO))] = bad
     assert not offenders, f"refresh/ modules importing the core: {offenders}"
+
+
+def test_the_shared_schema_imports_nothing_that_needs_the_spatial_extra():
+    """The exception above is only safe while `artifact/` stays dependency-light.
+
+    If anything here grew an xarray import, `refresh/` importing it would drag the
+    spatial extra into the core by the back door — through the one door this boundary
+    deliberately leaves open.
+    """
+    heavy = {"xarray", "rioxarray", "rasterio", "geopandas", "copernicusmarine",
+             "shapely", "pyproj", "netCDF4", "zarr", "h5netcdf", "pandas", "shiny"}
+    offenders = {}
+    for p in (REPO / "src" / "seagarden_dst" / "artifact").rglob("*.py"):
+        bad = sorted(m for m in _imported_modules(p) if m.split(".")[0] in heavy)
+        if bad:
+            offenders[str(p.relative_to(REPO))] = bad
+    assert not offenders, f"artifact/ reaching into the spatial extra: {offenders}"

@@ -9,15 +9,14 @@ than read.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import os
 import tempfile
 from collections.abc import Callable  # not typing.Callable: ruff UP035
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from seagarden_dst.refresh.manifest import Manifest
+from seagarden_dst.artifact.manifest import Manifest
+from seagarden_dst.artifact.pair import check_declaration, sha256_of
 
 if TYPE_CHECKING:
     # Annotation-only: `from __future__ import annotations` (above) means the
@@ -29,15 +28,6 @@ if TYPE_CHECKING:
 
 _ARTIFACT = "forcing.nc"
 _MANIFEST = "manifest.json"
-_CHUNK = 1024 * 1024
-
-
-def sha256_of(path: Path) -> str:
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as fh:
-        for block in iter(lambda: fh.read(_CHUNK), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _fsync(path: Path) -> None:
@@ -61,6 +51,11 @@ def write_pair(
     immediately before the first `os.replace` so a test can interrupt the write
     at the one moment that matters (C§6.1 row 2) without patching `os` itself.
     """
+    # Anchor the declaration BEFORE writing. `Manifest.variables` is what every
+    # C§4.4 rule resolves against, so the model cannot check it against anything but
+    # itself; the driver holds the real Dataset and is the only place that can.
+    check_declaration(manifest, set(dataset.data_vars))
+
     target_dir = Path(target_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -99,25 +94,3 @@ def write_pair(
         os.replace(tmp_manifest, manifest_path)  # step 6 — last, deliberately
 
     return artifact, manifest_path
-
-
-def load_pair(target_dir: Path) -> tuple[Manifest, Path]:
-    """Load the manifest and verify it describes the artifact beside it.
-
-    Refuses on mismatch and never reads the artifact anyway: between C§6's steps
-    5 and 6 the old manifest's sha no longer matches, and reading new data under
-    old provenance is the failure the checksum exists to make loud.
-    """
-    target_dir = Path(target_dir)
-    manifest_path = target_dir / _MANIFEST
-    manifest = Manifest.model_validate(json.loads(manifest_path.read_text(encoding="utf-8")))
-    artifact = target_dir / manifest.artifact_filename
-
-    actual = sha256_of(artifact)
-    if actual != manifest.artifact_sha256:
-        raise ValueError(
-            f"artifact_sha256 mismatch for {artifact}: the manifest says "
-            f"{manifest.artifact_sha256}, the file is {actual}. Refusing to read the "
-            "artifact under a manifest that does not describe it — re-run the refresh."
-        )
-    return manifest, artifact
