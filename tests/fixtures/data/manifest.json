@@ -21,15 +21,17 @@
       2024,
       2025
     ],
-    "temp_c": [
-      2024,
-      2025
-    ],
+    "depth_mean_m": [],
     "din_umol_l": [
       2024,
       2025
     ],
-    "dip_umol_l": [
+    "valid": [],
+    "significant_wave_m": [
+      2024,
+      2025
+    ],
+    "temp_c": [
       2024,
       2025
     ],
@@ -37,13 +39,11 @@
       2024,
       2025
     ],
-    "significant_wave_m": [
+    "dip_umol_l": [
       2024,
       2025
     ],
-    "depth_mean_m": [],
-    "depth_min_m": [],
-    "valid": []
+    "depth_min_m": []
   },
   "layers": [
     {
@@ -70,7 +70,7 @@
     {
       "name": "copernicus_bgc",
       "source": "Copernicus Marine Service",
-      "product_id": "BALTICSEA_MULTIYEAR_PHY_003_011",
+      "product_id": "FIXTURE_PLACEHOLDER_BGC_PRODUCT_ID",
       "dataset_id": "cmems_mod_bal_bgc_my_P1M-m",
       "version": "synthetic",
       "retrieved_on": "2026-01-01T00:00:00Z",
@@ -91,7 +91,7 @@
     {
       "name": "copernicus_bgc_light",
       "source": "Copernicus Marine Service",
-      "product_id": "BALTICSEA_MULTIYEAR_PHY_003_011",
+      "product_id": "FIXTURE_PLACEHOLDER_BGC_LIGHT_PRODUCT_ID",
       "dataset_id": "cmems_mod_bal_bgc_my_P1D-m",
       "version": "synthetic",
       "retrieved_on": "2026-01-01T00:00:00Z",
@@ -109,7 +109,7 @@
     {
       "name": "copernicus_wav",
       "source": "Copernicus Marine Service",
-      "product_id": "BALTICSEA_MULTIYEAR_PHY_003_011",
+      "product_id": "FIXTURE_PLACEHOLDER_WAV_PRODUCT_ID",
       "dataset_id": "cmems_mod_bal_wav_my_PT1H-i",
       "version": "synthetic",
       "retrieved_on": "2026-01-01T00:00:00Z",
@@ -128,18 +128,18 @@
     },
     {
       "name": "emodnet_bathy",
-      "source": "Copernicus Marine Service",
-      "product_id": "BALTICSEA_MULTIYEAR_PHY_003_011",
+      "source": "EMODnet Bathymetry",
+      "product_id": "FIXTURE_PLACEHOLDER_EMODNET_BATHY_PRODUCT_ID",
       "dataset_id": "emodnet_bathymetry_2024",
       "version": "synthetic",
       "retrieved_on": "2026-01-01T00:00:00Z",
-      "licence": "Copernicus Marine Service licence",
+      "licence": "EMODnet Bathymetry licence",
       "redistribution": "allowed",
-      "source_url": "https://data.marine.copernicus.eu/",
+      "source_url": "https://emodnet.ec.europa.eu/en/bathymetry",
       "archive": {
         "status": "pending",
         "zenodo_doi": null,
-        "source_url": "https://data.marine.copernicus.eu/",
+        "source_url": "https://emodnet.ec.europa.eu/en/bathymetry",
         "unblocked_by": "the Zenodo deposit is outside package C (C1)"
       },
       "variables": [

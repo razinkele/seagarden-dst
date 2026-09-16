@@ -164,6 +164,24 @@ def test_the_baselines_describe_the_artifact_not_production():
             )
 
 
+def test_the_five_layers_carry_distinct_truthful_provenance():
+    """C§4.4 constrains `dataset_id` uniqueness and the claim union but says
+    nothing about `source`/`product_id` — a real gap this test closes for the
+    committed fixture, where a wrong-but-valid manifest would otherwise sit as
+    package D and C1's first example (found in review: all five layers had
+    inherited `layer()`'s Copernicus-physics `source`/`product_id` defaults,
+    so EMODnet bathymetry attested a Copernicus product).
+    """
+    manifest, _ = load_pair(FIXTURE)
+    product_ids = [layer.product_id for layer in manifest.layers]
+    assert len(set(product_ids)) == len(product_ids), (
+        f"layer product_ids are not distinct: {product_ids}"
+    )
+    bathy = next(layer for layer in manifest.layers if layer.name == "emodnet_bathy")
+    assert bathy.source != "Copernicus Marine Service"
+    assert "emodnet" in bathy.source.lower()
+
+
 def test_the_fixture_can_be_rebuilt_from_its_script(tmp_path):
     """C§7: written by the same writer and manifest code as a production refresh.
 

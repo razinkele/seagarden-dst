@@ -74,18 +74,47 @@ def layer(**over) -> LayerProvenance:
 
 
 def layers() -> list[LayerProvenance]:
+    """Five layers, each carrying ITS OWN `source`/`product_id`, not `layer()`'s
+    Copernicus-physics defaults inherited unchanged (a real defect this design
+    exists to prevent — see C§4.4 and C§11.1).
+
+    `product_id` values not stated by the design spec
+    (`docs/superpowers/specs/2026-09-15-package-c-refresh-tooling-design.md`,
+    C§11.1's table gives `dataset_id` and `version` per layer but no
+    `product_id`) are deliberately spelled `FIXTURE_PLACEHOLDER_...` rather than
+    invented to look like a real Copernicus product code — inventing a
+    plausible-looking id would be exactly the "attest a source it never
+    verified" failure C§4.4 exists to catch, just moved one field over.
+    `copernicus_phy`'s `BALTICSEA_MULTIYEAR_PHY_003_011` is the one exception:
+    it is `layer()`'s own default and is the real CMEMS product for that
+    dataset family.
+    """
     return [
         layer(name="copernicus_phy", dataset_id="cmems_mod_bal_phy_my_P1M-m",
               variables=["salinity_psu", "temp_c"]),
         layer(name="copernicus_bgc", dataset_id="cmems_mod_bal_bgc_my_P1M-m",
+              product_id="FIXTURE_PLACEHOLDER_BGC_PRODUCT_ID",
               variables=["din_umol_l", "dip_umol_l"]),
         # Empty `variables` is expected, not a gap: its only output is derived.
         layer(name="copernicus_bgc_light", dataset_id="cmems_mod_bal_bgc_my_P1D-m",
+              product_id="FIXTURE_PLACEHOLDER_BGC_LIGHT_PRODUCT_ID",
               variables=[]),
         layer(name="copernicus_wav", dataset_id="cmems_mod_bal_wav_my_PT1H-i",
+              product_id="FIXTURE_PLACEHOLDER_WAV_PRODUCT_ID",
               variables=["significant_wave_m"]),
-        layer(name="emodnet_bathy", dataset_id="emodnet_bathymetry_2024",
-              variables=["depth_mean_m", "depth_min_m"]),
+        layer(
+            name="emodnet_bathy", dataset_id="emodnet_bathymetry_2024",
+            source="EMODnet Bathymetry",
+            product_id="FIXTURE_PLACEHOLDER_EMODNET_BATHY_PRODUCT_ID",
+            licence="EMODnet Bathymetry licence",
+            source_url="https://emodnet.ec.europa.eu/en/bathymetry",
+            archive=Archive(
+                status="pending",
+                source_url="https://emodnet.ec.europa.eu/en/bathymetry",
+                unblocked_by="the Zenodo deposit is outside package C (C1)",
+            ),
+            variables=["depth_mean_m", "depth_min_m"],
+        ),
     ]
 
 

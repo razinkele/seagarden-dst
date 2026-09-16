@@ -23,6 +23,12 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+# `seagarden_dst` has no editable install in the `shiny` micromamba environment
+# (`pip show seagarden_dst` finds nothing) — pytest resolves it via pyproject's
+# `pythonpath = ["src", "."]`, but a plain script run with `python -m` gets no such
+# help, so this puts `src/` (and, for the same reason, `tests/`) on `sys.path`
+# itself. Do not "clean this up" by removing it and relying on an install that
+# is not there.
 _ROOT = Path(__file__).resolve().parent.parent
 _SRC_DIR = _ROOT / "src"
 _TESTS_DIR = _ROOT / "tests"
@@ -39,9 +45,16 @@ import xarray as xr  # noqa: E402
 # directly (above), exactly what pytest does for every test module in that
 # directory, so the bare module name resolves — the same way `tests/conftest.py`
 # imports it.
-from refresh_builders import baselines, derived, fixture_grid, layers, manifest  # noqa: E402
+from refresh_builders import derived, fixture_grid, layers, manifest  # noqa: E402
 
+from seagarden_dst.refresh.manifest import ARTIFACT_VARIABLES  # noqa: E402
 from seagarden_dst.refresh.writer import write_pair  # noqa: E402
+
+# The criterion C§4.4 states is "no baseline window applies", not "the production
+# entry happens to be empty" — so these three are named explicitly rather than
+# derived from whether `refresh_builders.baselines()`'s entries are truthy. A
+# future change to that shape must not silently change what the fixture claims.
+_STATIC_FIELDS = frozenset({"depth_mean_m", "depth_min_m", "valid"})
 
 _RETRIEVED_ON = datetime(2026, 1, 1, tzinfo=UTC)
 _YEARS = [2024, 2025]
@@ -88,10 +101,9 @@ def _fixture_dataset(grid) -> xr.Dataset:
 
 
 def _fixture_manifest(grid):
-    all_baselines = baselines()
     fixture_baselines = {
-        name: (_YEARS if years else [])
-        for name, years in all_baselines.items()
+        name: ([] if name in _STATIC_FIELDS else _YEARS)
+        for name in ARTIFACT_VARIABLES
     }
 
     fixture_layers = [
