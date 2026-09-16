@@ -22,7 +22,7 @@ This is **C-a of three**. It delivers C§3.1, C§4 and C§6, and discharges done
 - **Nine artifact variables, exactly:** `salinity_psu`, `temp_c`, `din_umol_l`, `dip_umol_l`, `light_attenuation_k`, `significant_wave_m`, `depth_mean_m`, `depth_min_m`, `valid`.
 - **All fields are float32 except `valid`, which is bool.** C§3.2: a float32 `valid` holding 0.0/1.0 can never be NaN, so a reader applying the is-NaN test would find every cell valid everywhere, silently.
 - **Grid:** 53.5–60.0 N, 9.5–27.0 E; steps 0.016666° lat × 0.027777° lon; CRS `EPSG:4326`; 390 × 630 cells.
-- **Import boundary, both directions:** no module under `src/seagarden_dst/` outside `refresh/` may import `refresh`, and nothing in `refresh/` may import from the model core. C§10 clause 8 states the first; the second is what actually keeps the `spatial` extra confined.
+- **Import boundary, both directions:** no module under `src/seagarden_dst/` outside `refresh/` may import `refresh`, and nothing in `refresh/` may import from the model core **except `seagarden_dst.artifact`**, which is the shared schema both sides are supposed to agree on. C§10 clause 8 states the first; the second is what actually keeps the `spatial` extra confined. The exception is narrow and load-bearing: `artifact/` depends only on pydantic, stdlib and numpy, so importing it drags nothing from the extra into the core or the core into the refresh environment — and without it `write_pair` could not take a `Manifest`.
 - **The fixture is generated, never edited by hand.** C§7 requires it be written by the same code as a production refresh.
 - Commit after every task. Run `pytest -q` before every commit.
 
@@ -42,10 +42,25 @@ Both are recorded here rather than decided silently in code. If you disagree, ra
 
 | File | Responsibility |
 |---|---|
+| `src/seagarden_dst/artifact/__init__.py` | Package marker. Re-exports `GridSpec`, `Manifest`, `sha256_of`, `load_pair`. |
+| `src/seagarden_dst/artifact/grid.py` | `GridSpec` — the grid definition, in one place (C§3.1). |
+| `src/seagarden_dst/artifact/manifest.py` | All manifest models and the four C§4.4 validators. |
+| `src/seagarden_dst/artifact/pair.py` | `sha256_of` and `load_pair` — the READ side of C§6. |
 | `src/seagarden_dst/refresh/__init__.py` | Package marker. Exports nothing from the core. |
-| `src/seagarden_dst/refresh/grid.py` | `GridSpec` — the grid definition, in one place (C§3.1). |
-| `src/seagarden_dst/refresh/manifest.py` | All manifest models and the four C§4.4 validators. |
-| `src/seagarden_dst/refresh/writer.py` | C§6's atomic artifact/manifest pair writer. |
+| `src/seagarden_dst/refresh/writer.py` | `write_pair` — the WRITE side, and the only part needing xarray. |
+
+**Why `artifact/` is not under `refresh/`.** An earlier revision of this plan put the
+manifest models and the whole writer under `refresh/`, which cannot work alongside Task 6.
+C§4.3 requires that "D and C1 validate the same way C wrote it", and C§6.1 rows 3-4 put the
+checksum refusal in the **reader** — so package D must import `Manifest`, `sha256_of` and
+`load_pair`. Task 6's `test_no_core_module_imports_refresh` forbids exactly that, so D's
+first commit would have had to turn the test red or keep a second copy of the schema, and a
+second copy is how the manifest and the reader drift apart. That is the class of defect this
+whole design exists to prevent.
+
+The split follows the dependency, not the package name: `grid.py`, `manifest.py` and
+`pair.py` need only pydantic, stdlib and numpy, so nothing forced them under an extra they
+do not use. `write_pair` takes an `xr.Dataset` and stays where the xarray dependency is.
 | `scripts/make_fixture.py` | Generates the committed fixture using the above. |
 | `tests/fixtures/data/forcing.nc`, `manifest.json` | The committed fixture. |
 | `tests/test_refresh_manifest.py` | C§7's in-memory validator cases. |
@@ -57,7 +72,7 @@ Both are recorded here rather than decided silently in code. If you disagree, ra
 ### Task 1: `GridSpec`
 
 **Files:**
-- Create: `src/seagarden_dst/refresh/__init__.py`, `src/seagarden_dst/refresh/grid.py`
+- Create: `src/seagarden_dst/refresh/__init__.py`, `src/seagarden_dst/artifact/grid.py`
 - Test: `tests/test_refresh_manifest.py`
 
 **Interfaces:**
@@ -70,7 +85,7 @@ Both are recorded here rather than decided silently in code. If you disagree, ra
 # tests/test_refresh_manifest.py
 import pytest
 
-from seagarden_dst.refresh.grid import GridSpec
+from seagarden_dst.artifact.grid import GridSpec
 
 
 def test_baltic_grid_matches_the_shipped_extent():
@@ -112,7 +127,7 @@ is what keeps the tool reconstructible to 2034 (design section 4).
 ```
 
 ```python
-# src/seagarden_dst/refresh/grid.py
+# src/seagarden_dst/artifact/grid.py
 """The artifact grid, defined once (C§3.1)."""
 
 from __future__ import annotations
@@ -184,7 +199,7 @@ git commit -m "The artifact grid, defined in one place"
 ### Task 2: Provenance records and the archive state
 
 **Files:**
-- Create: `src/seagarden_dst/refresh/manifest.py`
+- Create: `src/seagarden_dst/artifact/manifest.py`
 - Modify: `tests/test_refresh_manifest.py`
 
 **Interfaces:**
@@ -202,7 +217,7 @@ git commit -m "The artifact grid, defined in one place"
 # append to tests/test_refresh_manifest.py
 from datetime import datetime, timezone
 
-from seagarden_dst.refresh.manifest import Archive, LayerProvenance
+from seagarden_dst.artifact.manifest import Archive, LayerProvenance
 
 
 def _layer(**over):
@@ -281,7 +296,7 @@ Expected: FAIL — `ImportError: cannot import name 'Archive'`
 - [ ] **Step 3: Implement**
 
 ```python
-# src/seagarden_dst/refresh/manifest.py
+# src/seagarden_dst/artifact/manifest.py
 """The provenance manifest (C§4).
 
 Every rule the design states as prose is a validator here, so a manifest that
@@ -296,7 +311,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from seagarden_dst.refresh.grid import GridSpec
+from seagarden_dst.artifact.grid import GridSpec
 
 ARTIFACT_SCHEMA_VERSION = 1
 
@@ -401,7 +416,7 @@ Expected: 9 passed (2 from Task 1, 7 here)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/seagarden_dst/refresh/manifest.py tests/test_refresh_manifest.py
+git add src/seagarden_dst/artifact/manifest.py tests/test_refresh_manifest.py
 git commit -m "Provenance records, and a third honest archive state"
 ```
 
@@ -410,7 +425,7 @@ git commit -m "Provenance records, and a third honest archive state"
 ### Task 3: The manifest, and the four rules that keep it honest
 
 **Files:**
-- Modify: `src/seagarden_dst/refresh/manifest.py`, `tests/test_refresh_manifest.py`
+- Modify: `src/seagarden_dst/artifact/manifest.py`, `tests/test_refresh_manifest.py`
 
 **Interfaces:**
 - Consumes: Task 2's models, Task 1's `GridSpec`.
@@ -427,7 +442,7 @@ git commit -m "Provenance records, and a third honest archive state"
 
 ```python
 # append to tests/test_refresh_manifest.py
-from seagarden_dst.refresh.manifest import (
+from seagarden_dst.artifact.manifest import (
     ARTIFACT_VARIABLES,
     AbsentField,
     Derivation,
@@ -722,7 +737,7 @@ Expected: 21 passed (9 from Tasks 1-2, 12 here)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/seagarden_dst/refresh/manifest.py tests/test_refresh_manifest.py
+git add src/seagarden_dst/artifact/manifest.py tests/test_refresh_manifest.py
 git commit -m "Four rules so nothing slips between the provenance records"
 ```
 
@@ -737,7 +752,13 @@ git commit -m "Four rules so nothing slips between the provenance records"
 
 **Interfaces:**
 - Consumes: `Manifest` from Task 3.
-- Produces: `sha256_of(path: Path) -> str`; `write_pair(dataset: xr.Dataset, manifest: Manifest, target_dir: Path) -> tuple[Path, Path]`; `load_pair(target_dir: Path) -> tuple[Manifest, Path]`, which raises `ValueError` on a checksum mismatch.
+- Produces: `write_pair(dataset: xr.Dataset, manifest: Manifest, target_dir: Path) -> tuple[Path, Path]` in `refresh/writer.py`; and, in `artifact/pair.py`, `sha256_of(path: Path) -> str` and `load_pair(target_dir: Path) -> tuple[Manifest, Path]`, which raises `ValueError` on a checksum mismatch.
+- **`sha256_of` and `load_pair` go in `artifact/pair.py`, not in the writer.** They are the
+  read side: C§6.1 rows 3-4 put the checksum refusal in the reader, and package D is the
+  reader. Neither needs xarray — `sha256_of` is hashlib over bytes and `load_pair` parses
+  JSON into `Manifest` and returns the artifact's path without opening it. Leaving them
+  beside `write_pair` would put them behind Task 6's import boundary, where D cannot reach
+  them.
 
 C§6's sequence is an ordering, not a suggestion: temp dir on the **same filesystem**; artifact → `.tmp` + fsync; sha256; manifest carrying that sha → `.tmp` + fsync; `os.replace` the artifact; `os.replace` the manifest **last**.
 
@@ -892,7 +913,7 @@ from pathlib import Path
 
 import xarray as xr
 
-from seagarden_dst.refresh.manifest import Manifest
+from seagarden_dst.artifact.manifest import Manifest
 
 _ARTIFACT = "forcing.nc"
 _MANIFEST = "manifest.json"
@@ -1045,7 +1066,7 @@ C§7: synthetic-valued but structurally real — 3×3 cells, 2 years, every vari
 # append to tests/test_refresh_fixture.py
 from pathlib import Path
 
-from seagarden_dst.refresh.manifest import ARTIFACT_VARIABLES
+from seagarden_dst.artifact.manifest import ARTIFACT_VARIABLES
 
 FIXTURE = Path(__file__).parent / "fixtures" / "data"
 
@@ -1241,7 +1262,7 @@ def test_refresh_imports_nothing_from_the_core():
 Run: `pytest tests/test_refresh_isolation.py -q`
 Expected: 2 passed — it guards a property that already holds.
 
-**A test that has never been red is not evidence.** Temporarily add `from seagarden_dst import api` to `refresh/grid.py`, re-run, confirm `test_refresh_imports_nothing_from_the_core` fails and names `grid.py`, then remove the line and re-run to green.
+**A test that has never been red is not evidence.** Temporarily add `from seagarden_dst import api` to `artifact/grid.py`, re-run, confirm `test_refresh_imports_nothing_from_the_core` fails and names `grid.py`, then remove the line and re-run to green.
 
 - [ ] **Step 3: Commit**
 
@@ -1277,6 +1298,37 @@ In the `spatial` extra, declare the NetCDF engine directly rather than inheritin
 
 ```toml
   "h5netcdf>=1.4",   # NetCDF4 engine. Declared directly, not inherited via copernicusmarine.
+```
+
+**Add both new packages to `[tool.setuptools] packages`.** That list has been explicit
+since `9ca82ac`, not `find:`, so a subpackage that is created but not listed is absent from
+every built wheel:
+
+```toml
+packages = [
+  "seagarden_dst",
+  "seagarden_dst.artifact",   # Manifest + GridSpec + the reader: package D imports these
+  "seagarden_dst.refresh",
+  "seagarden_dst.paramdata",
+]
+```
+
+This is the same defect `tests/test_packaging.py` was written for one release earlier — the
+wheel carried no parameter YAML at all, and only the editable install CI uses hid it. Add an
+assertion there in the same step, so the next subpackage cannot repeat it:
+
+```python
+def test_every_source_subpackage_is_declared():
+    """A subpackage created but not listed is missing from every wheel, and the
+    editable install CI uses cannot see the difference."""
+    declared = set(_pyproject()["tool"]["setuptools"]["packages"])
+    src = REPO / "src" / "seagarden_dst"
+    found = {
+        f"seagarden_dst.{d.name}"
+        for d in src.iterdir()
+        if d.is_dir() and (d / "__init__.py").is_file()
+    }
+    assert found <= declared, f"not in [tool.setuptools] packages: {sorted(found - declared)}"
 ```
 
 - [ ] **Step 2: Verify the default run excludes the spatial tests**
