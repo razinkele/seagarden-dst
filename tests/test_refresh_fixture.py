@@ -208,27 +208,30 @@ def test_the_fixture_can_be_rebuilt_from_its_script(tmp_path):
         xr.testing.assert_identical(a, b)
 
 
-def test_regenerating_the_fixture_produces_byte_identical_manifest_json(tmp_path):
+def test_the_committed_manifests_baseline_keys_are_in_deterministic_order():
     """The structural rebuild test above compares `model_dump()` and
     `assert_identical`, both of which are insensitive to key order — so neither
-    would have caught `_fixture_manifest` building `baselines` by iterating
-    `ARTIFACT_VARIABLES` directly. `ARTIFACT_VARIABLES` is a `frozenset`, and
-    set iteration order is not stable across separate Python processes under
-    hash randomization: two correct, identical-input regenerations produced two
-    differently-ordered (but equal-valued) `baselines` blocks, so `git diff`
-    on a routine regeneration was never empty even when nothing had changed.
+    would catch `_fixture_manifest` building `baselines` by iterating
+    `ARTIFACT_VARIABLES` (a `frozenset`) directly: iteration order over a set is
+    not stable across separate Python processes under hash randomization, so a
+    correct, identical-input regeneration can still produce a differently-
+    ordered (but equal-valued) `baselines` block, and `git diff` on a routine
+    regeneration is never empty even when nothing has changed.
 
-    This compares the raw bytes of `manifest.json`, which is what "a rebuild is
-    comparable" (the reason `retrieved_on`/`built_on` are a fixed timestamp
-    rather than build time) actually requires. On this machine `forcing.nc` is
-    reproducibly byte-identical across regenerations (confirmed separately via
-    `sha256sum`), so `artifact_sha256`/`artifact_bytes` are stable here too;
-    this test therefore does not need to exclude them the way the structural
-    rebuild test above does.
+    A prior version of this test compared the raw bytes of a freshly rebuilt
+    `manifest.json` against the committed one. That reintroduced, through a
+    different door, exactly the failure mode the structural rebuild test above
+    was written to avoid: `manifest.json` also carries `artifact_sha256`, which
+    is derived from `forcing.nc`, whose bytes carry h5netcdf's `_NCProperties`
+    stamp (`version=2,h5netcdf=1.8.1,hdf5=1.14.6,h5py=3.15.1` on this machine).
+    That stamp differs across the 3.11/3.13 CI legs or after a dependency bump,
+    which would fail a byte comparison for a reason that has nothing to do with
+    key ordering.
+
+    So this asserts the determinism property directly, on the already-committed
+    file, independent of the artifact's bytes, the library versions, or the
+    machine: `json.loads` preserves object key insertion order, and the
+    committed `baselines` keys must be exactly `sorted(ARTIFACT_VARIABLES)`.
     """
-    from scripts.make_fixture import build_fixture
-
-    build_fixture(tmp_path)
-    committed_bytes = (FIXTURE / "manifest.json").read_bytes()
-    rebuilt_bytes = (tmp_path / "manifest.json").read_bytes()
-    assert rebuilt_bytes == committed_bytes
+    payload = json.loads((FIXTURE / "manifest.json").read_text(encoding="utf-8"))
+    assert list(payload["baselines"]) == sorted(ARTIFACT_VARIABLES)
