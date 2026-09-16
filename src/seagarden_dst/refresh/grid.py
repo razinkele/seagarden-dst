@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Copernicus Baltic native resolution. NOT a choice: package B established that
 # coarsening to ~4 km land-masks the cell containing Tagalaht, the only published
@@ -22,10 +22,10 @@ class GridSpec(BaseModel):
     lat_max: float
     lon_min: float
     lon_max: float
-    lat_step: float
-    lon_step: float
-    n_lat: int
-    n_lon: int
+    lat_step: float = Field(gt=0)
+    lon_step: float = Field(gt=0)
+    n_lat: int = Field(gt=0)
+    n_lon: int = Field(gt=0)
 
     @model_validator(mode="after")
     def _check_extent_is_not_inverted(self) -> GridSpec:
@@ -33,6 +33,20 @@ class GridSpec(BaseModel):
             raise ValueError(f"lat_max {self.lat_max} must exceed lat_min {self.lat_min}")
         if self.lon_max <= self.lon_min:
             raise ValueError(f"lon_max {self.lon_max} must exceed lon_min {self.lon_min}")
+        # Check that the extent implied by origin, step, and count matches the declared max
+        # within one step tolerance (needed because step constants are truncated decimals).
+        implied_lat_max = self.lat_min + self.n_lat * self.lat_step
+        if abs(implied_lat_max - self.lat_max) > self.lat_step:
+            raise ValueError(
+                f"lat grid extent is incoherent: lat_min + n_lat*lat_step = "
+                f"{implied_lat_max} differs from lat_max {self.lat_max} by more than one step"
+            )
+        implied_lon_max = self.lon_min + self.n_lon * self.lon_step
+        if abs(implied_lon_max - self.lon_max) > self.lon_step:
+            raise ValueError(
+                f"lon grid extent is incoherent: lon_min + n_lon*lon_step = "
+                f"{implied_lon_max} differs from lon_max {self.lon_max} by more than one step"
+            )
         return self
 
     @classmethod
@@ -46,7 +60,19 @@ class GridSpec(BaseModel):
         )
 
     def lats(self) -> np.ndarray:
+        """Latitude coordinates for each grid cell.
+
+        Returns the LOWER CELL EDGE of each cell (the southern boundary).
+        The last value is one full step below lat_max by construction, since lat_max
+        is the outer edge of the final cell, not a coordinate present in the array.
+        """
         return self.lat_min + np.arange(self.n_lat, dtype="float64") * self.lat_step
 
     def lons(self) -> np.ndarray:
+        """Longitude coordinates for each grid cell.
+
+        Returns the LOWER CELL EDGE of each cell (the western boundary).
+        The last value is one full step below lon_max by construction, since lon_max
+        is the outer edge of the final cell, not a coordinate present in the array.
+        """
         return self.lon_min + np.arange(self.n_lon, dtype="float64") * self.lon_step
