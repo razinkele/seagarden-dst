@@ -18,6 +18,7 @@ data/rasters/
 data/vectors/
 *.tif
 *.nc
+!tests/fixtures/data/*.nc
 *.zarr/
 
 # Local application state (registrations, saved scenarios) - never committed.
