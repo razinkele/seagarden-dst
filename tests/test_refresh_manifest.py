@@ -17,8 +17,9 @@ from refresh_builders import (
     manifest as _manifest,
 )
 
-from seagarden_dst.refresh.grid import GridSpec
-from seagarden_dst.refresh.manifest import ARTIFACT_VARIABLES, Archive, DerivationInput
+from seagarden_dst.artifact.grid import GridSpec
+from seagarden_dst.artifact.manifest import Archive
+from seagarden_dst.refresh.variables import ARTIFACT_VARIABLES
 
 
 def test_baltic_grid_matches_the_shipped_extent():
@@ -265,7 +266,7 @@ def test_the_empty_variables_layer_is_accepted_when_a_derivation_names_it():
     """The positive case: the rule must not simply outlaw the empty list."""
     m = _manifest()
     assert m.layers[2].variables == []
-    assert any(i.layer == "copernicus_bgc_light" for d in m.derived for i in d.inputs)
+    assert any("copernicus_bgc_light" in d.input_layers for d in m.derived)
 
 
 def test_an_unrecognised_schema_version_is_refused():
@@ -288,16 +289,16 @@ def test_a_layer_claiming_a_variable_the_artifact_does_not_carry_is_rejected():
 def test_a_derivation_input_naming_a_nonexistent_layer_is_rejected():
     """C§4.4's fourth rule, second half: inputs must name real layers.
 
-    Constructed by APPENDING an extra input to an existing derivation's `inputs`,
-    not by renaming one of `valid`'s existing inputs: renaming
+    Constructed by APPENDING an unknown name to an existing derivation's
+    `input_layers`, not by renaming one of `valid`'s existing entries: renaming
     `copernicus_bgc_light` out of `light_attenuation_k`'s inputs also orphans that
     layer (it has no `variables` of its own), so the "layers reachable from
     nothing" half of the same validator fires first, with a message containing no
-    "do not exist". Appending an extra, unknown input leaves every existing layer
+    "do not exist". Appending an extra, unknown name leaves every existing layer
     reachable exactly as before and adds nothing to the claim union, so only the
     unknown-input branch can fire.
     """
     derived = _derived()
-    derived[1].inputs.append(DerivationInput(layer="ghost_layer", variable="coverage"))
+    derived[1].input_layers.append("ghost_layer")
     with pytest.raises(ValidationError, match="do not exist"):
         _manifest(derived=derived)

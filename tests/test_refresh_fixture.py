@@ -5,8 +5,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from seagarden_dst.refresh.manifest import ARTIFACT_VARIABLES
-from seagarden_dst.refresh.writer import load_pair, sha256_of, write_pair
+from seagarden_dst.artifact.pair import load_pair, sha256_of
+from seagarden_dst.refresh.variables import ARTIFACT_VARIABLES
+from seagarden_dst.refresh.writer import write_pair
 
 # `pytestmark` below deselects this module from the default run — but `-m` filters
 # AFTER collection, and collection imports the module. `writer.py` no longer imports
