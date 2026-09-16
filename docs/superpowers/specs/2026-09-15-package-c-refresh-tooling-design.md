@@ -541,12 +541,23 @@ To be made when this design is accepted, not silently assumed:
   `mean_temp_c`, `summer_temp_c` and `winter_temp_c`. D owns the derivation and must name
   the month definitions it uses; §6.1 should record it, exactly as C§11 already asks it to
   record `depth_m` resolving to `depth_mean_m`/`depth_min_m`.
-- **`pyproject.toml` and `.github/workflows/ci.yml`** — neither is touched by this design
-  and both must be. The `spatial` extra carries no netCDF engine, so **nothing in the repo
-  can currently read the fixture C commits**, and `copernicusmarine` appears in no extra.
-  C§10 clause 8 (no core module imports `refresh/`) is only meaningful in an install
-  *without* `spatial`, while C§7's fixture tests need one *with* it — two install states,
-  so a second CI job or skip markers.
+- **`.github/workflows/ci.yml` must gain a second job.** An earlier revision of this bullet
+  claimed `copernicusmarine` was in no extra and that the repository could not read a
+  NetCDF4 file at all. **Both were wrong, and are corrected here rather than carried:**
+  `spatial` already declares `copernicusmarine>=2.4`, which itself declares
+  `h5netcdf[h5py]>=1.4.0`, a NetCDF4 engine — so `pip install -e ".[spatial]"` can read the
+  fixture today, and `pyproject.toml` may need no change at all.
+
+  What stands is the CI gap. `ci.yml` installs `.[app,dev]`, **not** `.[spatial]`, so
+  C§7's fixture tests cannot run there as the workflow is written. And the two requirements
+  pull opposite ways: C§10 clause 8 (no core module imports `refresh/`) is only meaningful
+  in an install *without* `spatial`, while the fixture tests need one *with* it. Two install
+  states, so a second CI job — the existing job keeps `.[app,dev]` and proves the isolation,
+  a new job installs `.[spatial]` and runs the refresh tests.
+
+  Worth deciding in the plan, not here: whether to declare `h5netcdf` directly in `spatial`
+  rather than inheriting it through `copernicusmarine`. Relying on a transitive dependency
+  for a first-class capability is the kind of thing that breaks quietly on a version bump.
 - **§6.2 should record that a ten-year artifact gives nine usable years for wrapping
   windows.** This is now a settled decision rather than an open choice: the baseline stays
   **2016–2025**. A wrapping window opened in year Y takes January from Y+1 and blocks when
