@@ -1,7 +1,9 @@
 """The contract every refresh layer satisfies (C§5).
 
-Deliberately free of xarray at runtime: the probe job imports this module to read
-`REGISTRY` and must not drag the spatial stack in to ask whether a catalogue answers.
+Deliberately free of xarray at runtime: the probe job installs `[spatial]` as of
+C-c2, but the default test suite runs `-m 'not spatial'` and `-m` deselects AFTER
+collection, so a module-scope import here would still break collection of the whole
+default suite, not just this job's install.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """The one place the source list lives (C§5).
 
 Both the driver and the probe job read this, so a layer added here appears in the
-refresh and in the monthly reachability check without being registered twice.
+refresh and in the monthly catalogue probe without being registered twice.
 
 **Nothing here may import xarray or copernicusmarine at module scope.** As of C-c2
 the probe workflow installs `[spatial]`, so the old reason — a bare `pip install -e

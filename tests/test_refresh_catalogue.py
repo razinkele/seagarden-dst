@@ -97,13 +97,17 @@ def _describe_returning(labels: list[str]):
 
 
 def test_a_served_version_matching_the_manifest_is_ok():
+    """Also pins finding 5: a newer version served alongside the recorded one stays
+    green (C§8.2's membership rule), but the green detail must still name it, or the
+    upgrade decision the rule leaves to a human never reaches that human."""
     status, detail = dataset_status(
         "cmems_mod_bal_phy_my_P1M-m",
         "202303",
-        describe=_describe_returning(["202303"]),
+        describe=_describe_returning(["202303", "202501"]),
     )
     assert status == "ok"
     assert "202303" in detail
+    assert "202501" in detail
 
 
 def test_a_retired_dataset_id_is_absent_not_unreachable():
@@ -148,6 +152,23 @@ def test_a_network_failure_is_reported_not_raised():
     status, detail = dataset_status("cmems_x", "202303", describe=describe)
     assert status == "unreachable"
     assert "name resolution failed" in detail
+
+
+def test_a_catalogue_of_unexpected_shape_is_unreachable_not_a_crash():
+    """`dataset_status` promises never to raise, and `probe_all` relies on it: one
+    layer raising kills the job before the other four are asked. A copernicusmarine
+    release that renames `versions` must therefore surface as `unreachable` with the
+    error in the detail, not as a traceback."""
+
+    class _WrongShape:
+        products = [object()]  # no `.datasets`
+
+    def describe(**kwargs: object) -> _WrongShape:
+        return _WrongShape()
+
+    status, detail = dataset_status("cmems_x", "202303", describe=describe)
+    assert status == "unreachable"
+    assert "datasets" in detail
 
 
 @pytest.mark.spatial

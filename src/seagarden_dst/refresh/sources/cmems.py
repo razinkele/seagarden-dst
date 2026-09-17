@@ -14,8 +14,10 @@ it now installs `[spatial]`, because `describe()` lives there. What still forbid
 module-scope import is the test suite: `addopts` runs `-m 'not spatial'`, and `-m`
 deselects AFTER collection, so a module-scope `import copernicusmarine` here would
 break collection of every test in the repository regardless of markers.
-`import copernicusmarine` therefore lives inside `_default_opener` and inside
-`catalogue.dataset_status`, and `xarray` appears only under `TYPE_CHECKING`.
+`import copernicusmarine` therefore lives inside `_default_opener` here and
+inside `catalogue._default_describe` -- the real path only; `dataset_status`
+itself imports nothing, which is what lets the unmarked tests run where the
+extra is not installed. `xarray` appears only under `TYPE_CHECKING`.
 """
 
 from __future__ import annotations

@@ -103,9 +103,15 @@ def dataset_status(
             return "absent", f"dataset absent from catalogue: {dataset_id} ({error})"
         return "unreachable", f"unreachable: {error}"
 
-    served = _served_versions(catalogue)
+    try:
+        served = _served_versions(catalogue)
+    except Exception as error:  # noqa: BLE001 - a shape change is unreachable, not a crash
+        return (
+            "unreachable",
+            f"unreachable: catalogue answered in an unexpected shape ({error})",
+        )
     if expected_version in served:
-        return "ok", f"{dataset_id} serves version {expected_version}"
+        return "ok", f"{dataset_id} serves version {expected_version} (catalogue serves {served})"
     return (
         "version_drift",
         f"{dataset_id} no longer serves the version the manifest records: "
