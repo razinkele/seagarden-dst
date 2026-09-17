@@ -182,19 +182,32 @@ restart against **when the checkout moved**, not against the commit's own date:
 
 ```bash
 svc=$(date -d "$(systemctl show -p ActiveEnterTimestamp --value seagarden-dst)" +%s)
-head=$(stat -c %Y ~/seagarden-dst/.git/HEAD)
-[ "$svc" -ge "$head" ] && echo "restart OK" || echo "STALE: service predates the deploy"
+moved=$(stat -c %Y ~/seagarden-dst/.git/logs/HEAD)     # the REFLOG, not .git/HEAD
+[ "$svc" -ge "$moved" ] && echo "restart OK" || echo "STALE: service predates the deploy"
 ```
+
+**Anchor on `.git/logs/HEAD`, not `.git/HEAD`.** This check read `.git/HEAD` until the v0.4.0
+deploy, where it passed against a timestamp from the previous evening. `.git/HEAD` holds the
+literal text `ref: refs/heads/main`; §4's fast-forward moves the *branch ref*, leaving HEAD's
+content — and therefore its mtime — untouched. On that deploy `.git/HEAD` read `22:19:35` the
+day before while `.git/refs/heads/main` read `09:21:39` that morning, so the check would have
+reported `restart OK` for a service that had never been restarted. That is the exact failure
+this section exists to catch, and the check had a hole in it for two releases.
+
+`.git/logs/HEAD` is the reflog, which git appends to on **any** HEAD movement — checkout, pull,
+reset, and the fast-forward this runbook actually uses (`git reflog` shows the matching
+`merge v0.4.0: Fast-forward` line). `.git/refs/heads/main` would also work today but disappears
+once refs are packed, and `git gc` packs them without warning; the reflog file survives that.
 
 The commit's author date is the wrong anchor and reads as a pass when it should not: a release
 commit authored upstream last week, on a service last restarted the day before yesterday, gives a
 service timestamp *later* than the commit date while the restart never happened. What matters is
-whether the service started after this checkout moved, and `.git/HEAD`'s mtime is when that was.
+whether the service started after this checkout moved, and the reflog's mtime is when that was.
 
-`.git/HEAD` moves on **any** checkout, not only a deploy — switching to a branch to read something
-trips it. That is the safe direction: the serving tree did move, the process was not restarted,
-and the honest answer is that you no longer know what is running. Restart, or switch back, and
-re-check.
+The reflog moves on **any** HEAD movement, not only a deploy — switching to a branch to read
+something trips it. That is the safe direction: the serving tree did move, the process was not
+restarted, and the honest answer is that you no longer know what is running. Restart, or switch
+back, and re-check.
 
 Together these are the deployment-level twin of `tests/test_version.py`, which guards the version
 literals against each other in CI. `git describe` guards the *checkout* against the tag it claims
