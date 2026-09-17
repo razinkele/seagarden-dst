@@ -596,8 +596,38 @@ spec §14 exist to mitigate.
 monthly plus `workflow_dispatch`, running `refresh_layers.py --probe`.
 
 `probe()` asks only whether each source still exists and answers: catalogue metadata calls,
-no bulk transfer. It needs the Copernicus credential as a repository secret, which the
-runbook records as institutional.
+no bulk transfer.
+
+**Concretely, that is `copernicusmarine.describe(dataset_id=...)` per layer, and it needs
+no credential.** This paragraph previously said the probe "needs the Copernicus credential
+as a repository secret, which the runbook records as institutional." That was wrong, and
+wrong in a way that validated itself: `source-probe.yml` passed the secret because this
+sentence asked for it, and the sentence looked confirmed because the workflow passed it.
+Neither looked wrong when checked against the other. `describe()` accepts no `username`,
+`password` or `credentials_file` — `get()` and `subset()` accept all three — and its
+implementation reads no cached credential file, so a call that offers no way to
+authenticate was never doing so. The catalogue is public. The secret is struck.
+
+Three things follow, and they are why this is `describe()` rather than an HTTP request to
+a product page:
+
+- **A landing page cannot see the event this job exists for.** An HTML product page keeps
+  returning 200 long after the `dataset_id` behind it is retired, which is precisely the
+  failure a monthly check is meant to catch. `describe()` raises `DatasetNotFound`.
+- **It distinguishes datasets that share a page.** `copernicus_bgc` and
+  `copernicus_bgc_light` read different datasets from the same product, so their landing
+  pages are byte-identical and their `dataset_id`s are not.
+- **It returns the version, so the probe can check the provenance the manifest publishes.**
+  `describe()` reports the live version label, so a probe that compares it against the
+  recorded `version` turns this job from "does a page load" into "is the provenance we
+  publish still true". Package C-c1 shipped `wav.py` recording `version="202303"` where
+  C§11.1 says `202411`; a probe of this shape would have caught it on the first monthly
+  run without anyone re-reading the catalogue table.
+
+`copernicusmarine` lives in the `spatial` extra, so **this job installs that extra** —
+the probe path is otherwise xarray-free and an earlier version of `source-probe.yml`
+installed no extras at all, which was correct while `REGISTRY` was empty and became wrong
+the moment real layers landed.
 
 Separate from `ci.yml` so that a dead upstream source turns that job red and **blocks no
 pull request** — §4.1's "may fail loudly without blocking anything". Gating merges on the

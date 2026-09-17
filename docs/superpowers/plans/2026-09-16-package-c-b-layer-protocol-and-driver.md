@@ -2184,7 +2184,14 @@ jobs:
         run: python -m scripts.refresh_layers --probe
 ```
 
-The credential is the **institutional** Copernicus account (C§8.1), held as a repository secret. The workflow must not fall back to a personal one and must not print it.
+> **Superseded — the probe needs no credential.** This task shipped the workflow passing
+> `COPERNICUSMARINE_SERVICE_USERNAME`/`PASSWORD`, because C§8.2 asked for them. Both were
+> wrong. `copernicusmarine.describe()` accepts no `username`, `password` or
+> `credentials_file` — `get()` and `subset()` accept all three — and reads no cached
+> credential, so the catalogue call this job makes was never authenticating. C§8.2 has
+> been amended and the secret struck. The **annual refresh** still needs the institutional
+> credential (C§8.1): `subset()` does take one. It is the probe, not the refresh, that
+> does not.
 
 **Known and intended:** with C-b's empty `REGISTRY` this job exits 1 until C-c registers the layers. That is the empty-registry guard doing its job — a monthly check that passes while checking nothing would be worse. Record it in the task report and in the C-c handoff so the first red run is expected rather than alarming.
 
