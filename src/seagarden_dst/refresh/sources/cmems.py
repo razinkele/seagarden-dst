@@ -82,16 +82,53 @@ def to_yearly(data: xr.DataArray) -> xr.DataArray:
     the time axis rather than grouping twice keeps every (year, month) cell present,
     including months a source happens to be missing — those arrive as NaN, which is
     the validity signal D reads, instead of vanishing and shortening the axis.
+
+    **`unstack` alone does not deliver that guarantee, which is why the reindex is
+    here.** It fills only the cartesian product of the values it OBSERVED, so a month
+    missing from *some* years arrives as NaN, but a month missing from *every* year
+    in the span never enters the month index at all and the axis silently comes back
+    eleven long. `check_shapes` compares dim NAMES, not lengths, so it accepts that.
+    Reindexing onto 1-12 makes the promise the docstring makes.
+
+    **`year` is deliberately NOT reindexed, and the asymmetry is the point.** A month
+    has a fixed, known domain — there are twelve, always — so a missing one is a hole
+    to mark. A year does not: the span is whatever the caller asked for, and a source
+    year that is simply absent is caught upstream by `resolve_baselines`
+    (`driver.py`), which refuses loudly because the declared window and the built data
+    disagree. Reindexing `year` here would manufacture an all-NaN year that satisfies
+    that guard and then collapses `valid` through `_coverage_of`'s `.all()` — a quiet
+    empty artifact in place of a loud refusal. Do not "fix" the asymmetry.
     """
     split = data.assign_coords(
         year=data["time"].dt.year, month=data["time"].dt.month
     ).set_index(time=["year", "month"])
-    return split.unstack("time").transpose("year", "month", "latitude", "longitude")
+    unstacked = split.unstack("time").reindex(month=list(range(1, 13)))
+    return unstacked.transpose("year", "month", "latitude", "longitude")
 
 
 def drop_depth(data: xr.DataArray) -> xr.DataArray:
-    """Remove the singleton depth axis a surface request still carries."""
+    """Remove the singleton depth axis a surface request still carries.
+
+    **It refuses a depth axis with more than one level rather than taking the first.**
+    The 0-1 m window is meant to select exactly one model level, the 0.50 m surface
+    one. If a product ever returns two levels inside that band — a reprocessing that
+    adds a level, or a catalogue change — silently keeping element zero would halve
+    the data and emit a surface field that is really a single arbitrary level, with
+    nothing in the artifact or the manifest recording that a choice was made. The
+    right answer is then a deliberate reduction (a mean, or a narrower window), which
+    is a decision for a human, so this raises and says which levels it saw.
+    """
     if "depth" in data.dims:
+        levels = int(data.sizes["depth"])
+        if levels != 1:
+            values = list(data["depth"].values) if "depth" in data.coords else "unknown"
+            raise ValueError(
+                f"depth axis has {levels} levels, expected exactly 1: the "
+                f"{SURFACE_MIN_DEPTH}-{SURFACE_MAX_DEPTH} m window is meant to select "
+                f"the single surface model level, and it returned {values}. Taking "
+                "element zero would silently drop the rest and ship one arbitrary "
+                "level as 'surface' — choose the reduction explicitly instead"
+            )
         data = data.isel(depth=0, drop=True)
     elif "depth" in data.coords:
         data = data.drop_vars("depth")

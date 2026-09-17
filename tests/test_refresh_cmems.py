@@ -84,3 +84,79 @@ def test_to_yearly_splits_time_into_year_and_month_in_that_order():
     assert tuple(reshaped.dims) == ("year", "month", "latitude", "longitude")
     assert list(reshaped["year"].values) == [2024, 2025]
     assert list(reshaped["month"].values) == list(range(1, 13))
+
+
+def test_to_yearly_keeps_twelve_months_when_one_is_missing_from_every_year():
+    """The docstring's NaN guarantee, in the case `unstack` alone does not deliver.
+
+    `unstack` fills only the cartesian product of the (year, month) pairs it
+    OBSERVED. A month absent from some years arrives as NaN; a month absent from
+    EVERY year never enters the month index, and the axis comes back eleven long.
+    `check_shapes` compares dim names, not lengths, so nothing downstream notices.
+
+    Two years here, not one, so the failure cannot be blamed on a degenerate span.
+    """
+    from seagarden_dst.refresh.sources import cmems
+
+    source = _monthly_dataset([2024, 2025])["so"]
+    without_june = source.sel(time=source["time"].dt.month != 6)
+    assert len(without_june["time"]) == 22  # the gap really is in both years
+
+    reshaped = cmems.to_yearly(without_june)
+
+    assert list(reshaped["month"].values) == list(range(1, 13))
+    assert bool(reshaped.isel(month=5).isnull().all())  # June, the hole, as NaN
+    assert not bool(reshaped.isel(month=4).isnull().any())  # May, intact
+
+
+def test_to_yearly_does_not_invent_a_year_the_source_never_carried():
+    """The deliberate asymmetry: months are reindexed, years are not.
+
+    A missing year must stay missing so `resolve_baselines` can refuse it. An
+    all-NaN year would satisfy that guard and then collapse `valid` through
+    `_coverage_of`'s `.all()` — a quiet empty artifact in place of a loud refusal.
+    """
+    from seagarden_dst.refresh.sources import cmems
+
+    source = _monthly_dataset([2024, 2025, 2026])["so"]
+    without_2025 = source.sel(time=source["time"].dt.year != 2025)
+
+    reshaped = cmems.to_yearly(without_2025)
+
+    assert list(reshaped["year"].values) == [2024, 2026]
+
+
+def test_drop_depth_refuses_a_depth_axis_with_more_than_one_level():
+    """A two-level 0-1 m window must raise, not silently keep element zero."""
+    import xarray as xr
+
+    from seagarden_dst.refresh.sources import cmems
+
+    grid = _tiny_grid()
+    two_levels = xr.DataArray(
+        np.zeros((2, 1, 3, 3), dtype="float32"),
+        dims=("depth", "time", "latitude", "longitude"),
+        coords={"depth": [0.5, 0.9], "latitude": grid.lats(), "longitude": grid.lons()},
+    )
+
+    with pytest.raises(ValueError, match="expected exactly 1"):
+        cmems.drop_depth(two_levels)
+
+
+def test_drop_depth_still_removes_a_single_level_axis():
+    """The ordinary case the guard must not disturb."""
+    import xarray as xr
+
+    from seagarden_dst.refresh.sources import cmems
+
+    grid = _tiny_grid()
+    one_level = xr.DataArray(
+        np.zeros((1, 3, 3), dtype="float32"),
+        dims=("depth", "latitude", "longitude"),
+        coords={"depth": [0.5], "latitude": grid.lats(), "longitude": grid.lons()},
+    )
+
+    dropped = cmems.drop_depth(one_level)
+
+    assert "depth" not in dropped.dims
+    assert "depth" not in dropped.coords
