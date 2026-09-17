@@ -205,12 +205,14 @@ absent                  : [AbsentField]
 **`variables: [str]`** — the artifact variables this dataset is the raw source of (C§4.4).
 
 `name` is the `REGISTRY` key and the same string as the `Layer` Protocol's `name` (C§5).
-It is carried on the record because `derived[].inputs[].layer` resolves against it: without
+It is carried on the record because `derived[].input_layers` resolves against it: without
 it that reference names a table with no key column, and an implementer has to guess between
 list index, `dataset_id`, and an undeclared field that `extra="forbid"` would then reject.
 
-`Derivation` carries `{field, relation, inputs: [{layer, variable}]}`: the artifact variable
-produced, the named relation, and which layer and source variables it was computed from.
+`Derivation` carries `{field, relation, input_layers: [str]}`: the artifact variable
+produced, the named relation, and which layers it was computed from. An earlier draft of
+this section carried `inputs: [{layer, variable}]`; the retreat from that structured pair,
+and the reason for it, are below.
 
 **Three fields need it, and the test is MULTI-SOURCE, not "computed".** Every variable in
 C§3.2 is computed in some sense — `depth_mean_m` is a mean per cell, `significant_wave_m` a
@@ -370,7 +372,7 @@ transcription rather than by schema. A uniqueness check is the one line that mak
 true rather than merely careful.
 
 **Every layer is claimed too, not only every variable.** A layer is reachable if it claims
-at least one entry in `variables`, or is named by at least one `derived[].inputs[].layer`.
+at least one entry in `variables`, or is named by at least one `derived[].input_layers`.
 This is the mirror of the first rule: that one says no variable is unsourced, this one says
 no source is unrecorded. It is not redundant, because `copernicus_bgc_light` carries an
 empty `variables` (C§5) — its only output is derived — so the first rule says nothing about
@@ -548,7 +550,7 @@ Tests:
   dataset → rejected. Built by copying the fixture's `copernicus_bgc` record and changing
   only `name`, because that is the edit the rule exists to catch.
 - **Orphan layer, two in-memory cases** (C§4.4): a layer with empty `variables` that no
-  `derived[].inputs[].layer` names → rejected; the fixture's own `copernicus_bgc_light`,
+  `derived[].input_layers` names → rejected; the fixture's own `copernicus_bgc_light`,
   empty `variables` but named by `light_attenuation_k`'s `Derivation` → accepted. The
   positive case is the one that matters: it proves the rule does not simply outlaw the
   empty list C§4.4 requires the fixture to carry.
@@ -649,7 +651,7 @@ end-to-end by someone else."* Both stand. Expanded, so the row is checkable:
     have a C§7 case that fails without them: every artifact variable claimed exactly once
     across layers and derivations; `baselines` keys exactly that set, with `[]` and
     omission told apart; `dataset_id` unique across layers; and every layer reachable, by a
-    variable claim or by a `derived[].inputs[].layer`. Listed here because C§7 is narrative
+    variable claim or by a `derived[].input_layers` entry. Listed here because C§7 is narrative
     and this is the list the implementer signs off against — a validator with no clause can
     be skipped with every numbered row still green, which is the failure clause 9 was added
     to close.
