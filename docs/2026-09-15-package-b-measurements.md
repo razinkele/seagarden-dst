@@ -7,8 +7,10 @@ Package B was scoped as a spike: decide grid resolution and file format *by meas
 report valid-cell fractions so §6.2's 60% threshold is set on evidence, and run §10.2's
 daily-versus-monthly comparison. All four are below. Three of them contradict the design.
 
-The scripts and the downloaded data were throwaway and have been deleted; every number
-here is reproducible from the dataset identifiers and parameters recorded at the end.
+The downloaded data was throwaway and has been deleted. The scripts that produced these
+numbers are kept at [`docs/spikes/2026-09-15-package-b/`](spikes/2026-09-15-package-b/),
+so every number here is reproducible from them together with the dataset identifiers and
+parameters recorded at the end.
 
 ---
 
