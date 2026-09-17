@@ -19,10 +19,12 @@ from seagarden_dst.refresh.sources.bgc_light import CopernicusBgcLight
 from seagarden_dst.refresh.sources.phy import CopernicusPhy
 from seagarden_dst.refresh.sources.wav import CopernicusWav
 
-# `emodnet_bathy` is package C-c2 and is deliberately absent. Until it lands, a
-# refresh built from this registry produces seven of the nine variables and the
-# manifest's every-variable-claimed-exactly-once validator will refuse it — which is
-# correct: an artifact missing its depth fields should not be writable.
+# `emodnet_bathy` is not yet implemented and is deliberately absent — it needs a
+# spike before it can be planned (C§12 calls its fetch and probe the
+# least-specified part of the design). Until it lands, a refresh built from this
+# registry produces seven of the nine variables and the manifest's
+# every-variable-claimed-exactly-once validator will refuse it — which is correct:
+# an artifact missing its depth fields should not be writable.
 REGISTRY: dict[str, Layer] = {
     layer.name: layer
     for layer in (
@@ -40,7 +42,8 @@ def check_registered_names(registry: dict[str, Layer], names: tuple[str, ...]) -
     with a bad registry and watch it fire. The guard was previously inline and
     unreachable from any test: nothing could construct the failing case without
     monkeypatching a module constant and re-importing, so the argument it makes for
-    itself went unchecked. It matters more at C-c2, where the comparison tightens.
+    itself went unchecked. It matters more once `emodnet_bathy` registers and the
+    comparison tightens to equality.
 
     A `raise`, not an `assert`: module-scope asserts vanish under `python -O`, and a
     guard that disappears under an optimisation flag is a guard that cannot fail.

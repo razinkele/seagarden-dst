@@ -98,9 +98,10 @@ def test_a_refresh_without_a_year_range_is_refused(capsys):
 
 
 def test_a_refresh_with_an_incomplete_registry_refuses_before_the_download(monkeypatch, capsys):
-    # Step 3b: four of the five C§5 layers are registered (emodnet_bathy is C-c2), so
-    # the empty-registry guard passes and, without this check, a refresh would open
-    # real Copernicus datasets over the wire before dying inside manifest validation.
+    # Step 3b: four of the five C§5 layers are registered (emodnet_bathy is not yet
+    # implemented), so the empty-registry guard passes and, without this check, a
+    # refresh would open real Copernicus datasets over the wire before dying inside
+    # manifest validation.
     import scripts.refresh_layers as cli
 
     monkeypatch.setattr(
@@ -190,6 +191,33 @@ def test_a_version_drift_is_not_reported_as_unreachable():
 
     assert "VERSION_DRIFT" in report
     assert "UNREACHABLE" not in report
+
+
+def test_the_probe_summary_names_each_failure_by_its_status(monkeypatch, capsys):
+    """format_probe_report distinguishes absent / version_drift / unreachable; the
+    summary line under it collapsed them all back into "unreachable" — the conflation
+    Step 6 removed, re-introduced one line later. A reader of a red monthly job
+    would go hunting a network fault to fix a manifest."""
+    from scripts import refresh_layers
+    from seagarden_dst.refresh.layer import ProbeResult
+
+    class _Drifted:
+        name = "copernicus_wav"
+
+        def probe(self):
+            return ProbeResult(
+                name=self.name, status="version_drift", reachable=False,
+                detail="manifest says 202303, catalogue serves ['202411']",
+            )
+
+    monkeypatch.setattr(refresh_layers, "REGISTRY", {"copernicus_wav": _Drifted()})
+    code = refresh_layers.main(["--probe"])
+    out = capsys.readouterr().out
+
+    assert code != 0
+    summary = out.strip().splitlines()[-1]
+    assert "version_drift" in summary
+    assert "unreachable" not in summary
 
 
 def test_the_probe_workflow_installs_the_spatial_extra():

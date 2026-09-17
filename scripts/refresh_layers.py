@@ -2,9 +2,10 @@
 
 Two modes and no third: a full refresh for a named year range, and `--probe`, which
 asks only whether each source still exists. `--probe` is what the monthly workflow
-runs, so nothing on that path may import xarray — the probe job installs no spatial
-extra, and a module-scope import would make a reachability check depend on the
-scientific stack it exists to avoid needing.
+runs. As of C-c2 that job installs the `[spatial]` extra — `describe()` lives there
+— so the old reason for keeping xarray off this path is gone; the rule stays because
+the default test suite runs `-m 'not spatial'`, and `-m` deselects AFTER collection,
+so a module-scope import here would break collection repository-wide.
 """
 
 from __future__ import annotations
@@ -99,9 +100,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.probe:
         results = probe_all(list(REGISTRY.values()))
         print(format_probe_report(results))
-        unreachable = [r.name for r in results if not r.reachable]
-        if unreachable:
-            print(f"\n{len(unreachable)} source(s) unreachable: {unreachable}")
+        failed = [(r.name, r.status) for r in results if not r.reachable]
+        if failed:
+            print(
+                f"\n{len(failed)} source(s) failed: "
+                + ", ".join(f"{n} ({s})" for n, s in failed)
+            )
             return 1
         return 0
 
