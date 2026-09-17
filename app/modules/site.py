@@ -1,39 +1,167 @@
 """Site panel - choose where.
 
-In the delivered tool this is a map with polygon drawing over the curated layers of
-specification section 6. In the prototype it is a sub-region picker over
-`forcing.PLACEHOLDER_SITES`, behind the same `SiteContext` contract, so replacing it
-touches this module and nothing else.
+A map of the sub-regions that have a position, over the deck.gl/MapLibre bridge, plus
+the selector the map cannot replace. Conditions are still `forcing.PLACEHOLDER_SITES`
+and the `SiteContext` contract is unchanged, so this module remains the only one that
+has to change when the curated layers of specification section 6 arrive.
+
+**Two sub-regions have no coordinate and are reachable only from the selector.**
+`SITE_COORDINATES` records position separately from conditions and omits the key
+entirely where nobody has chosen a cell - absent rather than None, so no caller can
+index a coordinate-shaped default and get a wrong answer. A map alone would therefore
+make EE-coastal and LT-coastal unreachable, which is why the selector stays and lists
+all seven.
+
+**Every marker carries its provenance.** `SiteProvenance` exists because "a coordinate
+that travels without saying where it came from gets promoted to a fact", and a pin on a
+map is the most promoting presentation there is: it looks surveyed. Colour, legend and
+tooltip all name the provenance, and a snapped or indicative cell says so on the marker
+rather than in a caption somebody can miss.
 """
 
 from __future__ import annotations
 
 from shiny import module, reactive, render, ui
+from shiny_deckgl import MapWidget, scatterplot_layer
 
 from seagarden_dst import REGIONS, SiteContext
+from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+#: The map element's bare id. `MapWidget` resolves the Shiny module namespace itself,
+#: so the same raw id used in the ui and server halves refers to one element.
+_MAP_ID = "sitemap"
+
+#: Centred on the South Baltic so all five positioned sub-regions are in frame at once,
+#: from the Great Belt in the west to the Curonian Lagoon in the east.
+_BALTIC_VIEW = {"longitude": 16.0, "latitude": 54.9, "zoom": 5.1}
+
+#: RGBA per provenance. Colour is the only channel encoding confidence - marker size is
+#: deliberately uniform, because a larger dot for a better-known site reads as a bigger
+#: site rather than a better-known one.
+_PROVENANCE_COLOUR: dict[SiteProvenance, list[int]] = {
+    SiteProvenance.SITED: [17, 122, 101, 235],       # deep teal - somebody confirmed it
+    SiteProvenance.SNAPPED: [202, 138, 4, 225],      # amber - moved from what was given
+    SiteProvenance.INDICATIVE: [113, 128, 150, 195],  # slate - nobody gave it
+}
+
+
+def site_markers() -> list[dict]:
+    """One marker per sub-region that has a coordinate, richest provenance last.
+
+    Returned as plain dicts so the deck.gl accessors can read them and so this is
+    testable without a browser. Sorted so SITED draws over SNAPPED over INDICATIVE
+    where markers overlap - the better-known position should not be hidden by a
+    representative one.
+    """
+    order = {
+        SiteProvenance.INDICATIVE: 0,
+        SiteProvenance.SNAPPED: 1,
+        SiteProvenance.SITED: 2,
+    }
+    markers = []
+    for region, coordinate in SITE_COORDINATES.items():
+        # Attribute access, never `lat, lon = coordinate`: SiteCoordinate makes
+        # unpacking raise precisely so the provenance cannot be dropped in transit.
+        markers.append(
+            {
+                "position": [coordinate.lon, coordinate.lat],
+                "region": region,
+                "name": REGIONS.get(region, region),
+                "provenance": coordinate.provenance.value,
+                "provenance_label": coordinate.provenance.label,
+                "presentation": coordinate.provenance.presentation,
+                "depth": "unknown" if coordinate.depth_m is None else f"{coordinate.depth_m:g} m",
+                "colour": _PROVENANCE_COLOUR[coordinate.provenance],
+            }
+        )
+    markers.sort(key=lambda m: order[SiteProvenance(m["provenance"])])
+    return markers
+
+
+def regions_without_a_position() -> list[str]:
+    """Sub-regions that have conditions but no coordinate, so the map cannot offer them."""
+    return sorted(set(REGIONS) - set(SITE_COORDINATES))
+
+
+def _widget() -> MapWidget:
+    return MapWidget(
+        _MAP_ID,
+        view_state=_BALTIC_VIEW,
+        tooltip={
+            "html": (
+                "<b>{name}</b><br/>{provenance_label}<br/>"
+                "Model depth {depth}<br/><i>{presentation}</i>"
+            ),
+            "style": {
+                "backgroundColor": "#1b2430",
+                "color": "#f2f5f8",
+                "fontSize": "0.78rem",
+                "padding": "6px 8px",
+                "borderRadius": "4px",
+                "maxWidth": "260px",
+            },
+        },
+    )
+
+
+def _legend() -> ui.Tag:
+    swatches = []
+    for provenance in (SiteProvenance.SITED, SiteProvenance.SNAPPED, SiteProvenance.INDICATIVE):
+        r, g, b, _a = _PROVENANCE_COLOUR[provenance]
+        swatches.append(
+            ui.tags.span(
+                ui.tags.span(
+                    style=(
+                        f"display:inline-block;width:.6rem;height:.6rem;border-radius:50%;"
+                        f"background:rgb({r},{g},{b});margin-right:.35rem;"
+                    )
+                ),
+                ui.tags.small(provenance.label),
+                style="margin-right:1.1rem;white-space:nowrap;",
+            )
+        )
+    return ui.div(*swatches, style="margin-top:.5rem;")
 
 
 @module.ui
 def site_ui() -> ui.Tag:
+    absent = regions_without_a_position()
     return ui.layout_sidebar(
         ui.sidebar(
             ui.input_select("region", "Sub-region", choices=REGIONS, selected="LT-coastal"),
+            ui.help_text(
+                "Click a marker on the map, or choose here. "
+                + (
+                    f"{' and '.join(REGIONS[r] for r in absent)} "
+                    f"{'have' if len(absent) != 1 else 'has'} no confirmed position yet "
+                    "and can only be chosen here."
+                    if absent
+                    else ""
+                )
+            ),
             ui.input_text("label", "Site name (optional)", placeholder="e.g. Melnrage pilot"),
             ui.input_action_button("set_site", "Use this site", class_="btn-outline-primary"),
             width=340,
+        ),
+        ui.card(
+            ui.card_header("Where"),
+            _widget().ui(height="420px"),
+            _legend(),
+            ui.output_ui("position_note"),
         ),
         ui.card(ui.card_header("Site conditions"), ui.output_ui("conditions")),
         ui.card(
             ui.card_header("Where these numbers come from"),
             ui.markdown(
-                "These are **placeholder conditions**, one set per sub-region: plausible "
-                "order-of-magnitude values, not measurements. Every result derived from "
-                "them is a literature prior.\n\n"
-                "In the delivered tool this panel becomes a map. You draw a polygon and "
-                "the conditions are read from the curated layers - Copernicus Marine "
-                "reanalysis for salinity, temperature and nutrients, EMODnet for "
-                "bathymetry and human use, HELCOM for protected areas. The contract "
-                "between this panel and the model core does not change."
+                "The map shows **where** a sub-region is. The numbers below are "
+                "**placeholder conditions**, one set per sub-region: plausible "
+                "order-of-magnitude values, not measurements, and not read from the "
+                "position. Every result derived from them is a literature prior.\n\n"
+                "In the delivered tool you draw a polygon and the conditions are read "
+                "from the curated layers - Copernicus Marine reanalysis for salinity, "
+                "temperature and nutrients, EMODnet for bathymetry and human use, "
+                "HELCOM for protected areas. The contract between this panel and the "
+                "model core does not change."
             ),
         ),
     )
@@ -41,15 +169,71 @@ def site_ui() -> ui.Tag:
 
 @module.server
 def site_server(input, output, session, state) -> None:  # noqa: A002
+    widget = _widget()
+
     @reactive.effect
+    async def _draw_markers():
+        await widget.update(
+            session,
+            [
+                scatterplot_layer(
+                    "sites",
+                    data=site_markers(),
+                    getPosition="@@=d.position",
+                    getFillColor="@@=d.colour",
+                    radiusMinPixels=7,
+                    radiusMaxPixels=13,
+                    getRadius=2600,
+                    stroked=True,
+                    getLineColor=[255, 255, 255, 220],
+                    lineWidthMinPixels=1.5,
+                )
+            ],
+        )
+
+    @reactive.effect
+    @reactive.event(input[widget.click_input_id], ignore_init=True)
+    def _select_clicked_region():
+        """Clicking a marker moves the selector; it does not commit the site.
+
+        Committing on click would set a site from a single stray click on a map the
+        user was panning. `Use this site` stays the one action that commits, which is
+        also what keeps this panel's contract identical to the selector-only version.
+        """
+        payload = input[widget.click_input_id]()
+        region = _region_from_click(payload)
+        if region in REGIONS:
+            ui.update_select("region", selected=region)
+
+    @reactive.effect
+    @reactive.event(input.set_site, ignore_init=True)
     # ignore_init: an action-button event fires once at startup, which would commit
     # a site the user never chose and put the app straight into 'Site ready'.
-    @reactive.event(input.set_site, ignore_init=True)
     def _set_site():
         region = input.region()
         label = (input.label() or "").strip() or REGIONS[region]
         state.context.set(SiteContext.from_region(region, label=label))
         state.site_label.set(label)
+
+    @output
+    @render.ui
+    def position_note():
+        region = input.region()
+        coordinate = SITE_COORDINATES.get(region)
+        if coordinate is None:
+            return ui.p(
+                ui.tags.small(
+                    f"{REGIONS[region]} has no confirmed position. Its conditions are a "
+                    "sub-region summary, so nothing here is about a particular cell."
+                )
+            )
+        return ui.p(
+            ui.tags.small(
+                f"{coordinate.lat:.4f}, {coordinate.lon:.4f} - "
+                f"{coordinate.provenance.label.lower()}. "
+                f"A result here is a {coordinate.provenance.presentation}."
+            )
+        )
 
     @output
     @render.ui
@@ -89,3 +273,21 @@ def site_server(input, output, session, state) -> None:  # noqa: A002
                 )
             ),
         )
+
+
+def _region_from_click(payload: object) -> str | None:
+    """Pull the region out of a deck.gl pick payload, tolerating its shape.
+
+    The bridge delivers the picked datum, but which key it sits under is not part of
+    any contract this repository controls, so a miss returns None and the selector
+    simply does not move - never an exception into a reactive effect, and never a
+    silently wrong region.
+    """
+    if not isinstance(payload, dict):
+        return None
+    for candidate in (payload, payload.get("object"), payload.get("datum")):
+        if isinstance(candidate, dict):
+            region = candidate.get("region")
+            if isinstance(region, str):
+                return region
+    return None

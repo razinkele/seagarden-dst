@@ -19,6 +19,59 @@ unreleased.
 
 ---
 
+## [0.5.0] — 2026-09-17
+
+**The Site panel becomes a map.**
+
+235 tests (228 at 0.4.0), of which 55 need the `spatial` extra. CI on Python 3.11 and
+3.13 across two install states.
+
+The first release since 0.2.0 that changes something you can see. It shows **where** a
+sub-region is; it does not change **what** its numbers are. Conditions remain the
+placeholder constants they have been since the prototype began — plausible
+order-of-magnitude values, not measurements, not read from the position on the map, and
+every result derived from them is still a literature prior.
+
+### Added
+
+- **A map of the sited sub-regions**, over `shiny_deckgl` — the deck.gl/MapLibre bridge
+  adopted at 0.4.0 and until now unused by anything. Five markers on a South Baltic
+  basemap, one per sub-region that has a coordinate.
+- **Provenance on every marker**, in colour, legend and tooltip. `SiteProvenance` exists
+  because a coordinate that travels without saying where it came from gets promoted to a
+  fact, and a pin on a map is the most *this was surveyed* presentation available. Of
+  the five: **LT-lagoon is `sited`** — a position somebody chose and confirmed;
+  **DK-belt, DE-coastal and PL-coastal are `snapped`** to the nearest modelled cell,
+  because the published pilot coordinates are land cells in the Copernicus mask;
+  **PL-lagoon is `indicative`** of the water body, a representative cell nobody gave. A
+  marker that showed position without provenance would undo the type.
+- **A position note under the map**, naming the selected sub-region's coordinate, its
+  provenance, and what a result computed there is allowed to claim to be about.
+
+### Changed
+
+- **The sub-region selector stays, and still lists all seven.** `SITE_COORDINATES` omits
+  a region entirely where nobody has chosen a cell — absent rather than `None`, so no
+  caller can index a coordinate-shaped default and get a wrong answer. **EE-coastal and
+  LT-coastal therefore have conditions and no position**, and a map-only picker would
+  have stranded them. They are reachable from the selector, which says so.
+- **Clicking a marker moves the selector; it does not commit the site.** `Use this site`
+  remains the only action that commits, so a stray click while panning cannot change
+  which site an assessment is about. The panel's contract with the model core is
+  byte-identical to the selector-only version.
+
+### Known limits
+
+- The map is **not** package E. There is no polygon drawing, no curated layers beneath
+  it, and no geometry carried into the report. Those need the artifact reader (package
+  D) to have something to read.
+- Two of seven sub-regions cannot be chosen on the map, as above.
+- The basemap is fetched from CARTO's CDN at runtime. The tool's offline-by-2034
+  premise covers the analytical core and the forcing artifact, not the basemap tiles:
+  with no network the panel degrades to an empty frame and the selector still works.
+
+---
+
 ## [0.4.0] — 2026-09-17
 
 **The refresh tooling gets its driver — and still cannot fetch anything.**

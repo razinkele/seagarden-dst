@@ -56,10 +56,11 @@ SeaGarden_DST_proposal_extract.md
 # already happened once in this repository.
 .worktrees/
 .superpowers/
-# `.claude/worktrees/` is where this harness's native worktree tool puts linked
-# worktrees — inside the repository, and NOT under `.worktrees/`, so the rule above
-# misses it. Left unignored, the main checkout reports a second full copy of the tree
-# as untracked files: the same `git add -A` hazard, one directory over.
-# Scoped to `worktrees/` rather than all of `.claude/`, because project-level Claude
-# configuration under `.claude/` is the kind of thing a team does commit.
+
+# The same hazard again, one directory over. Claude Code's own worktree tool puts
+# isolated checkouts in `.claude/worktrees/` rather than `.worktrees/`, so ignoring
+# only the latter left a live 2.7 MB worktree sitting untracked in the root, one
+# `git add -A` away from being committed into this repository. Narrow on purpose:
+# `.claude/settings.json` or `.claude/agents/` may be worth committing one day, and a
+# blanket `.claude/` would silently swallow them.
 .claude/worktrees/

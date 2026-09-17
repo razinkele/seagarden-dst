@@ -119,3 +119,93 @@ def test_report_renders_for_every_shipped_region(region):
     run_assessment(state)
     text = render_report(state.assessment.get())
     assert "SITE ASSESSMENT" in text
+
+
+# --- Site map -------------------------------------------------------------------
+
+def test_every_positioned_region_gets_a_marker_and_no_other_does():
+    """The map offers exactly the sub-regions that have a coordinate.
+
+    Not all seven: `SITE_COORDINATES` omits a region entirely where nobody has chosen
+    a cell, so a marker for one would be a position invented by the UI.
+    """
+    from app.modules.site import site_markers
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    marked = {m["region"] for m in site_markers()}
+    assert marked == set(SITE_COORDINATES)
+
+
+def test_the_regions_without_a_position_are_still_reachable():
+    """A map-only picker would strand them; the selector lists all seven."""
+    from app.modules.site import regions_without_a_position
+    from seagarden_dst import REGIONS
+
+    absent = regions_without_a_position()
+    assert absent, "expected at least one region with conditions but no coordinate"
+    assert set(absent) <= set(REGIONS)
+    assert set(absent).isdisjoint({m["region"] for m in _markers()})
+
+
+def test_every_marker_states_its_provenance():
+    """`SiteProvenance` exists so a coordinate cannot travel without saying where it
+    came from, and a map pin is the most 'this was surveyed' presentation there is."""
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    for marker in _markers():
+        coordinate = SITE_COORDINATES[marker["region"]]
+        assert marker["provenance"] == coordinate.provenance.value
+        assert marker["provenance_label"] == coordinate.provenance.label
+        assert marker["presentation"] == coordinate.provenance.presentation
+
+
+def test_marker_positions_are_lon_lat_and_match_the_coordinate():
+    """deck.gl wants [lon, lat]; the human habit is lat/lon. Swapping them puts every
+    Baltic site in Somalia, which looks like a map bug rather than a data bug."""
+    from seagarden_dst.forcing import SITE_COORDINATES
+
+    for marker in _markers():
+        coordinate = SITE_COORDINATES[marker["region"]]
+        lon, lat = marker["position"]
+        assert (lon, lat) == (coordinate.lon, coordinate.lat)
+        assert 9.0 < lon < 30.0, "longitude outside the Baltic"
+        assert 53.0 < lat < 60.0, "latitude outside the Baltic"
+
+
+def test_the_three_provenances_are_visually_distinguishable():
+    from app.modules.site import _PROVENANCE_COLOUR
+
+    colours = [tuple(c[:3]) for c in _PROVENANCE_COLOUR.values()]
+    assert len(set(colours)) == len(colours), "two provenances share a colour"
+
+
+def test_better_known_positions_draw_last():
+    """Where markers overlap, a confirmed position must not be hidden by a
+    representative one."""
+    from seagarden_dst.forcing import SiteProvenance
+
+    rank = {
+        SiteProvenance.INDICATIVE.value: 0,
+        SiteProvenance.SNAPPED.value: 1,
+        SiteProvenance.SITED.value: 2,
+    }
+    order = [rank[m["provenance"]] for m in _markers()]
+    assert order == sorted(order)
+
+
+def test_a_click_payload_without_a_region_moves_nothing():
+    """The pick payload's shape is not a contract this repository controls, so a miss
+    must leave the selector alone rather than raise inside a reactive effect."""
+    from app.modules.site import _region_from_click
+
+    assert _region_from_click(None) is None
+    assert _region_from_click({}) is None
+    assert _region_from_click({"object": {}}) is None
+    assert _region_from_click({"object": {"region": "LT-lagoon"}}) == "LT-lagoon"
+    assert _region_from_click({"region": "PL-coastal"}) == "PL-coastal"
+
+
+def _markers():
+    from app.modules.site import site_markers
+
+    return site_markers()
