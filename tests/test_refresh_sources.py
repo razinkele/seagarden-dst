@@ -85,3 +85,39 @@ def test_phy_provenance_is_pending_with_a_source_url_and_an_unblocked_by():
     assert archive.status == "pending"
     assert archive.source_url
     assert archive.unblocked_by
+
+
+def test_bgc_sums_nitrate_and_ammonium_into_din(tmp_path):
+    from seagarden_dst.refresh.sources.bgc import CopernicusBgc
+
+    layer = CopernicusBgc(
+        opener=lambda **kw: monthly_source({"no3": 4.0, "nh4": 1.5, "po4": 0.8}, [2024])
+    )
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
+
+    assert set(built.data_vars) == {"din_umol_l", "dip_umol_l"}
+    assert float(built["din_umol_l"].isel(year=0, month=0, latitude=0, longitude=0)) == 5.5
+    # approx, not ==: float32 0.8 reads back as 0.800000011920929. 5.5 and 7.0 are
+    # exactly representable; 0.8 is not.
+    assert float(
+        built["dip_umol_l"].isel(year=0, month=0, latitude=0, longitude=0)
+    ) == pytest.approx(0.8)
+
+
+def test_bgc_claims_dip_only_because_din_is_claimed_by_a_derivation():
+    """C§4.4: a computed field cannot also be claimed by a layer, or it is claimed twice."""
+    from seagarden_dst.refresh.sources.bgc import CopernicusBgc
+
+    assert CopernicusBgc().provenance().variables == ["dip_umol_l"]
+
+
+def test_bgc_declares_a_window_for_both_variables_it_produces(tmp_path):
+    """The driver resolves baselines over merged data_vars, not over claims."""
+    from seagarden_dst.refresh.sources.bgc import CopernicusBgc
+
+    layer = CopernicusBgc(
+        opener=lambda **kw: monthly_source({"no3": 4.0, "nh4": 1.5, "po4": 0.8}, [2024])
+    )
+    layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
+
+    assert layer.baseline_years() == {"din_umol_l": [2024], "dip_umol_l": [2024]}
