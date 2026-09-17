@@ -16,7 +16,10 @@ lives inside `_default_opener`, and `xarray` appears only under `TYPE_CHECKING`.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol
+
+from seagarden_dst.artifact.manifest import Archive, LayerProvenance
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import xarray as xr
@@ -29,6 +32,64 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 # product detail; 0-1 m selects it and nothing below it.
 SURFACE_MIN_DEPTH: float = 0.0
 SURFACE_MAX_DEPTH: float = 1.0
+
+# The strings every Copernicus layer shares verbatim. Named once here because
+# duplicated VALUES are where drift lives in this package: the wave layer shipped
+# the wrong `version` for exactly one reason — the provenance block was copy-pasted
+# across four modules and the one field that legitimately differs came along with it.
+COPERNICUS_SOURCE = "Copernicus Marine Service"
+COPERNICUS_LICENCE = "Copernicus Marine Service licence"
+COPERNICUS_PRODUCT_BASE = "https://data.marine.copernicus.eu/product"
+# `pending` until the built artifact is deposited; C§1 puts that outside package C.
+ARCHIVE_UNBLOCKED_BY = "Zenodo deposit of the built artifact; C§1 puts it outside package C"
+
+
+def product_url(product_id: str) -> str:
+    """The catalogue landing page for a product.
+
+    Derived rather than written out per layer so the URL a layer's `probe()` HEADs
+    and the URL its provenance records cannot drift apart — they are the same string
+    by construction.
+    """
+    return f"{COPERNICUS_PRODUCT_BASE}/{product_id}"
+
+
+def copernicus_provenance(
+    *,
+    name: str,
+    product_id: str,
+    dataset_id: str,
+    version: str,
+    variables: list[str],
+) -> LayerProvenance:
+    """Assemble a `LayerProvenance` from the shared strings plus the per-layer ones.
+
+    **Only the genuinely-shared values live in here.** `version`, `dataset_id`,
+    `product_id`, `name` and `variables` stay explicit arguments because C§11.1
+    requires them to be per-layer: the wave product is at `202411` while physics and
+    biogeochemistry are at `202303`, and `copernicus_bgc` and `copernicus_bgc_light`
+    share a product but read different datasets. Absorbing any of those into a shared
+    default would rebuild the copy-paste hazard this function exists to remove.
+
+    This is a helper, not a base class. `Layer` is a `Protocol` because C§5 chose
+    structural typing over inheritance, and the fifth layer — `emodnet_bathy` —
+    shares none of this: not `open_window`, not the depth handling, not these
+    strings, not even the host its probe hits.
+    """
+    url = product_url(product_id)
+    return LayerProvenance(
+        name=name,
+        source=COPERNICUS_SOURCE,
+        product_id=product_id,
+        dataset_id=dataset_id,
+        version=version,
+        retrieved_on=datetime.now(UTC),
+        licence=COPERNICUS_LICENCE,
+        redistribution="allowed",
+        source_url=url,
+        archive=Archive(status="pending", source_url=url, unblocked_by=ARCHIVE_UNBLOCKED_BY),
+        variables=list(variables),
+    )
 
 
 class DatasetOpener(Protocol):

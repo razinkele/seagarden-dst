@@ -15,11 +15,10 @@ No unit conversion: `no3`, `nh4` and `po4` are mmol m-3, which is micromol/L.
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from seagarden_dst.artifact.manifest import Archive, LayerProvenance
+from seagarden_dst.artifact.manifest import LayerProvenance
 from seagarden_dst.refresh.layer import ProbeResult, YearRange
 from seagarden_dst.refresh.sources import cmems
 from seagarden_dst.refresh.sources.reachability import url_reachable
@@ -31,7 +30,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 DATASET_ID = "cmems_mod_bal_bgc_my_P1M-m"
 PRODUCT_ID = "BALTICSEA_MULTIYEAR_BGC_003_012"
-SOURCE_URL = "https://data.marine.copernicus.eu/product/BALTICSEA_MULTIYEAR_BGC_003_012"
+SOURCE_URL = cmems.product_url(PRODUCT_ID)
 
 _SOURCE_VARIABLES = ["no3", "nh4", "po4"]
 
@@ -76,21 +75,13 @@ class CopernicusBgc:
         )
 
     def provenance(self) -> LayerProvenance:
-        return LayerProvenance(
+        return cmems.copernicus_provenance(
             name=self.name,
-            source="Copernicus Marine Service",
             product_id=PRODUCT_ID,
             dataset_id=DATASET_ID,
+            # The BGC reanalysis's catalogue version, checked 15 September 2026
+            # (C§11.1). Per-layer, not shared: the wave product is at 202411.
             version="202303",
-            retrieved_on=datetime.now(UTC),
-            licence="Copernicus Marine Service licence",
-            redistribution="allowed",
-            source_url=SOURCE_URL,
-            archive=Archive(
-                status="pending",
-                source_url=SOURCE_URL,
-                unblocked_by="Zenodo deposit of the built artifact; C§1 puts it outside package C",
-            ),
             variables=list(_CLAIMED),
         )
 

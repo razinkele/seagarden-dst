@@ -8,11 +8,10 @@ them — see C§3.4 for the one variable where that is false.
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from seagarden_dst.artifact.manifest import Archive, LayerProvenance
+from seagarden_dst.artifact.manifest import LayerProvenance
 from seagarden_dst.refresh.layer import ProbeResult, YearRange
 from seagarden_dst.refresh.sources import cmems
 from seagarden_dst.refresh.sources.reachability import url_reachable
@@ -24,7 +23,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 DATASET_ID = "cmems_mod_bal_phy_my_P1M-m"
 PRODUCT_ID = "BALTICSEA_MULTIYEAR_PHY_003_011"
-SOURCE_URL = "https://data.marine.copernicus.eu/product/BALTICSEA_MULTIYEAR_PHY_003_011"
+SOURCE_URL = cmems.product_url(PRODUCT_ID)
 
 # source variable -> artifact variable. No unit conversion: `so` is numerically psu
 # and `thetao` is degrees Celsius (package B's provenance table).
@@ -66,21 +65,13 @@ class CopernicusPhy:
         )
 
     def provenance(self) -> LayerProvenance:
-        return LayerProvenance(
+        return cmems.copernicus_provenance(
             name=self.name,
-            source="Copernicus Marine Service",
             product_id=PRODUCT_ID,
             dataset_id=DATASET_ID,
+            # The PHY reanalysis's catalogue version, checked 15 September 2026
+            # (C§11.1). Per-layer, not shared: the wave product is at 202411.
             version="202303",
-            retrieved_on=datetime.now(UTC),
-            licence="Copernicus Marine Service licence",
-            redistribution="allowed",
-            source_url=SOURCE_URL,
-            archive=Archive(
-                status="pending",
-                source_url=SOURCE_URL,
-                unblocked_by="Zenodo deposit of the built artifact; C§1 puts it outside package C",
-            ),
             variables=["salinity_psu", "temp_c"],
         )
 
