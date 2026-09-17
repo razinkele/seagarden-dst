@@ -429,7 +429,9 @@ def test_the_cli_refresh_branch_builds_a_pair(
     assert (target / "manifest.json").exists()
 
 
-def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(tmp_path, monkeypatch):
+def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(
+    tmp_path, monkeypatch, nine_variable_layers
+):
     # The patch in the test above would hide a CLI that stopped calling `baltic`, so
     # pin the property that makes the patch safe: there is no grid option, therefore
     # `GridSpec.baltic()` is the only extent the refresh branch can possibly use.
@@ -438,6 +440,10 @@ def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(tmp_path, monkeypat
     # `test_the_cli_refresh_branch_builds_a_pair` does: without them the CLI's
     # defaults mkdir `.refresh-work/` in the working tree on every spatial run,
     # and this repository's tree is shared with concurrent sessions.
+    #
+    # The registry is patched with all five C§5 layers (`nine_variable_layers`), not
+    # a lone one: Step 3b's incomplete-registry guard now refuses before ever asking
+    # for the grid, which would hide the very failure this test wants to reach.
     import scripts.refresh_layers as cli
     from seagarden_dst.artifact.grid import GridSpec
 
@@ -445,9 +451,7 @@ def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(tmp_path, monkeypat
 
     called = []
     monkeypatch.setattr(GridSpec, "baltic", classmethod(lambda cls: called.append(cls) or None))
-    monkeypatch.setattr(
-        cli, "REGISTRY", {"copernicus_phy": FakeLayer("copernicus_phy", ["temp_c"])}
-    )
+    monkeypatch.setattr(cli, "REGISTRY", {ly.name: ly for ly in nine_variable_layers})
     with pytest.raises(Exception):  # noqa: B017 - it fails downstream on a None grid
         cli.main(
             [

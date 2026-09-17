@@ -27,7 +27,7 @@ _SRC_DIR = _ROOT / "src"
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
-from seagarden_dst.refresh.layer import Layer, ProbeResult, YearRange  # noqa: E402
+from seagarden_dst.refresh.layer import LAYER_NAMES, Layer, ProbeResult, YearRange  # noqa: E402
 from seagarden_dst.refresh.registry import REGISTRY  # noqa: E402
 
 
@@ -99,6 +99,22 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\n{len(unreachable)} source(s) unreachable: {unreachable}")
             return 1
         return 0
+
+    # The refresh branch only: registering four of the five C§5 layers passed the
+    # empty-registry guard above, so without this check a refresh would open real
+    # Copernicus datasets, pull data over the wire, and only then die deep inside
+    # `compute_valid` or manifest validation because `valid`'s derivation names
+    # `emodnet_bathy` and no such layer is registered. Refusing here trades an
+    # expensive failure for a cheap one. `--probe` stays permissive: reporting on
+    # four reachable sources is still useful while the fifth is unregistered.
+    missing = sorted(set(LAYER_NAMES) - set(REGISTRY))
+    if missing:
+        parser.error(
+            f"cannot refresh: {', '.join(missing)} "
+            f"{'is' if len(missing) == 1 else 'are'} named in C§5 but not "
+            "registered, so the artifact would be missing variables the manifest "
+            "must claim. Refusing before the download rather than after it."
+        )
 
     # Imported here, not at module scope: the probe path must stay free of xarray.
     from seagarden_dst.artifact.grid import GridSpec
