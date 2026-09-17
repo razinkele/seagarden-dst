@@ -121,3 +121,67 @@ def test_bgc_declares_a_window_for_both_variables_it_produces(tmp_path):
     layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
 
     assert layer.baseline_years() == {"din_umol_l": [2024], "dip_umol_l": [2024]}
+
+
+def daily_zsd_source(values_by_day: list[float], year: int = 2024):
+    """A daily-frequency zsd Dataset. `values_by_day` repeats to fill the year."""
+    import pandas as pd
+    import xarray as xr
+
+    times = pd.date_range(f"{year}-01-01", f"{year}-12-31", freq="D")
+    grid = tiny_grid()
+    column = np.resize(np.asarray(values_by_day, dtype="float32"), len(times))
+    data = np.repeat(np.repeat(column[:, None, None], 3, axis=1), 3, axis=2)
+    return xr.Dataset(
+        {"zsd": (("time", "latitude", "longitude"), data)},
+        coords={"time": times, "latitude": grid.lats(), "longitude": grid.lons()},
+    )
+
+
+def test_light_averages_k_over_days_rather_than_inverting_the_monthly_mean(tmp_path):
+    """C§3.4 and Jensen: mean(1.7/z) != 1.7/mean(z), and the difference is the bug.
+
+    This test FAILS if the derivation is moved to the monthly product or reordered
+    to 1.7/mean(z). With z alternating 2 and 8, the two routes differ by ~28%.
+    """
+    from seagarden_dst.refresh.sources.bgc_light import CopernicusBgcLight
+
+    layer = CopernicusBgcLight(opener=lambda **kw: daily_zsd_source([2.0, 8.0]))
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
+
+    computed = float(built["light_attenuation_k"].isel(year=0, month=0, latitude=0, longitude=0))
+
+    # Derive both expectations from the ACTUAL January the source builder produced.
+    # January has 31 days, so [2.0, 8.0] repeating gives 16 twos and 15 eights - NOT
+    # a balanced pair. Hard-coding mean([1.7/2, 1.7/8]) = 0.53125 would be wrong by
+    # 1.9% against a CORRECT implementation, and the obvious way to make that green
+    # is to reorder the division - which is the bug this test exists to catch.
+    january = np.resize(np.asarray([2.0, 8.0], dtype="float32"), 366)[:31]
+    correct = float(np.mean(1.7 / january))     # 0.5415
+    wrong = 1.7 / float(np.mean(january))       # 0.3467
+
+    assert computed == pytest.approx(correct, rel=1e-4)
+    assert computed != pytest.approx(wrong, rel=1e-2)
+
+
+def test_light_emits_only_k_at_the_yearly_shape(tmp_path):
+    from seagarden_dst.refresh.sources.bgc_light import CopernicusBgcLight
+
+    layer = CopernicusBgcLight(opener=lambda **kw: daily_zsd_source([3.0]))
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
+
+    assert set(built.data_vars) == {"light_attenuation_k"}
+    assert tuple(built["light_attenuation_k"].dims) == ("year", "month", "latitude", "longitude")
+
+
+def test_light_claims_nothing_at_all():
+    """C§5: its only output is derived, so its `variables` is empty BY DESIGN."""
+    from seagarden_dst.refresh.sources.bgc_light import CopernicusBgcLight
+
+    assert CopernicusBgcLight().provenance().variables == []
+
+
+def test_light_reads_the_daily_dataset_not_the_monthly_one():
+    from seagarden_dst.refresh.sources.bgc_light import CopernicusBgcLight
+
+    assert CopernicusBgcLight().provenance().dataset_id.endswith("P1D-m")
