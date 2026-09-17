@@ -17,7 +17,9 @@ def test_year_range_rejects_an_end_before_its_start():
 
 
 def test_probe_result_carries_its_detail():
-    result = ProbeResult(name="copernicus_phy", reachable=True, detail="catalogue responded")
+    result = ProbeResult(
+        name="copernicus_phy", status="ok", reachable=True, detail="catalogue responded"
+    )
     assert result.detail == "catalogue responded"
     assert (result.name, result.reachable) == ("copernicus_phy", True)
 

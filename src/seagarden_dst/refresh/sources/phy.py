@@ -48,7 +48,12 @@ class CopernicusPhy:
 
     def probe(self) -> ProbeResult:
         reachable, detail = url_reachable(SOURCE_URL, opener=self._reachability_opener)
-        return ProbeResult(name=self.name, reachable=reachable, detail=detail)
+        return ProbeResult(
+            name=self.name,
+            status="ok" if reachable else "unreachable",
+            reachable=reachable,
+            detail=detail,
+        )
 
     def build(self, grid: GridSpec, years: YearRange, workdir: Path) -> xr.Dataset:
         import xarray as xr
