@@ -141,8 +141,10 @@ magnitude more than the +17.4% that monthly resolution buys.
 
 **The migration surface, counted rather than estimated** (occurrences of
 `conditions_for` or `daily_forcing`): `tests/test_forcing_source.py` 19,
-`tests/test_cultivation_window.py` 10, `src/seagarden_dst/forcing.py` 7,
-`src/seagarden_dst/contracts.py` 2, `src/seagarden_dst/growth.py` 1. Two thirds of it is
+`tests/test_cultivation_window.py` 10, `src/seagarden_dst/forcing.py` 8,
+`src/seagarden_dst/contracts.py` 2, `src/seagarden_dst/growth.py` 1, and
+`src/seagarden_dst/params.py` 1 — that last one a docstring reference to
+`forcing.daily_forcing`, which a signature change makes wrong without breaking a test. Two thirds of it is
 test code, which is the good case: those tests are what stop the widened protocol being
 satisfied without the new behaviour being proven. `api.py` holds `DEFAULT_FORCING` and
 passes `forcing: ForcingSource` into both `assess_site` and its sibling at `api.py:72`,
@@ -170,9 +172,21 @@ branch `Aggregation` reports.
 
 ## D§5 Module boundary
 
-`seagarden_dst/gridded.py` is new and holds `GriddedForcing`. **It is the only module in
-`src/` that imports xarray**, and a test asserts exactly that, in the shape
-`tests/test_refresh_isolation.py` already uses for `refresh/`.
+`seagarden_dst/gridded.py` is new and holds `GriddedForcing`. **It is the only module
+outside `refresh/` that imports xarray**, and a test asserts exactly that, in the shape
+`tests/test_refresh_isolation.py` already uses.
+
+The scope matters, and an earlier draft of this section got it wrong by claiming
+`gridded.py` would be the only xarray importer in `src/` at all. Five modules under
+`src/seagarden_dst/refresh/` already reference xarray — `driver.py:30`, `layer.py:18`,
+`merge.py:18` and `:85`, `shapes.py:15`, `writer.py:27` — and `merge.py:85` is a real
+runtime `import xarray as xr` inside `merge_layers`, not a `TYPE_CHECKING` guard. That is
+correct and intended: `refresh/` is build-time tooling, already walled off from the core by
+`test_no_core_module_imports_refresh`.
+
+The property D-a actually needs is therefore about the **core**, not about `src/`: outside
+`refresh/`, exactly one module is xarray-bound, and it is `gridded.py`. A test scoped to
+`src/` would fail the day it was written.
 
 This is not tidiness. The model core (`growth`, `shellfish`, `nutrients`, `suitability`)
 and the app must both work on an install with no `spatial` extra — CI's `[app,dev]` job is
@@ -207,6 +221,32 @@ refuses a torn pair on the sha256 that links artifact to manifest, and an unreco
 The last row is deliberately not a coverage failure. There is data; it simply falls
 outside a calibration domain, which §7 handles by forcing tier C rather than blocking.
 
+**But "all tier C" is wrong, and getting it wrong here would suppress the one verdict this
+tool exists to surface.** §7's force-tier-C rule and §3.2's contraindication rule disagree
+for a site that is both unlocatable and below a species' salinity floor — a 2 psu
+sugar-kelp polygon with `region=None`. The data-layer design settled it at §8.1:
+*"`contraindication()` wins — a salinity finding does not stop applying because the polygon
+is unlocatable — and D's done-when carries the test."*
+
+The code already behaves that way. `growth.contraindication()` resolves the floor through
+`species.salinity_floor()` and returns `Calibration(tier=Tier.D, ...)` whenever
+`site.salinity_psu < floor_psu`; **that branch never gates on region**. It is called
+unconditionally from `suitability.py:128`, `growth.py:181`, `growth.py:214` and
+`shellfish.py:86`, and `Calibration.is_reportable` is False for tier D
+(`calibration.py:67-69`), so the number is suppressed in favour of the note.
+
+So the row means: **tier C is the floor, not the ceiling.** Being outside every calibration
+domain stops a result claiming better than tier C; it does not stop `contraindication()`
+making it tier D. An implementer who writes the outside-every-domain test as "every
+quantity comes back tier C" will see it fail against correct code, and the natural repair —
+special-casing `region=None` so contraindication is skipped — deletes the OLAMUR finding
+for exactly the unlocated polygons where the salinity evidence still applies.
+
+One implementation note this raises: `species.calibration_for(region)` is called with
+`site.region`, and D-a introduces `region=None`. Check what that call does with `None`
+before relying on it; if it raises, the reader must resolve a default calibration rather
+than pass `None` through.
+
 ### `daily_forcing`
 
 Monthly fields **replace** the sinusoid rather than feeding it (§6.2), interpolated
@@ -226,28 +266,41 @@ C§3.5 assigns package D a NaN-handling defect in `select_method`/`assess_physic
 a method anyway, and `assess_physical` evaluates `not (min <= nan <= max)` as `True`,
 producing a confident **UNSUITABLE** manufactured from missing data.
 
-**That description is stale.** Commit `6de3b0f` — *"Refuse non-finite site conditions, and
-correct where the guard sits"* — put the check in `SiteConditions.__post_init__`, which
-refuses any non-finite field at construction. `assess_physical(site: SiteConditions, ...)`
-therefore cannot receive a NaN through its own signature, and the defect is unreachable
-by that route. Its docstring anticipated this package by name: *"the guarantee is
-inherited by construction rather than by each caller remembering — including by package
-D's `GriddedForcing`, which does not exist yet."*
+**That description was half stale, and this section said so wrongly once before.** The
+history is worth keeping, because the claim has flipped three times and the reason it kept
+flipping is instructive.
 
-Adding guards to `select_method` and `assess_physical` would therefore be dead code that
-looks load-bearing, which this project has spent the day removing rather than adding.
+Commit `6de3b0f` put a finite-value check in `SiteConditions.__post_init__`. An earlier
+draft of this section concluded the defect was therefore unreachable and the requirement
+inverted. **That was wrong**: the guard filtered with `isinstance(value, (int, float))`,
+and while `np.float64` subclasses Python's `float`, **`np.float32` does not** — and every
+variable in the artifact is float32 (C§3.2). So the guard was blind to precisely the dtype
+its own docstring is about: *"A land cell in a gridded product gives NaN for every
+variable."* Reading a land cell would have constructed a `SiteConditions` holding
+`np.float32('nan')` and the confident-`UNSUITABLE` path would have run exactly as C§3.5
+describes.
 
-**The requirement inverts.** Because `SiteConditions` **raises** on a non-finite field,
-`GriddedForcing` must decide coverage **before** attempting construction. A land cell
-must yield `CELL_INVALID` with `conditions=None`; if the reader instead builds a
-`SiteConditions` from that cell's NaNs it gets a `ValueError`, and a land-cell query
-**crashes** where §7 requires it to block visibly. The artifact's `valid` field —
-package C-b's intersection of contributing layer coverage — is exactly what the reader
-consults to know which it is, and is why that field exists.
+Commit `3f0bc35` fixed it — `numbers.Real`, which numpy's scalar types register with, so
+both widths are caught — with a delete proof and tests for both dtypes. **The guard is now
+real**, and adding further guards to `select_method` and `assess_physical` would be dead
+code that looks load-bearing.
 
-This is a better guard than the one C§3.5 asked for: it is reachable, it has a natural
-test (query a land cell, expect a blocked reading and no exception), and the mutation that
-proves it is removing the pre-check and watching a `ValueError` escape.
+**So the requirement for D-a is about coverage, not about NaN.** Two facts set it:
+
+1. **The `valid` field is the authority, not NaN-detection.** C§3.5 introduced an explicit
+   boolean field precisely because inferring validity from NaN is unreliable, and the
+   committed fixture proves the point: its invalid cell (`valid[0,0] = False`) holds
+   *finite* random values, because the fixture is synthetic. A reader that inferred
+   invalidity from NaN would return conditions for that cell. `GriddedForcing` reads
+   `valid` by value and never infers.
+2. **Coverage is decided before construction.** `SiteConditions` raises on a non-finite
+   field, so a reader that builds first and checks later turns a real land cell — where
+   C§3.2 says the float32 fields *are* NaN — into a `ValueError`, which is a crash where
+   §7 requires a visible block.
+
+The two together are the requirement: consult `valid`, return `CELL_INVALID` with
+`conditions=None` when it is false, and never attempt construction from a cell the mask
+has already excluded.
 
 ---
 
@@ -262,22 +315,37 @@ The four the data-layer row requires:
 
 Four more the architecture needs:
 
-5. `gridded.py` is the **only** module under `src/` that imports xarray, asserted by an
-   AST scan over the whole tree — not over the one file somebody was thinking about.
+5. `gridded.py` is the **only** module outside `refresh/` that imports xarray, asserted
+   by an AST scan over the whole tree — not over the one file somebody was thinking about.
+   Scoped to the core, not to `src/`: five `refresh/` modules already import xarray, one of
+   them at runtime, and a `src/`-wide assertion would fail the day it was written.
 6. `PlaceholderForcing` satisfies the widened protocol, and the app still works with no
    artifact present.
 7. The distance to the nearest valid cell is reported, and is plausible: §6.2 measured
    0.75–1.28 km across all six regions at native resolution.
-8. A query whose containing cell is land **blocks and does not raise**. `SiteConditions`
-   refuses non-finite fields at construction, so a reader that builds before checking
-   coverage turns a land cell into a `ValueError` where §7 requires a visible block.
-   Proven by removing the pre-check and watching a `ValueError` escape.
+8. A query whose containing cell is marked invalid **blocks and does not raise**, and
+   blocks on the `valid` field rather than on NaN. Two tests, because the committed fixture
+   can only prove one of them: (a) against the fixture, whose invalid cell holds *finite*
+   values, a query there returns `CELL_INVALID` with `conditions=None` — which fails if the
+   reader infers validity from NaN instead of reading the mask; (b) against a small
+   in-memory dataset carrying `np.float32('nan')` at the invalid cell, the same query
+   blocks rather than raising `ValueError` from `SiteConditions`. Proven by removing the
+   `valid` pre-check: (a) goes red by returning conditions, (b) by raising.
 
 And the visibility §7 demands, which is the point of the mechanism:
 
 9. The app shows a banner naming what the tool is running on, and Results and Report
    distinguish **unassessed** from **unsuitable**. A flag nothing displays is invisible
    degradation with extra steps.
+
+10. **A site outside every calibration domain that is below a species' salinity floor
+    still returns tier D, not tier C.** §8.1 of the data-layer design resolves the
+    §7-versus-§3.2 tension this way — "`contraindication()` wins ... and D's done-when
+    carries the test" — and this is that clause. The canonical case: *Saccharina* at
+    2 psu with `region=None` must yield tier D, `is_reportable` False, and the note in
+    place of the number. Proven by the repair that would break it: skip or downgrade
+    `contraindication()` when `region is None` and watch this test go red while an
+    "everything is tier C" test goes green.
 
 Everything runs against the **committed fixture** package C-a already ships — 3 × 3 cells,
 two years, every variable at its real shape, written by the same writer as a production

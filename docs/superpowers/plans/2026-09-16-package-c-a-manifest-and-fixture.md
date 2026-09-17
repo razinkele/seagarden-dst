@@ -40,23 +40,28 @@ Both are recorded here rather than decided silently in code. If you disagree, ra
 
 ## File structure
 
-**RULING (recorded during the final fix wave, 2026-09-16): `seagarden_dst.artifact`
-shipped as `seagarden_dst.refresh`.** Every task brief below silently implemented
-the file structure and "Why `artifact/` is not under `refresh/`" argument that
-follow using `refresh/` in place of `artifact/`, and no ruling was recorded at the
-time. The ~24 references to `seagarden_dst.artifact.*` in this document (the table
-below, the task briefs, the code fences) are stale; they are not rewritten here —
-one note is clearer than 24 mechanical edits, and the actual shipped code is the
-source of truth for exact module paths. The ruling: `refresh/` keeps everything
-for C-a. C§4.3 names `seagarden_dst/refresh/manifest.py` explicitly, and splitting
-the schema into a new core-side package at the end of a long branch is a large,
-untested refactor that belongs to a design decision, not a cleanup at the end of
-C-a. The consequence is real: package D cannot import `Manifest` or `load_pair`
-without either importing `refresh/` (which `test_no_core_module_imports_refresh`
-forbids) or re-homing the pydantic-only half of this design into a new core-side
-package later. That is unresolved here and is left for C-b or D to settle — see
-`src/seagarden_dst/refresh/manifest.py`'s module docstring for the same note kept
-beside the code.
+**RULING, SUPERSEDED 2026-09-17. The module paths below are accurate as written.**
+
+A ruling recorded during C-a's final fix wave (2026-09-16) said `seagarden_dst.artifact`
+had shipped as `seagarden_dst.refresh`, that the ~24 `seagarden_dst.artifact.*`
+references in this document were stale, and that package D could not reach `Manifest` or
+`load_pair` without either importing `refresh/` or re-homing the schema later.
+
+**Commit `b886481` built the package this plan designed**, one commit after that ruling:
+`src/seagarden_dst/artifact/{__init__,grid,manifest,pair}.py`. `refresh/writer.py`,
+`layer.py`, `driver.py` and `deposit.py` all import from it, and
+`tests/test_refresh_isolation.py:120` names `seagarden_dst.artifact` (`_SHARED`) as the
+one permitted crossing of the boundary, with a third test keeping that package free of
+anything needing the `spatial` extra.
+
+So the ruling's stated consequence — that D must first re-home the schema — never
+materialised. Package D imports `Manifest`, `sha256_of` and `load_pair` from
+`seagarden_dst.artifact` directly, which is what the 2026-09-17 package D-a design builds
+on. The note is kept rather than deleted because the ruling was real and reversing it was
+a decision; it is marked superseded so a reader does not plan a refactor that already
+happened. The same superseded claim has been removed from
+`src/seagarden_dst/artifact/manifest.py`'s module docstring, which had outlived its own
+premise while sitting inside the package it said was never built.
 
 | File | Responsibility |
 |---|---|
@@ -1109,7 +1114,7 @@ C§7: synthetic-valued but structurally real — 3×3 cells, 2 years, every vari
 - `valid` has `[0, 0]` set `False`; every other cell `True`.
 - `synthetic=True`, `artifact_schema_version=1`, `built_on=2026-01-01T00:00:00Z`.
 - Every layer: `version="synthetic"`, `retrieved_on=2026-01-01T00:00:00Z`, `archive.status="pending"` with a real `source_url` and an `unblocked_by` of `"the Zenodo deposit is outside package C (C1)"`.
-- The five layers, their `dataset_id`s and their `variables` are exactly Task 3's `_layers()`; the two derivations exactly Task 3's `_derived()`; the baselines exactly Task 3's `_baselines()` **except** that the year lists are `[2024, 2025]` for the five annual variables and `[2024, 2025]` for `significant_wave_m` — the fixture is two years, and its baselines must describe the fixture, not production.
+- The five layers, their `dataset_id`s and their `variables` are exactly Task 3's `_layers()`; the **three** derivations exactly Task 3's `_derived()` — `light_attenuation_k`, `valid` and `din_umol_l`, the last added in `2bf119e` because C§4.1's test is MULTI-SOURCE rather than "computed", so `no3` + `nh4` needs a named relation and `copernicus_bgc` claims only `dip_umol_l`; the baselines exactly Task 3's `_baselines()` **except** that the year lists are `[2024, 2025]` for the five annual variables and `[2024, 2025]` for `significant_wave_m` — the fixture is two years, and its baselines must describe the fixture, not production.
 
 - [ ] **Step 1: Write the failing tests**
 

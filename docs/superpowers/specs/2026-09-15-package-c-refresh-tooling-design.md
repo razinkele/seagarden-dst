@@ -54,8 +54,14 @@ reported", and because the minimum is the number that matters for a structure wi
 
 ## C§3 The artifact
 
-One NetCDF4 file, fixed name `forcing.nc`, in `$SEAGARDEN_DATA_DIR` (default `data/`),
-written with zlib complevel 4 — package B's format decision.
+One NetCDF4 file, fixed name `forcing.nc`, beside its `manifest.json` in the directory
+given to the refresh CLI's `--target`, which defaults to `data/forcing`
+(`scripts/refresh_layers.py`); written with zlib complevel 4 — package B's format
+decision. The directory is passed explicitly on both sides — `write_pair(dataset,
+manifest, target_dir)` and `load_pair(target_dir)` — and no environment variable is
+consulted. Nothing on `main` reads a `SEAGARDEN_DATA_DIR`; if that locator is wanted, it
+is unbuilt work, and this section, the D-a design and §6.3 must be changed together with
+the CLI default.
 
 ### C§3.1 Extent
 
@@ -164,18 +170,25 @@ contributing layers' coverage, and D reads that rather than inferring validity f
 whichever variable it happened to look at. The manifest records which layers the
 intersection covers.
 
-**This is not defensive tidiness.** Verified in the current code: if `depth_m` reaches
-`api.select_method` as NaN, every `m.min_depth_m <= conditions.depth_m <= m.max_depth_m`
-comparison is false, `workable` is empty, and `pool = workable or candidates` falls through
-to returning a method anyway. `suitability.assess_physical` then evaluates
-`not (min <= nan <= max)`, which is `True`, and returns a confident **`UNSUITABLE`**:
-*"Depth nan m is outside the workable window"*. A definitive negative verdict manufactured
-from missing data — precisely what §7 exists to prevent, and it becomes reachable the moment
-D reads a real artifact.
+**This is not defensive tidiness.** Before commit `6de3b0f`, a NaN `depth_m` reaching
+`api.select_method` made every `m.min_depth_m <= conditions.depth_m <= m.max_depth_m`
+comparison false, left `workable` empty, and `pool = workable or candidates` returned a
+method anyway; `suitability.assess_physical` then evaluated `not (min <= nan <= max)` as
+`True` and returned a confident **`UNSUITABLE`**: *"Depth nan m is outside the workable
+window"* — a definitive negative verdict manufactured from missing data, precisely what §7
+exists to prevent. Those two functions still read exactly that way
+(`src/seagarden_dst/api.py:56-64`, `src/seagarden_dst/suitability.py:99-105`), but **the
+route to them is closed**: `SiteConditions.__post_init__` (`src/seagarden_dst/forcing.py`)
+refuses any non-finite float field at construction, on a frozen dataclass that
+`dataclasses.replace` cannot bypass. A land cell built into `SiteConditions` now raises
+`ValueError` rather than producing a verdict.
 
-Writing a single `valid` field is C's half of the fix. **The NaN-handling defect in
-`select_method`/`assess_physical` is package D's half**, and C§11 records it as an
-amendment so it is owned rather than noticed.
+Writing a single `valid` field is C's half of the fix, and it is now the load-bearing half.
+**D's half is no longer patching `select_method`/`assess_physical`** — guards there would
+be dead code defending a closed hole. D's half is consulting `valid` **before** it
+constructs anything, so an invalid cell yields a blocked, `UNKNOWN` reading rather than a
+`ValueError` escaping from the reader. C§11 records it as an amendment so it is owned
+rather than noticed.
 
 ## C§4 The manifest
 
@@ -304,10 +317,15 @@ the cheap structural fix for that class of defect.
 
 ### C§4.3 The manifest is a Pydantic model
 
-`seagarden_dst/refresh/manifest.py` defines the models with `extra="forbid"`, matching
-`params.py`. §6.3's provenance rules are `model_validator`s, so a layer carrying neither a
-valid archive state — `deposited` with a DOI, `forbidden` with a URL, or `pending` with a
-URL and an `unblocked_by` note (C§4.1) — **fails at load**, not mid-analysis; the principle
+`seagarden_dst/artifact/manifest.py` defines the models with `extra="forbid"`, matching
+`params.py`; `GridSpec` lives in `artifact/grid.py` and the read side (`load_pair`,
+`check_declaration`) in `artifact/pair.py`. The schema sits in `artifact/` rather than
+`refresh/` precisely so D and C1 can import it without importing `refresh/` itself: a core
+module may not import `refresh/` (C§10 clause 8, `tests/test_refresh_isolation.py`), and
+`refresh/` imports `artifact/` as the one permitted exception across that boundary. §6.3's
+provenance rules are `model_validator`s, so a layer carrying neither a valid archive
+state — `deposited` with a DOI, `forbidden` with a URL, or `pending` with a URL and an
+`unblocked_by` note (C§4.1) — **fails at load**, not mid-analysis; the principle
 `_check_salinity_indexed_is_computable` and the `Anchor` range validator already follow.
 
 This makes §9's provenance test a model-load rather than a list of ad-hoc assertions, and
@@ -394,9 +412,18 @@ model core**, which keeps the `spatial` extra confined as §4 requires; a test a
 class Layer(Protocol):
     name: str
     def probe(self) -> ProbeResult: ...
-    def build(self, grid: GridSpec, workdir: Path) -> xr.Dataset: ...
+    def build(self, grid: GridSpec, years: YearRange, workdir: Path) -> xr.Dataset: ...
     def provenance(self) -> LayerProvenance: ...
+    def baseline_years(self) -> dict[str, list[int]]: ...
 ```
+
+Five members, not four. `build` takes the span because a refresh is named by its year
+range — `YearRange(start, end)`, inclusive at both ends, is what C§10 clause 1 means by
+"a named year range". `baseline_years()` returns each variable this layer produces mapped
+to its window, because the window a variable rests on cannot be read off its dimensions:
+`significant_wave_m` has no `year` dim and a 2023–2025 window, which is exactly the case
+C§4.4 calls out by name. A layer may ignore the `years` it is given — the wave window is
+fixed by C§3.2 — but it must then say so through `baseline_years()`.
 
 **`build()` is one method, not `fetch()` then `normalise()`.** The obvious split breaks on
 waves: 26 GB cannot be fetched and then normalised, it has to be reduced while streaming,
@@ -508,8 +535,10 @@ carrying every variable at its correct shape, written by the *same* writer and m
 code as a production refresh, with `synthetic: true` set in the manifest.
 
 It carries **one `LayerProvenance` per dataset** — five, including both BGC products —
-`derived` entries for `light_attenuation_k` and `valid`, and `[]` baselines for all three
-static fields, `valid` among them (C§4.4). Its layers carry **`archive.status: pending`**, not
+`derived` entries for the **three** C§4.1 multi-source fields, `light_attenuation_k`,
+`valid` and `din_umol_l` (a derivation, not a `copernicus_bgc` variable: `copernicus_bgc`
+claims `dip_umol_l` alone), and `[]` baselines for all three static fields, `valid` among
+them (C§4.4). Its layers carry **`archive.status: pending`**, not
 an invented DOI. That is the state a real first refresh produces, so the fixture exercises the
 path production actually takes; a fixture carrying a fake DOI would test a state package C
 never reaches.
@@ -624,10 +653,15 @@ a product page:
   C§11.1 says `202411`; a probe of this shape would have caught it on the first monthly
   run without anyone re-reading the catalogue table.
 
-`copernicusmarine` lives in the `spatial` extra, so **this job installs that extra** —
-the probe path is otherwise xarray-free and an earlier version of `source-probe.yml`
-installed no extras at all, which was correct while `REGISTRY` was empty and became wrong
-the moment real layers landed.
+`copernicusmarine` lives in the `spatial` extra, so **this job must install that extra**
+once real layers land. **As of this design, on `main`, it does not:** `source-probe.yml`
+runs `pip install -e .` with no extras, and `tests/test_refresh_cli.py`'s
+`test_the_probe_workflow_installs_without_the_spatial_extra` asserts exactly that, citing
+this section. Both are correct today, because `REGISTRY` is still empty (C§9, C§12) and
+the probe path is otherwise xarray-free — there is nothing yet to call
+`copernicusmarine.describe()` against. Both flip together in the commit that lands real
+layers: the workflow gains `[spatial]`, and the test's assertion inverts to require it.
+Until then, `copernicusmarine` cannot even be imported in that job.
 
 Separate from `ci.yml` so that a dead upstream source turns that job red and **blocks no
 pull request** — §4.1's "may fail loudly without blocking anything". Gating merges on the
@@ -706,11 +740,14 @@ To be made when this design is accepted, not silently assumed:
   The "§4.1 — Zenodo archive" row's *Checked by* cell must widen beyond the fixture
   provenance test to name C§10 clause 9, since that row currently claims a check that
   cannot fail.
-- **Package D gains two items it does not have.** (1) The NaN-depth defect of C§3.5:
-  `select_method`'s `pool = workable or candidates` plus `assess_physical`'s
-  `not (min <= nan <= max)` turn missing depth into a confident `UNSUITABLE`. D must read
-  the `valid` field and return `UNKNOWN`, never a verdict, for an invalid cell. (2) The
-  **temperature mapping**: the artifact carries one `temp_c`, while `SiteConditions` needs
+- **Package D gains two items it does not have.** (1) The unassessable-cell path of C§3.5:
+  since commit `6de3b0f`, `SiteConditions.__post_init__` refuses non-finite fields, so a
+  land cell no longer produces a confident `UNSUITABLE` — it raises `ValueError` inside the
+  reader instead. D must read the `valid` field and return `UNKNOWN`, never a verdict and
+  never an exception, for an invalid cell, deciding coverage **before** construction rather
+  than adding NaN guards to `select_method`/`assess_physical`, which would never fire. (2)
+  The **temperature mapping**: the artifact carries one `temp_c`, while `SiteConditions`
+  needs
   `mean_temp_c`, `summer_temp_c` and `winter_temp_c`. D owns the derivation and must name
   the month definitions it uses; §6.1 should record it, exactly as C§11 already asks it to
   record `depth_m` resolving to `depth_mean_m`/`depth_min_m`.
@@ -719,7 +756,10 @@ To be made when this design is accepted, not silently assumed:
   NetCDF4 file at all. **Both were wrong, and are corrected here rather than carried:**
   `spatial` already declares `copernicusmarine>=2.4`, which itself declares
   `h5netcdf[h5py]>=1.4.0`, a NetCDF4 engine — so `pip install -e ".[spatial]"` can read the
-  fixture today, and `pyproject.toml` may need no change at all.
+  fixture today, and no dependency change was needed to *read* the fixture.
+  `pyproject.toml` did change for the rest of this bullet, in `ca901fb`: the `spatial`
+  marker and the extended `addopts` below, plus a direct `h5netcdf>=1.4` declaration (see
+  the closing paragraph).
 
   What stands is the CI gap. `ci.yml` installs `.[app,dev]`, **not** `.[spatial]`, so
   C§7's fixture tests cannot run there as the workflow is written. And the two requirements
@@ -772,9 +812,12 @@ To be made when this design is accepted, not silently assumed:
   with pandas — an annotation alone needs nothing at runtime under
   `from __future__ import annotations`.
 
-  Worth deciding in the plan, not here: whether to declare `h5netcdf` directly in `spatial`
-  rather than inheriting it through `copernicusmarine`. Relying on a transitive dependency
-  for a first-class capability is the kind of thing that breaks quietly on a version bump.
+  **Decided, and shipped in `ca901fb`: `h5netcdf` is declared directly in `spatial`**
+  (`pyproject.toml`) rather than inherited through `copernicusmarine`. Relying on a
+  transitive dependency for a first-class capability — `writer.py` writes the artifact
+  with `to_netcdf(engine="h5netcdf")` — is the kind of thing that breaks quietly on a
+  version bump, and the reason is preserved in the comment above the declaration. Nothing
+  left to decide in the plan.
 - **§6.2 should record that a ten-year artifact gives nine usable years for wrapping
   windows.** This is now a settled decision rather than an open choice: the baseline stays
   **2016–2025**. A wrapping window opened in year Y takes January from Y+1 and blocks when

@@ -171,10 +171,18 @@ three macroalgae.
 the file is fitted to Danish data — a published yield figure from Danish sites is a
 literature prior, not a local calibration. That re-examination is part of A0.
 
-**Consequences to carry:** no macroalga file has `dry_matter`, so spec §7.1's committed
-`t FW ha⁻¹` output cannot be produced and `max_yield_t_fw_ha: 18.4` cannot be checked
-inside the tool. Adding `dry_matter` to all four macroalga files and a test against 18.4
-are part of A0, not aspirations.
+**Consequences, and A0 discharged them.** When this was written no macroalga file
+carried `dry_matter`. All four now do — `chorda_filum.yaml:45`,
+`fucus_vesiculosus.yaml:68`, `saccharina_latissima.yaml:52`, `ulva.yaml:45` — and
+`SpeciesParams._check_salinity_indexed_is_computable` in `src/seagarden_dst/params.py`
+makes `elemental.dry_matter` a load-time requirement of `yield_model: salinity_indexed`,
+so the field cannot go missing again without the parameter file failing to load. Spec
+§7.1's committed `t FW ha⁻¹` output is produced by `growth.salinity_indexed_yield`, which
+returns the figure in `t FW/ha` so it can be checked against the published anchor
+directly; `growth.harvest_biomass` converts it to kg DW through `dry_matter`.
+`max_yield_t_fw_ha: 18.4` is checked inside the tool by `tests/test_salinity_yield_model.py`,
+which asserts 11.24 t FW/ha (= 0.611 × 18.4) at DK-belt. This is §8's A0 clauses (5) and
+(9), and nothing in this paragraph remains outstanding.
 
 ### 2.3 Decision — carrying capacity and RCO116
 
@@ -212,21 +220,26 @@ correct.
 ### 3.1 The Tagalaht anchor is not hit, and was never fitted
 
 ```
-simulate(fucus, PLACEHOLDER_SITES["EE-coastal"])  →  3446 g DW/m²
+simulate(fucus, PLACEHOLDER_SITES["EE-coastal"])  →  2797 g DW/m²
+    (3446 before package A's calendar-day forcing — §5.1)
 published anchor (spec §7.2, OLAMUR D3.2)         →  4800–5200 g DW/m²
-tests/test_growth.py:69 asserts                   →  3000.0 ≤ x ≤ 5200.0
+tests/test_growth.py:85 asserts                   →  2500.0 ≤ x ≤ 5200.0
+    (a regression guard around the current value, reset by package A; not the published range)
 ```
 
-The model has never met the published range; the test's floor is 37% below it under a
-docstring citing it; `mu_max: 0.090` has carried its initial value since the first
-commit. The upper bound is unreachable by construction because the same file sets
+The model has never met the published range; the test's floor is 48% below it, and the
+model returns 2797 against a published 4800–5200 — a gap that package A's calendar-day
+forcing widened, not closed; `mu_max: 0.090` has carried its initial value since the
+first commit. The upper bound is unreachable by construction because the same file sets
 `b_max: 5200.0 # upper Tagalaht reference harvest` — **the carrying capacity is read off
 the anchor the model is validated against**, so the anchor is not an independent check.
 
-Fitting is possible but ill-posed: `mu_max` 0.09→0.50 moves 3446→4776; 0.8 gives 4911;
-5.0 gives 5146. The logistic is pinned against its own ceiling, so the parameter is
-barely identifiable. Fitting one lumped coefficient in a nine-parameter product against
-a single published range is a scaling convention, not a calibration.
+Fitting is possible but ill-posed — the figures below were measured against the
+superseded position-indexed forcing and must be recomputed in D1 against calendar-day
+forcing: `mu_max` 0.09→0.50 moved 3446→4776; 0.8 gave 4911; 5.0 gave 5146. The logistic is
+pinned against its own ceiling, so the parameter is barely identifiable. Fitting one
+lumped coefficient in a nine-parameter product against a single published range is a
+scaling convention, not a calibration.
 
 **A0 fits nothing.** It does this:
 
@@ -238,15 +251,21 @@ a single published range is a scaling convention, not a calibration.
    line loading from A3.2's as-built system design; a standing-stock ceiling from the
    *Fucus* literature; failing both, keep 5200 but mark it `assumed: derived from the
    anchor` so the circularity is visible in the data rather than hidden in it.
-3. **Correct the surviving false sentences.** The README's Testing section and revision 1
-   of this document were corrected in commit `dcad5b3`. Three remain, all written on
-   13 Sep 2026 and all asserting a re-tune that never happened:
-   - `README.md:146` — "Fixing it moves the Tagalaht anchor, so the `mu_max` re-tune goes with it"
-   - `src/seagarden_dst/forcing.py:170` — "so the mu_max re-tune belongs to the same change"
-   - `tests/test_cultivation_window.py:140` — the same claim inside the strict xfail reason
+3. **Correct the surviving false sentences. Done.** The README's Testing section and
+   revision 1 of this document were corrected in commit `dcad5b3`. The three sentences
+   written on 13 Sep 2026 asserting a `mu_max` re-tune that never happened — the README's
+   "What is stubbed" row, `forcing.py`'s module docstring, and the strict-xfail reason in
+   `tests/test_cultivation_window.py` — were corrected in commit `bc6326d`, and the xfail
+   marker was retired with them. A grep for "re-tune" over `README.md`, `src/` and
+   `tests/` now returns nothing.
 
    Commit `6d36187`'s message is published history and cannot be amended; the README's
-   Testing section records that it is superseded.
+   Testing section (`README.md:184-190`) records that it is superseded, quoting the
+   message's "moves the Tagalaht anchor that `mu_max` was tuned to hit" and its
+   `3.61 µmol N/L` figure so the superseded claims are legible. That quotation is the one
+   remaining in-tree occurrence of the `3.61` figure and is deliberate — clause (6) below
+   should read "returns nothing outside this document and the README's superseded-commit
+   note".
 4. **Correct the stale 3.61 figure** wherever it appears (`forcing.py`, the xfail reason,
    this document) — see §5.1.
 5. **Guard the anchor as a set** — dry weight, carbon and phosphorus per cage, with
@@ -258,21 +277,32 @@ a single published range is a scaling convention, not a calibration.
 Any actual re-parameterisation moves to package D1, *after* the forcing it would be
 fitted against is real.
 
-**`tests/test_growth.py:69` is not touched by A0.** Narrowing 3000–5200 toward the
-published range only makes sense once the anchor is re-sourced and the fit attempted, so
-the assertion moves in D1. Until then its docstring is amended to state that the bound is
-looser than the range it cites and why.
+**`tests/test_growth.py`'s Tagalaht regression guard is not touched by A0.** Package A
+reset it to `2500.0 ≤ x ≤ 5200.0` when calendar-day forcing moved the measured value to
+2797.31 (§5.1); narrowing that guard toward the published range only makes sense once the
+anchor is re-sourced and the fit attempted, so the assertion moves in D1. Until then its
+docstring states that the bound is a regression guard, looser than the range it cites, and
+why.
 
 ### 3.2 Tier D leaks through the number-producing path
 
 `contraindication()` correctly returns tier D for any species below its
-`tolerance_floor_psu`. `harvest_biomass()` never calls it — it resolves the tier from
-`calibration_for(site.region)`, and the Saccharina file lists tier D only for
+`tolerance_floor_psu`. **Fixed in A0 (751de41).** `harvest_biomass()` *used to* resolve
+the tier from `calibration_for(site.region)` and never call it; it now calls
+`contraindication()` as its first statement (`growth.py:214`), as do
+`salinity_indexed_yield` (`:181`) and `shellfish.harvest` (`shellfish.py:86`). The leak
+table below records the behaviour as found and is retained as the measurement that
+motivated the fix, not as current behaviour. The Saccharina file lists tier D only for
 `LT-coastal` and `PL-lagoon`.
 
-**Five placeholder sites sit below the 16 psu floor. Three of them leak.** Measured at
-`area_m2=1000` (the 0.1 ha default), rendered through `for_display`, whose tier-C banding
-is ÷3 / ×3:
+**At revision 4 (13 September 2026) five placeholder sites sat below the 16 psu floor,
+and three of them leaked.** A0 closed the leak — `harvest_biomass` now resolves the tier
+through `contraindication()` (`growth.py:206-214`), so nothing is reportable below any
+floor. The count is now **six**: commit `4f11c3d` added LT-lagoon (Curonian Lagoon) at a
+measured 3.5 psu. Retained as the record of what the defect was and how it was fixed.
+Measured at `area_m2=1000` (the 0.1 ha default), rendered through `for_display`, whose
+tier-C banding is ÷3 / ×3, the pre-fix behaviour was (pre-fix; LT-lagoon added later and
+not measured in this run):
 
 | site | salinity | what `harvest_biomass` reports |
 |---|---|---|
@@ -291,16 +321,18 @@ sugar kelp correctly, so the Shiny app does not show this. The leak is in
 notebook use of. It is a defence-in-depth failure: the rule is enforced at one layer and
 not at the layer that produces the number.
 
-**Fix:** `harvest_biomass` and `shellfish.harvest` resolve tier through
+**Fix, landed:** `harvest_biomass` and `shellfish.harvest` now resolve tier through
 `contraindication()`, so the dynamic rule is the single source of truth and the registry
 need not enumerate regions. Test: nothing is reportable at any placeholder site below its
 floor.
 
 ### 3.3 Four of five species have no lower salinity bound
 
-Only Saccharina carries `tolerance_floor_psu`. *Fucus*, *Ulva*, *Chorda* and blue mussel
-are unbounded below, so the tool returns confident yields at 2.0 psu in the Szczecin
-Lagoon, where none is cultivable.
+**Fixed in A0.** As found, only Saccharina carried `tolerance_floor_psu`, so the tool
+returned confident yields at 2.0 psu in the Szczecin Lagoon where none is cultivable. All
+five species now carry a floor: *Chorda* 4.0, *Fucus* 4.0, blue mussel 4.0, *Ulva* 2.5,
+*Saccharina* 16.0 (`params/species/*.yaml`), each with a `floor_basis` distinguishing
+observed from assumed.
 
 **Revision 2 got the remedy wrong and it is corrected here.** It proposed making
 "outside the demonstrated salinity range" a tier D trigger. That contradicts spec §7.4,
@@ -323,7 +355,7 @@ Anything short of tier D puts a confident-looking number back at 2.0 psu, which 
 defect section 3.3 exists to remove, and a siting tool should fail safe; the
 observed/assumed distinction is carried in the note the user reads, not in the tier.
 
-A0 therefore adds `tolerance_floor_psu` to all five species (and to `ShellfishYield`),
+A0 therefore added `tolerance_floor_psu` to all five species (and to `ShellfishYield`),
 sourced where possible and flagged assumed where not, as Chorda's coefficients are; and
 adds `demonstrated_salinity_range` as *provenance that widens the displayed band*, never
 as a tier D trigger. The specification's tier D row (§7.4) has since been amended to
@@ -331,15 +363,19 @@ name the floor mechanism explicitly; the table above now matches it.
 
 ### 3.4 Assessment thresholds are hard-coded against the spec's own rule
 
-`0.35`, `0.5` and the supra-optimal temperature decline width decide suitability verdicts
-from Python defaults, contradicting the rule that coefficients live in `params/`.
+**Fixed in A0.** As found, `0.35`, `0.5` and the supra-optimal temperature decline width
+decided suitability verdicts from Python defaults, contradicting the rule that
+coefficients live in `params/`. They are now data: `params/assessment.yaml` carries
+`salinity_factor_floor: 0.35` and `yield_floor_kg_dw_per_m2: 0.5`, both marked ASSUMED;
+`suitability.assess_*` default their arguments to `None` and resolve through
+`default_parameters().assessment`, and `upper_temp_decline_c` is on `GrowthParams`.
 
 One of them binds tightly: Ulva's shipped yields are 0.461–0.771 kg DW/m² across the
 placeholder sites against a 0.5 floor. Revision 2 said this affected "both Application
 Form species" — it does not. Blue mussel is routed around both thresholds by
 `suitability.py:150` because it is shellfish, which is itself worth recording.
 
-**Fix:** move them to `params/assessment.yaml` with sources or an explicit "assumed"
+**Fix, landed:** they were moved to `params/assessment.yaml` with sources or an explicit "assumed"
 marker; add `upper_temp_decline_c` to `GrowthParams`. Landing this in A0 means the moved
 constants are baked into the snapshot baseline rather than appearing as a diff later.
 Revision 2 claimed the snapshot would show a no-op diff — impossible once the snapshot
@@ -358,10 +394,14 @@ A tool that queries Copernicus when a user draws a polygon depends on an API con
 credential and an organisation's continued existence, for a decade, with nobody funded to
 watch any of them. So the layer splits.
 
-**Build time — once a year.** `scripts/refresh_layers.py` pulls from Copernicus, EMODnet,
-HELCOM and EEA, extracts **per-year monthly fields** (§6.2, not a single climatology) onto
-one Baltic grid at native ~2 km, writes one NetCDF4 artifact plus a provenance manifest. Only this code needs `rioxarray`, `rasterio` or `geopandas`, confined
-to the `spatial` extra.
+**Build time — once a year.** `scripts/refresh_layers.py` pulls from Copernicus and
+EMODnet Bathymetry — the five layers of `LAYER_NAMES` (`copernicus_phy`,
+`copernicus_bgc`, `copernicus_bgc_light`, `copernicus_wav`, `emodnet_bathy`) — extracts
+**per-year monthly fields** (§6.2, not a single climatology) onto one Baltic grid at
+native ~2 km, and writes one NetCDF4 artifact plus a provenance manifest. The
+EMODnet/HELCOM/EEA human-use and exclusion vectors are package C1's separate GeoPackage
+(§6.4, §8 row C1), not this artifact. Only this code needs `rioxarray`, `rasterio` or
+`geopandas`, confined to the `spatial` extra.
 
 **Runtime — reads the artifact and nothing else.** No network, no credentials, no service
 call. The core keeps its four dependencies.
@@ -426,8 +466,10 @@ The placeholder computes its drawdown as `np.linspace(1.0, 0.45, days.size)` —
 position in the window rather than by date. Nitrogen is therefore a property of the
 question asked: **on 1 April at DK-belt the code returns 3.15 µmol N/L for sugar kelp's
 Oct–Jun window and 5.00 for the April-start windows of *Fucus* and *Chorda*** — a 59%
-spread on the same day at the same site. Recorded as a strict `xfail` in
-`tests/test_cultivation_window.py`.
+spread on the same day at the same site. **Retired in package A.** This was recorded as a strict `xfail`; the marker is gone and
+`tests/test_cultivation_window.py::test_nutrient_forcing_is_a_property_of_the_site_not_the_query`
+now asserts the equality positively at `rel=1e-2` (see the phase-residual note below for
+why the marker could not have XPASSed).
 
 *(A third figure, 3.61, appears in `forcing.py`'s docstring, in the xfail's reason, in
 commit `6d36187` and in revisions 1–2 of this document. It is stale: it came from the
@@ -469,8 +511,10 @@ site-specific — *Ulva* is −53.9% at DK-belt and −42.3% at LT-coastal):
 | *Chorda* at EE-coastal | 482.05 | 272.13 | −43.5% |
 | *Saccharina* at DK-belt (ODE only) | 36.90 | 37.75 | **+2.3%** |
 
-2797.31 is **below the hard `assert 3000.0` in
-`tests/test_growth.py::test_fucus_reaches_the_tagalaht_reference_range`**, and four
+2797.31 was below the then-hard `assert 3000.0` in
+`tests/test_growth.py::test_fucus_reaches_the_tagalaht_reference_range`; package A reset
+that bound, and the test now reads `assert 2500.0 <= trajectory.final_biomass <= 5200.0`
+(`tests/test_growth.py:83`). Four
 growth-viability verdicts flip suitable → marginal: *Chorda* and *Ulva* at DK-belt and at
 LT-coastal. **Package A therefore resets that bound in the same pull request**, downward
 to 2500.0 and with the new value stated in the test's docstring alongside the published
@@ -497,8 +541,8 @@ settled here and then named none; it was B's, together with resolution. B is com
 its measurements are in `docs/2026-09-15-package-b-measurements.md`, which this
 section has been amended against. **Grid resolution is native ~2 km** (0.016666° lat ×
 0.027777° lon) and **format is NetCDF4 + zlib complevel 4**, smaller than Zarr at all six
-resolution × temporal combinations measured and a single file, which §6.3's atomic pair
-write wants.
+resolution × temporal combinations measured and a single file, which §6.3's checksum-linked
+pair write wants.
 
 Resolution is not a trade-off against size. Coarsening to ~4 km land-masks the cell
 containing **Tagalaht** — the only published anchor the parameterisation has — and
@@ -514,7 +558,7 @@ have their first failing test written.
 |---|---|---|---|
 | `salinity_psu` | Copernicus Baltic reanalysis | mean over polygon | monthly mean |
 | `mean/summer/winter_temp_c` | Copernicus Baltic reanalysis | mean | monthly mean |
-| `din_umol_l`, `dip_umol_l` | Copernicus BGC + HELCOM | mean | monthly mean |
+| `din_umol_l`, `dip_umol_l` | Copernicus BGC — `no3` + `nh4` (DIN, derived) and `po4` (DIP). **HELCOM dropped**: Copernicus BGC carries every field the two need, so HELCOM would be provenance burden for no added field (package C design C§1) | mean | monthly mean |
 | `surface_par` | **none — no source exists** | — | — |
 | `light_attenuation_k` | Copernicus BGC `zsd`, **derived** via Poole–Atkins k ≈ 1.7/z_SD | mean | monthly mean |
 | `depth_m` | EMODnet Bathymetry | mean, with min reported | static |
@@ -578,12 +622,20 @@ scope and is not yet measured.
   **The replacement, which package D implements:** (1) the polygon's containing cell must
   be valid — this is what "is there data here" means at farm scale; (2) **distance to the
   nearest valid cell** is computed and surfaced, which at native resolution is 0.75–1.28 km
-  across all six regions and is a quantity a siting user can judge; (3) a valid-fraction
+  across the six regions package B measured — LT-lagoon, added later by `4f11c3d`, was not
+  in that run — and is a quantity a siting user can judge; (3) a valid-fraction
   rule returns only for polygons genuinely spanning multiple cells, with its threshold set
   once package E's drawn geometry produces them. §7 row 2 keys off (1).
-- **The six placeholder regions have no geometry**, so B invented coordinates to measure
-  against and recorded them in `docs/2026-09-15-package-b-measurements.md`. Any
-  polygon-level threshold set before package E is set against invented shapes.
+- **None of the seven placeholder regions has polygon geometry**, so B invented
+  coordinates to measure against and recorded them in
+  `docs/2026-09-15-package-b-measurements.md`. That note remains the record of what B
+  measured; the shipped values now live in `forcing.SITE_COORDINATES`
+  (`src/seagarden_dst/forcing.py:190-260`), which carries a provenance-bearing **point**
+  for five regions — DK-belt, DE-coastal, PL-lagoon and PL-coastal SNAPPED or INDICATIVE,
+  and LT-lagoon SITED from the Curonian Spit National Park notification
+  (`forcing.py:248`), the only one not arrived at by snapping. LT-coastal and EE-coastal
+  have no entry at all, by design. Any polygon-level threshold set before package E is
+  still set against invented shapes.
 - **Monthly fields replace the sinusoid** in `daily_forcing` rather than feeding it;
   interpolation is linear on day-of-year, wrapping at the year boundary, which the window
   work already supports.
@@ -593,7 +645,11 @@ scope and is not yet measured.
   collapsing 2023–2025 into one climatology costs **−57% to +179%**, because interannual
   variability swamps the resolution effect by an order of magnitude. A single climatology
   returns *Fucus* 152.61 g DW/m² for every year against real values of 54.74, 290.41 and
-  67.84. The artifact therefore carries **one monthly field per year**, and
+  67.84. The artifact therefore carries **one monthly field per year** for the five
+  forcing fields — `salinity_psu`, `temp_c`, `din_umol_l`, `dip_umol_l`,
+  `light_attenuation_k`. **`significant_wave_m` is the one exception**, decided by
+  package C (C§3.2): a single monthly p95 collapsed over a fixed baseline window, with
+  **no `year` dimension**, its window declared per variable in the manifest's `baselines`.
   `GriddedForcing.daily_forcing` **takes a year** — an interface change package D owns, and
   a reason for `artifact_schema_version` (§6.3) to exist. At native resolution three years
   is 50.7 MB against 16.5 MB for a climatology, so size does not argue against it.
@@ -622,12 +678,23 @@ scope and is not yet measured.
   fixed filenames.
 - The manifest carries `artifact_schema_version` and `built_on` alongside per-layer
   provenance. An unrecognised version is refused and degrades visibly (§7 row 6).
-- Manifest and artifact are written **atomically as a pair**.
+- Manifest and artifact are **checksum-linked and replaced manifest-last**: the manifest
+  carries `artifact_sha256`, both files are built in a temp directory on the target
+  filesystem and fsynced, then `os.replace`d — artifact first, manifest last (C§6). No
+  filesystem writes two files atomically; between the two replaces the old manifest no
+  longer describes the artifact beside it, and `load_pair` refuses that state rather than
+  read new data under old provenance.
 - Per layer, committed: source, product identifier, version, retrieval date, licence,
-  redistribution terms, and **either** a Zenodo DOI **or** an explicit
-  `redistribution: forbidden` marker with a source URL. A layer carrying neither fails
-  §9's provenance test. A marked layer is referenced-not-mirrored and logged as a
-  durability risk in spec §14.
+  redistribution terms, and an explicit **archive state**, one of exactly three: a Zenodo
+  DOI (`deposited`); an explicit `redistribution: forbidden` marker with a source URL
+  (`forbidden`); or `pending` — built but not yet deposited — carrying a source URL and an
+  `unblocked_by` note saying what closes the gap. A layer carrying none of the three fails
+  §9's provenance test. The third state exists because C§1 puts the Zenodo deposit outside
+  package C, so at manifest-construction time no layer has a DOI and all five are genuinely
+  redistributable; `redistribution: forbidden` set to clear a validator would be the
+  mis-marked provenance this design exists to prevent (C§4.1). A `forbidden` layer is
+  referenced-not-mirrored and logged as a durability risk in spec §14; an artifact whose
+  layers are `pending` is usable but says so (display row per C§11).
 - The test fixture has a committed path with a `.gitignore` exception.
 
 ### 6.4 Exclusion and human-use vectors are separate — and split in two
@@ -650,11 +717,11 @@ Each degrades visibly, never fails, and never silently substitutes.
 |---|---|
 | Forcing artifact absent | Fall back to `PlaceholderForcing` with a banner naming what the tool is running on |
 | Polygon's containing cell not valid (§6.2) | `UNKNOWN`, which **blocks** the verdict, with the distance to the nearest valid cell reported |
-| Artifact does not carry the requested year (§6.2) | `UNKNOWN` and blocks; never silently substitutes another year |
+| Artifact does not carry the requested year, for a year-dimensioned field (§6.2) | `UNKNOWN` and blocks; never silently substitutes another year. `significant_wave_m` has no `year` axis (C§3.2): it is returned with its declared `baselines` window surfaced on the reading, never passed through as if it were the requested year's |
 | `surface_par` consumed | Always a placeholder constant — §6.1 has no source — displayed the way staleness is |
 | Polygon outside every calibration domain | `SiteConditions` with `region=None`; every quantity forced to tier C, the polygon's coordinates named |
 | Artifact older than 18 months | Staleness note on the result, the mechanism of spec §9.3's "verified on" dates |
-| Refresh fails part-way | Writes nothing; previous artifact and manifest stay valid as a pair |
+| Refresh fails part-way | Before the first `os.replace`: writes nothing, previous artifact and manifest stay valid as a pair. Between the artifact and manifest replaces: new artifact under old manifest — the read side refuses on the sha mismatch and says to re-run the refresh, never reads new data under old provenance |
 | Artifact schema version unrecognised | Refuse, fall back to `PlaceholderForcing`, say why |
 | Spec §9 regulatory record set absent | `assess_legal` returns `UNKNOWN` and blocks, even with the human-use GeoPackage present |
 
@@ -691,12 +758,12 @@ surface rather than absorb, and this row is now surfaced.
 
 | # | Package | Delivers | Depends on | Effort | Done when |
 |---|---|---|---|---|---|
-| **A0** | Modelling corrections (§3) | §2's three decisions recorded; anchors re-sourced; `b_max` re-based or marked assumed; tier D via `contraindication()`; floors + demonstrated ranges for all five species; thresholds to `params/`; `dry_matter` on four macroalgae; **the §2.2 salinity relocation**; **spec §7.2 amended per §2.1**; **the DK-belt tier re-examined**; **`Fucus` elemental fractions re-sourced**; four false sentences corrected; two README stub rows added | §2 decisions | 0.8 PM *(no spec §13 row — propose amendment)* | Fourteen clauses, each a test or a diff: (1) nothing reportable below any floor; (2) `anchors:` block present with basis stated; (3) `b_max` sourced or marked `assumed`; (4) `0.35`/`0.5`/decline width absent from `.py`, identical values in `params/assessment.yaml`; (5) `dry_matter` on all four macroalgae; (6) grep for "re-tune" and "3.61" returns nothing outside this document; (7) *Fucus* still tier C at LT-coastal; (8) README stub table has the two new rows; (9) `growth.py` no longer multiplies `salinity_factor` into `rate`, and Saccharina at DK-belt returns **11.24 t FW/ha** (= 0.611 × 18.4) per §2.2; (10) spec §7.2's Redfield sentence amended and the nitrogen gap recorded in the Fucus YAML; (11) *Fucus* elemental fractions no longer byte-identical to Saccharina's, or explicitly marked assumed-from-kelp; (12) the DK-belt calibration tier re-examined and the outcome recorded; (13) spec §14 carries a key-person row for the annual refresh; (14) `contraindication()`'s note distinguishes an observed floor from an assumed one — *Chorda* is the test case |
-| **A** | Forcing seam | `ForcingSource`; `PlaceholderForcing`; calendar-day indexing per §5.1; the `xfail` retired | A0 | 0.3 PM *(spec §13 "model core")* | Four call sites named in the PR; snapshot diff explained line by line |
+| **A0** | Modelling corrections (§3) — **COMPLETE** (751de41, e6e5e0e, d279d67 and the A0 task chain; ledger `.superpowers/sdd/2026-09-13-a0-corrections-and-forcing-seam/progress.md`) | §2's three decisions recorded; anchors re-sourced; `b_max` re-based or marked assumed; tier D via `contraindication()`; floors + demonstrated ranges for all five species; thresholds to `params/`; `dry_matter` on four macroalgae; **the §2.2 salinity relocation**; **spec §7.2 amended per §2.1**; **the DK-belt tier re-examined**; **`Fucus` elemental fractions re-sourced**; four false sentences corrected; two README stub rows added | §2 decisions | 0.8 PM *(no spec §13 row — propose amendment)* | Fourteen clauses, each a test or a diff: (1) nothing reportable below any floor; (2) `anchors:` block present with basis stated; (3) `b_max` sourced or marked `assumed`; (4) `0.35`/`0.5`/decline width absent from `.py`, identical values in `params/assessment.yaml`; (5) `dry_matter` on all four macroalgae; (6) grep for "re-tune" and "3.61" returns nothing outside this document and the README's superseded-commit note; (7) *Fucus* still tier C at LT-coastal; (8) README stub table has the two new rows; (9) `growth.py` no longer multiplies `salinity_factor` into `rate`, and Saccharina at DK-belt returns **11.24 t FW/ha** (= 0.611 × 18.4) per §2.2; (10) spec §7.2's Redfield sentence amended and the nitrogen gap recorded in the Fucus YAML; (11) *Fucus* elemental fractions no longer byte-identical to Saccharina's, or explicitly marked assumed-from-kelp; (12) the DK-belt calibration tier re-examined and the outcome recorded; (13) spec §14 carries a key-person row for the annual refresh; (14) `contraindication()`'s note distinguishes an observed floor from an assumed one — *Chorda* is the test case |
+| **A** | Forcing seam — **COMPLETE**; `ForcingSource` threaded through `api`, `contracts`, `growth`, `scenarios` and `suitability`, calendar-day indexing landed, the xfail retired and the anchor bound reset to 2500.0 | `ForcingSource`; `PlaceholderForcing`; calendar-day indexing per §5.1; the `xfail` retired | A0 | 0.3 PM *(spec §13 "model core")* | Four call sites named in the PR; snapshot diff explained line by line |
 | **B** | Resolution + format spike — **COMPLETE**, `docs/2026-09-15-package-b-measurements.md` | Artifact size at 3 resolutions × 2 formats × 2 temporal designs; valid-cell and nearest-cell measurements; daily-vs-monthly forcing comparison (§10.2). Decided: native ~2 km, NetCDF4+zlib4, per-year monthly | — | 0.3 PM *(spec §13 "data layer")* | **Met.** Note committed with sizes, the daily/monthly delta, a coverage statistic set on evidence, and four decisions — three of which amended this document |
 | **C** | Refresh tooling | `refresh_layers.py`; manifest; Zenodo archive; runbook; source-probe job; test fixture | B | 1.0 PM *(spec §13 "data layer")* | Provenance test passes against the committed fixture; runbook followed end-to-end by someone else |
 | **D** | `GriddedForcing` | Artifact read; **polygon-and-year query**; aggregation per §6; `terra` port; calibration-domain layer; `SiteConditions` extensions incl. `significant_wave_max_m`; **re-validation of `methods.yaml`'s `max_significant_wave_m` against the 95th percentile**; `conditions: SiteConditions \| None` + `unassessable`; **the §6.2 coverage rule and the §10.2 verdict-sensitivity measurement B could not make** | **A**, B, C | 1.5 PM *(spec §13 "data layer" + "terra port")* | One fewer README stub row; port validated against Tagalaht and Maar et al.; a test that an unassessable site returns UNKNOWN and never a verdict. **Plus, because revision 5 added behaviour the package A protocol does not express:** a test that a polygon query aggregates over the polygon's cells rather than a single point; a test that a requested year the artifact lacks **blocks** rather than substituting another; a test that a wrapping window takes January from year Y+1 (§6.2) and blocks when Y+1 is absent; **a recorded re-validation of every `methods.yaml` `max_significant_wave_m` against the monthly 95th percentile, with each value either confirmed against a named structural source or marked assumed** - the present values were set against an unstated statistic, so adopting a defined one without re-checking them silently changes what the exposure test means; and every caller migrated wherever the signature changes. **The package A seam is deliberately unchanged until D** - `conditions_for(region)` / `daily_forcing(site, window)` carry no polygon and no year, so D must extend it rather than merely implement it, and these tests are what prevent D satisfying the old protocol while proving none of the new behaviour |
-| **D1** | Re-parameterisation | The fit deferred from A0, against real forcing; `test_growth.py:69` narrowed toward the published range | D | 0.5 PM *(spec §13 "calibration")* | Anchor met with the fitted parameters named, **or** the failure documented as a finding with the identifiability argument of §3.1 restated against real data |
+| **D1** | Re-parameterisation | The fit deferred from A0, against real forcing; the `2500.0` floor of `tests/test_growth.py::test_fucus_reaches_the_tagalaht_reference_range` (line 85) narrowed toward the published 4800–5200 — a ~2000 g gap from the live 2797.31, not the ~1350 g gap revision 3 recorded against the pre-A 3446 | D | 0.5 PM *(spec §13 "calibration")* | Anchor met with the fitted parameters named, **or** the failure documented as a finding with the identifiability argument of §3.1 restated against real data |
 | **E** | Map and polygon drawing | `shiny_deckgl` (deck.gl/MapLibre bridge for Shiny for Python, `DrawMode` covers the polygon draw) — a **conda prerequisite from the `razinka` channel, not a pip dependency**, because every install path here is pip and it is not on PyPI; drawn geometry into the report; spec §10 instrumentation seam left in place | D | 1.5 PM *(spec §13 "siting module")* | One fewer README stub row; seam present though unwired |
 | **C1** | Human-use vector build | The EMODnet/HELCOM/EEA GeoPackage of §6.4 — a second output of the refresh tooling, same manifest and DOI treatment | C | 0.2 PM *(spec §13 "data layer")* | GeoPackage present with per-layer provenance; provenance test covers it |
 | **F1** | Human-use overlay | `assess_conflicts()` → overlap/adjacent/clear per named layer into `SiteContext.activities`/`.protection`. **Descriptive only; feeds no verdict** | **C1** | 0.5 PM *(spec §13 "siting module")* | `activities` populated for a **committed fixture polygon** (no placeholder site has geometry); test that it changes no verdict; the human-use README stub row removed |
@@ -749,7 +816,7 @@ it is checked before the implementation plan is written, and again whenever a ro
 | §6.2 — valid-cell threshold on evidence | B | measurement note |
 | §6.3 — locator, schema version, atomicity | D (read side), C (write side) | unrecognised-version fallback test |
 | §7 — `SiteConditions \| None` + `unassessable` | D | done-when: unassessable returns UNKNOWN |
-| §4.1 — Zenodo archive, runbook, source-probe | C | provenance test requires DOI or marker |
+| §4.1 — Zenodo archive, runbook, source-probe | C | provenance test requires a complete archive state (DOI, forbidden marker, or pending with an unblocked_by note) |
 | §4.1 — key-person row in spec §14 | **A0** | clause: spec §14 has the row |
 | §10.2 — daily-vs-monthly measured | B | measurement note |
 | §6.1 — wave statistic fixed to the 95th percentile, annual max to its own field | D | `significant_wave_max_m` present; `assess_physical` reads the percentile |
@@ -790,8 +857,12 @@ fixture; the download path is exercised by hand at refresh time. §4.1's source-
 is separate, scheduled and non-blocking.
 
 **Provenance is asserted, not trusted.** A test fails if any manifest layer lacks a
-licence, a retrieval date or redistribution terms; or lacks **both** a Zenodo DOI and an
-explicit `redistribution: forbidden` marker with a source URL.
+licence, a retrieval date or redistribution terms; or lacks a complete archive state — a
+Zenodo DOI, or a `redistribution: forbidden` marker with a source URL, or a `pending`
+marker with a source URL and an `unblocked_by` note. Every layer of a first real refresh,
+and every layer of the committed fixture, is `pending`; the DOI is recorded back into the
+committed manifest after the deposit (§8, C1), and only then does the fixture assert
+`deposited`.
 
 **Anchors are guarded as sets** — dry weight, carbon and phosphorus per cage together, so
 a stoichiometrically impossible combination fails rather than passing on the one arm

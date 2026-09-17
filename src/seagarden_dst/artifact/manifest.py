@@ -4,16 +4,23 @@ Every rule the design states as prose is a validator here, so a manifest that
 would mislead a reader fails at load rather than mid-analysis — the principle
 `params._check_salinity_indexed_is_computable` and `params.Anchor` already follow.
 
-C§4.3 names these models as what package D and C1 are meant to validate against.
-The plan for this task (`docs/superpowers/plans/2026-09-16-package-c-a-manifest-
-and-fixture.md`) designed a core-side `seagarden_dst.artifact` package for exactly
-that reason: so a reader could import `Manifest`/`load_pair` without pulling in
-`refresh/` or its `spatial` extra. That package was not built — everything shipped
-here, under `refresh/`, instead (see the plan's added note for the ruling and why).
-The consequence: `seagarden_dst.refresh` cannot be imported outside `refresh/`
-(`tests/test_refresh_isolation.py::test_no_core_module_imports_refresh` forbids
-it), so how D or C1 reaches `Manifest` and `load_pair` across that boundary is
-unresolved and left for C-b/D to settle.
+C§4.3 names these models as what package D and C1 are meant to validate against, and
+**this package is the core-side home that makes that possible**. `seagarden_dst.artifact`
+depends on pydantic, stdlib and numpy only, so package D imports `Manifest`, `sha256_of`
+and `load_pair` directly — without pulling in `refresh/` or the `spatial` extra.
+
+Three tests hold that boundary open, in `tests/test_refresh_isolation.py`:
+`test_no_core_module_imports_refresh` keeps the build-time half out of the core;
+`test_refresh_imports_nothing_from_the_core_except_the_shared_schema` names
+`seagarden_dst.artifact` (`_SHARED`, line 120) as the one permitted crossing; and
+`test_the_shared_schema_imports_nothing_that_needs_the_spatial_extra` is what keeps this
+package importable by a core that has no xarray.
+
+*Superseded note, 2026-09-17:* this docstring previously said the `artifact` package "was
+not built — everything shipped here, under `refresh/`, instead", and that how D reached
+`Manifest` across the boundary was unresolved. Commit `b886481` built it, which is the
+package this file now sits in; `refresh/writer.py`, `layer.py`, `driver.py` and
+`deposit.py` all import from it. Nothing is left for C-b or D to re-home.
 """
 
 from __future__ import annotations
