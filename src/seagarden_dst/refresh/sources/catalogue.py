@@ -9,11 +9,15 @@ the `dataset_id` behind it is retired, and it says nothing at all about versions
 credential file. The catalogue is public. `source-probe.yml` passed two Copernicus
 secrets until C-c2 struck them; nothing had ever read them.
 
-**`copernicusmarine` is imported inside the call, not at module scope.** The probe
-job installs `[spatial]` as of C-c2, so the old reason (a bare install) is gone —
-but the default test suite runs `-m 'not spatial'`, and `-m` deselects after
-collection, so a module-scope import here would break collection of every test in
-the repository.
+**`copernicusmarine` is imported only inside `_default_describe`, i.e. only on the
+real path.** The probe job installs `[spatial]` as of C-c2, so the old reason (a
+bare install) is gone — but the default test suite runs `-m 'not spatial'`, `-m`
+deselects after collection, and CI's default job runs a bare `pytest -q` with no
+spatial extra installed at all. This file's unmarked tests drive `dataset_status`
+entirely through an injected `describe`, so they must never need
+`copernicusmarine` to be importable, even transitively — which is why
+`DatasetNotFound` is matched by name (`_is_dataset_not_found`) rather than
+imported.
 """
 
 from __future__ import annotations
@@ -52,6 +56,21 @@ def _served_versions(catalogue: Any) -> list[str]:
     ]
 
 
+def _is_dataset_not_found(error: BaseException) -> bool:
+    """Whether `error` is copernicusmarine's `DatasetNotFound`, matched by NAME.
+
+    By name and not by `isinstance` against an imported class, because this
+    module must classify the exception in an environment where copernicusmarine
+    is not installed: CI's default job installs no spatial extra and runs the
+    unmarked tests, and an import here — even inside the function — made that job
+    red. Only `copernicusmarine.describe` is ever called through the seam, so a
+    foreign class that happens to share the name is not a case this code meets.
+    A spatial-marked test asserts the REAL class still matches, so an upstream
+    rename is caught by the spatial job rather than reported as `unreachable`.
+    """
+    return any(cls.__name__ == "DatasetNotFound" for cls in type(error).__mro__)
+
+
 def dataset_status(
     dataset_id: str,
     expected_version: str,
@@ -77,16 +96,11 @@ def dataset_status(
     """
     call = describe if describe is not None else _default_describe()
 
-    # Imported inside the function for the reason in the module docstring. A bare
-    # `except Exception` would also catch it, but naming it is what lets `absent`
-    # and `unreachable` be different answers.
-    from copernicusmarine import DatasetNotFound
-
     try:
         catalogue = call(dataset_id=dataset_id, disable_progress_bar=True)
-    except DatasetNotFound as error:
-        return "absent", f"dataset absent from catalogue: {dataset_id} ({error})"
     except Exception as error:  # noqa: BLE001 - one dead source must not fail the job
+        if _is_dataset_not_found(error):
+            return "absent", f"dataset absent from catalogue: {dataset_id} ({error})"
         return "unreachable", f"unreachable: {error}"
 
     served = _served_versions(catalogue)

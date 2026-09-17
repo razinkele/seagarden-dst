@@ -46,6 +46,20 @@ def test_a_consistent_probe_result_is_accepted():
     assert result.status == "ok"
 
 
+class _FakeDatasetNotFound(Exception):
+    """Stands in for copernicusmarine.DatasetNotFound, matched by name (see
+    catalogue._is_dataset_not_found). The real class is asserted separately,
+    under the spatial marker."""
+
+
+# `_is_dataset_not_found` matches `type(error).__name__ == "DatasetNotFound"`, not
+# `isinstance` against an imported class — that is the whole point of the fix. A
+# fake whose class is literally named `_FakeDatasetNotFound` would not exercise
+# that match at all; renaming it here makes this fake behave, for the purpose of
+# the by-name check, exactly like the real `copernicusmarine.DatasetNotFound` would.
+_FakeDatasetNotFound.__name__ = "DatasetNotFound"
+
+
 class _FakeVersion:
     def __init__(self, label: str) -> None:
         self.label = label
@@ -100,10 +114,8 @@ def test_a_retired_dataset_id_is_absent_not_unreachable():
     from `unreachable`, because the two demand different responses: a retired
     dataset needs a new source, a network error needs a retry.
     """
-    from copernicusmarine import DatasetNotFound
-
     def describe(**kwargs: object) -> None:
-        raise DatasetNotFound("cmems_gone")
+        raise _FakeDatasetNotFound("cmems_gone")
 
     status, detail = dataset_status("cmems_gone", "202303", describe=describe)
     assert status == "absent"
@@ -138,6 +150,19 @@ def test_a_network_failure_is_reported_not_raised():
     assert "name resolution failed" in detail
 
 
+@pytest.mark.spatial
+def test_the_real_dataset_not_found_class_is_classified_as_absent():
+    """Name-matching would silently report `unreachable` if copernicusmarine
+    renamed the class. This pins the real one; it runs where the extra is installed."""
+    from copernicusmarine import DatasetNotFound
+
+    def describe(**kwargs: object) -> None:
+        raise DatasetNotFound("cmems_gone")
+
+    status, _ = dataset_status("cmems_gone", "202303", describe=describe)
+    assert status == "absent"
+
+
 def test_the_dataset_id_asked_for_is_the_one_passed_through():
     """A probe that asked about the wrong dataset would report a live catalogue for
     a layer whose data had gone — green for the wrong reason."""
@@ -151,17 +176,60 @@ def test_the_dataset_id_asked_for_is_the_one_passed_through():
     assert seen["dataset_id"] == "cmems_mod_bal_bgc_my_P1D-m"
 
 
-def test_the_module_imports_without_the_spatial_stack(monkeypatch):
-    """A module-scope `import copernicusmarine` would break collection of the whole
+def test_no_catalogue_or_layer_module_imports_copernicusmarine_or_xarray_at_module_scope():
+    """A module-scope import of either package would break collection of the whole
     default suite, which runs `-m 'not spatial'` — and `-m` deselects AFTER
-    collection, so the marker would not save it."""
-    import importlib
+    collection, so the marker would not save it. CI's default job installs neither
+    package at all.
+
+    Modelled on `app/tests/test_app_smoke.py::
+    test_no_app_module_imports_shiny_deckgl_at_module_scope`, which scans for the
+    same failure mode against `shiny_deckgl`.
+    """
+    import ast
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1] / "src" / "seagarden_dst" / "refresh"
+    targets = [root / "sources" / "catalogue.py", root / "layer.py"]
+    offenders = []
+    for path in targets:
+        for node in ast.parse(path.read_text(encoding="utf-8")).body:  # top level only
+            names = []
+            if isinstance(node, ast.Import):
+                names = [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module or ""]
+            for n in names:
+                top = n.split(".")[0]
+                if top in ("copernicusmarine", "xarray"):
+                    offenders.append(f"{path}:{node.lineno}:{top}")
+    assert not offenders, f"copernicusmarine/xarray imported at module scope: {offenders}"
+
+
+def test_dataset_status_classifies_without_copernicusmarine_installed(monkeypatch):
+    """This is the test that would have caught the round-1 defect: `dataset_status`
+    imported `copernicusmarine.DatasetNotFound` unconditionally in its body, so every
+    call — including calls through the injected `describe` fake — required
+    copernicusmarine to be importable. CI's default job installs no spatial extra
+    and runs this unmarked file with a bare `pytest -q`, so that import redenned
+    five tests there while staying green in a `shiny`-environment run locally.
+
+    No `importlib.reload` here: `dataset_status` must work with `copernicusmarine`
+    absent from `sys.modules` on an ordinary call, not only immediately after a
+    forced re-execution of the module.
+    """
     import sys
 
-    monkeypatch.setitem(sys.modules, "xarray", None)
     monkeypatch.setitem(sys.modules, "copernicusmarine", None)
 
-    import seagarden_dst.refresh.sources.catalogue as module
+    def describe_not_found(**kwargs: object) -> None:
+        raise _FakeDatasetNotFound("cmems_gone")
 
-    importlib.reload(module)
-    assert module.dataset_status is not None
+    status, _ = dataset_status("cmems_gone", "202303", describe=describe_not_found)
+    assert status == "absent"
+
+    def describe_broken(**kwargs: object) -> None:
+        raise OSError("name resolution failed")
+
+    status, _ = dataset_status("cmems_x", "202303", describe=describe_broken)
+    assert status == "unreachable"
