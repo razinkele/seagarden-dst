@@ -32,14 +32,25 @@ REGISTRY: dict[str, Layer] = {
     )
 }
 
-# Every registered layer is one C§5 names. This is `<=` and not `==` only because
-# `emodnet_bathy` is still to come; C-c2's first task tightens it to equality, at
-# which point a registered layer C§5 does not name, or a named layer nobody
-# registered, fails loudly at import.
-# A `raise`, not an `assert`: module-scope asserts vanish under `python -O`, and a
-# guard that disappears under an optimisation flag is a guard that cannot fail.
-if not set(REGISTRY) <= set(LAYER_NAMES):
-    raise RuntimeError(
-        f"registered layers {sorted(set(REGISTRY) - set(LAYER_NAMES))} are not "
-        "named in LAYER_NAMES (C§5)"
-    )
+def check_registered_names(registry: dict[str, Layer], names: tuple[str, ...]) -> None:
+    """Refuse a registry holding a layer C§5 does not name.
+
+    A function rather than a bare `if` at module scope so that a test can call it
+    with a bad registry and watch it fire. The guard was previously inline and
+    unreachable from any test: nothing could construct the failing case without
+    monkeypatching a module constant and re-importing, so the argument it makes for
+    itself went unchecked. It matters more at C-c2, where the comparison tightens.
+
+    A `raise`, not an `assert`: module-scope asserts vanish under `python -O`, and a
+    guard that disappears under an optimisation flag is a guard that cannot fail.
+
+    The comparison is `<=` and not `==` only because `emodnet_bathy` is still to
+    come; C-c2's first task tightens it to equality, at which point a registered
+    layer C§5 does not name, OR a named layer nobody registered, fails at import.
+    """
+    unknown = sorted(set(registry) - set(names))
+    if unknown:
+        raise RuntimeError(f"registered layers {unknown} are not named in LAYER_NAMES (C§5)")
+
+
+check_registered_names(REGISTRY, LAYER_NAMES)

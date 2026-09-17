@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
 from seagarden_dst.refresh.layer import LAYER_NAMES, Layer
-from seagarden_dst.refresh.registry import REGISTRY
+from seagarden_dst.refresh.registry import REGISTRY, check_registered_names
 
 
 def test_the_four_copernicus_layers_are_registered():
@@ -18,6 +20,21 @@ def test_the_four_copernicus_layers_are_registered():
 def test_every_registered_name_is_one_C5_names():
     """C-c2 tightens this to equality once emodnet_bathy lands."""
     assert set(REGISTRY) <= set(LAYER_NAMES)
+
+
+def test_an_unnamed_layer_in_the_registry_is_refused():
+    """The import-time guard, now reachable from a test (C§5).
+
+    `check_registered_names` runs at module scope over the real registry, where it
+    passes. This calls the same function with a registry C§5 does not name, which is
+    the only way to see it fire — and the reason it is a function at all.
+    """
+    with pytest.raises(RuntimeError, match="not named in LAYER_NAMES"):
+        check_registered_names({"not_a_layer_C5_names": object()}, LAYER_NAMES)  # type: ignore[dict-item]
+
+
+def test_the_real_registry_passes_the_same_guard_the_import_runs():
+    check_registered_names(REGISTRY, LAYER_NAMES)
 
 
 def test_every_registered_key_matches_its_layers_own_name():
