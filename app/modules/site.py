@@ -22,10 +22,18 @@ rather than in a caption somebody can miss.
 from __future__ import annotations
 
 from shiny import module, reactive, render, ui
-from shiny_deckgl import MapWidget, scatterplot_layer
 
 from seagarden_dst import REGIONS, SiteContext
 from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+#: `shiny_deckgl` ships on a conda channel and is NOT a pip dependency (see the comment
+#: in `pyproject.toml`'s spatial extra), so an install that followed only the pip
+#: instructions will not have it — CI is exactly that install. Imported lazily and
+#: degraded rather than required, which is the same treatment the optional sibling
+#: engines get: the panel loses its map and keeps its selector, and never fails.
+#:
+#: A module-scope import here turns CI's `[app,dev]` job red, because `app/tests`
+#: imports this module and collection happens before any marker can deselect anything.
 
 #: The map element's bare id. `MapWidget` resolves the Shiny module namespace itself,
 #: so the same raw id used in the ui and server halves refers to one element.
@@ -83,7 +91,22 @@ def regions_without_a_position() -> list[str]:
     return sorted(set(REGIONS) - set(SITE_COORDINATES))
 
 
-def _widget() -> MapWidget:
+def map_is_available() -> bool:
+    """Whether `shiny_deckgl` is importable in this install.
+
+    False on a pip-only install, including CI. The panel then shows the selector and a
+    note saying what is missing and how to get it, rather than an empty frame.
+    """
+    try:
+        import shiny_deckgl  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def _widget():
+    from shiny_deckgl import MapWidget
+
     return MapWidget(
         _MAP_ID,
         view_state=_BALTIC_VIEW,
@@ -145,8 +168,18 @@ def site_ui() -> ui.Tag:
         ),
         ui.card(
             ui.card_header("Where"),
-            _widget().ui(height="420px"),
-            _legend(),
+            *(
+                (_widget().ui(height="420px"), _legend())
+                if map_is_available()
+                else (
+                    ui.markdown(
+                        "*The map needs `shiny_deckgl`, which ships on a conda channel "
+                        "rather than PyPI and is not installed here:*\n\n"
+                        "    micromamba install -n shiny -c razinka shiny-deckgl\n\n"
+                        "*Choosing a sub-region in the sidebar works either way.*"
+                    ),
+                )
+            ),
             ui.output_ui("position_note"),
         ),
         ui.card(ui.card_header("Site conditions"), ui.output_ui("conditions")),
@@ -169,10 +202,14 @@ def site_ui() -> ui.Tag:
 
 @module.server
 def site_server(input, output, session, state) -> None:  # noqa: A002
-    widget = _widget()
+    widget = _widget() if map_is_available() else None
 
     @reactive.effect
     async def _draw_markers():
+        if widget is None:
+            return
+        from shiny_deckgl import scatterplot_layer
+
         await widget.update(
             session,
             [
@@ -191,19 +228,24 @@ def site_server(input, output, session, state) -> None:  # noqa: A002
             ],
         )
 
-    @reactive.effect
-    @reactive.event(input[widget.click_input_id], ignore_init=True)
-    def _select_clicked_region():
-        """Clicking a marker moves the selector; it does not commit the site.
+    if widget is not None:
+        # Registered only when there is a map to click. The decorator evaluates
+        # `widget.click_input_id` at definition time, so this cannot be a no-op guard
+        # inside the body.
+        @reactive.effect
+        @reactive.event(input[widget.click_input_id], ignore_init=True)
+        def _select_clicked_region():
+            """Clicking a marker moves the selector; it does not commit the site.
 
-        Committing on click would set a site from a single stray click on a map the
-        user was panning. `Use this site` stays the one action that commits, which is
-        also what keeps this panel's contract identical to the selector-only version.
-        """
-        payload = input[widget.click_input_id]()
-        region = _region_from_click(payload)
-        if region in REGIONS:
-            ui.update_select("region", selected=region)
+            Committing on click would set a site from a single stray click on a map the
+            user was panning. `Use this site` stays the one action that commits, which
+            is also what keeps this panel's contract identical to the selector-only
+            version.
+            """
+            payload = input[widget.click_input_id]()
+            region = _region_from_click(payload)
+            if region in REGIONS:
+                ui.update_select("region", selected=region)
 
     @reactive.effect
     @reactive.event(input.set_site, ignore_init=True)

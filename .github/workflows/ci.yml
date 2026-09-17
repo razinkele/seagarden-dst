@@ -81,8 +81,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[spatial,dev]"
 
+      # `tests/` explicitly, NOT a bare `pytest -q -m spatial`. `testpaths` also lists
+      # `app/tests`, whose modules import `shiny` at module scope, and this job installs
+      # `[spatial,dev]` — no `shiny`. A marker cannot save it: `-m` deselects AFTER
+      # collection, so the run dies with "1 error during collection" having deselected
+      # everything it was asked to run.
+      #
+      # This job passed for weeks on an accident. `spatial` used to declare
+      # `shinywidgets`, which requires `shiny>=0.6.1.9005`, so `shiny` arrived
+      # transitively and `app/tests` stayed collectable. Removing `shinywidgets` when
+      # the map moved to `shiny_deckgl` — a genuinely unused declaration — took the
+      # undocumented prop with it and broke this job. Scoping the path states the
+      # intent instead of relying on a dependency nobody meant to depend on.
       - name: Refresh tests
-        run: pytest -q -m spatial
+        run: pytest -q -m spatial tests/
 
   lint:
     runs-on: ubuntu-latest

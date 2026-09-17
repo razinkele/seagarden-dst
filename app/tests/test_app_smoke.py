@@ -209,3 +209,41 @@ def _markers():
     from app.modules.site import site_markers
 
     return site_markers()
+
+
+def test_the_site_panel_renders_without_shiny_deckgl(monkeypatch):
+    """CI installs with pip and `shiny_deckgl` ships on a conda channel, so the panel
+    has to build without it. Setting the module to None in sys.modules makes `import
+    shiny_deckgl` raise ImportError, which is what a pip-only install does."""
+    import sys
+
+    import app.modules.site as site
+
+    monkeypatch.setitem(sys.modules, "shiny_deckgl", None)
+    assert site.map_is_available() is False
+    assert site.site_ui("site") is not None
+
+
+def test_site_does_not_import_shiny_deckgl_at_module_scope():
+    """A module-scope import turns CI's [app,dev] job red, because app/tests imports
+    this module and collection happens before any marker can deselect anything. This is
+    the guard for a refactor that moves the import back up."""
+    import ast
+    import pathlib
+
+    source = pathlib.Path(app_site_path()).read_text(encoding="utf-8")
+    for node in ast.parse(source).body:  # top level only
+        names = []
+        if isinstance(node, ast.Import):
+            names = [a.name for a in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            names = [node.module or ""]
+        assert not any(
+            n.split(".")[0] == "shiny_deckgl" for n in names
+        ), f"shiny_deckgl imported at module scope (line {node.lineno})"
+
+
+def app_site_path():
+    import app.modules.site as site
+
+    return site.__file__
