@@ -51,6 +51,30 @@ Run against the live catalogue with `copernicusmarine` 2.4.0 on 2026-09-17. **Do
 
 ### Task 1: The catalogue seam
 
+> **Amended after review (fix round 1).** Two things below were wrong as first written and
+> the shipped code differs from these blocks; read this note before the steps.
+>
+> 1. **Step 9's `from copernicusmarine import DatasetNotFound` inside `dataset_status` is a
+>    defect, not a pattern to copy.** It runs on every call. CI's default job installs
+>    `.[app,dev]` with no `spatial` extra and runs bare `pytest -q` over this *unmarked*
+>    test file, so `main` would have gone red on merge — the reviewer simulated it: 5 of 9
+>    tests fail with `ModuleNotFoundError`. "Import inside the function" is not enough when
+>    the function is what the test calls. The shipped code classifies by **name**, walking
+>    `type(error).__mro__` for a class called `DatasetNotFound`, and imports
+>    `copernicusmarine` only in `_default_describe` — the real path. The unmarked tests use
+>    a local fake exception whose `__name__` is set to `"DatasetNotFound"`; one
+>    `@pytest.mark.spatial` test pins the real class so an upstream rename is caught by
+>    the spatial job instead of being reported as `unreachable`.
+> 2. **Step 7's `importlib.reload` test is order-dependent** and was replaced by an AST scan
+>    of module scope (the project's existing idiom, see `test_app_smoke.py`) plus a
+>    behavioural test that calls `dataset_status` with `sys.modules["copernicusmarine"]`
+>    set to `None`. That behavioural test is the one that would have caught defect 1;
+>    neither the reload test nor the AST scan can, because both only *import* the module.
+>
+> The first ruling's fake was itself wrong once: named `_FakeDatasetNotFound`, it never
+> matched by name, and the implementer found out because the DELETE proof went red for the
+> wrong reason. That is the discipline working as intended.
+
 **Files:**
 - Create: `src/seagarden_dst/refresh/sources/catalogue.py`
 - Modify: `src/seagarden_dst/refresh/layer.py` (the `ProbeResult` class, around line 43)
