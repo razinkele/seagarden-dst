@@ -42,6 +42,55 @@ def reference_manifest():
 
 
 @pytest.fixture
+def small_grid():
+    from seagarden_dst.artifact.grid import GridSpec
+
+    return GridSpec(
+        crs="EPSG:4326",
+        lat_min=55.0,
+        lat_max=55.05,
+        lon_min=20.0,
+        lon_max=20.09,
+        lat_step=0.016666,
+        lon_step=0.027777,
+        n_lat=3,
+        n_lon=3,
+    )
+
+
+@pytest.fixture
+def nine_variable_layers():
+    """Five fakes between them producing `ARTIFACT_VARIABLES` minus `valid`.
+
+    `valid` is absent on purpose: the driver computes it, so a fake supplying it
+    would hide a driver that had stopped.
+
+    The `claims` arguments mirror tests/refresh_builders.py exactly — `din_umol_l`
+    and `light_attenuation_k` are claimed by Derivations, not by the layers producing
+    them, so claiming them here too trips C§4.4's claimed-exactly-once validator.
+
+    The `shape`/`window` arguments mirror C§3.2. `copernicus_wav` is the case that
+    matters: month-only dims AND a fixed 2023-2025 window, whatever years are asked
+    for. A fake that let it grow a `year` dim would hide the exact defect a
+    dimensional baseline rule produces.
+    """
+    from refresh_fakes import FakeLayer
+
+    return [
+        FakeLayer("copernicus_phy", ["salinity_psu", "temp_c"]),
+        FakeLayer("copernicus_bgc", ["din_umol_l", "dip_umol_l"], claims=["dip_umol_l"]),
+        FakeLayer("copernicus_bgc_light", ["light_attenuation_k"], claims=[]),
+        FakeLayer(
+            "copernicus_wav",
+            ["significant_wave_m"],
+            shape="monthly",
+            window=[2023, 2024, 2025],
+        ),
+        FakeLayer("emodnet_bathy", ["depth_mean_m", "depth_min_m"], shape="static"),
+    ]
+
+
+@pytest.fixture
 def tiny_dataset():
     """A 3x3-cell, 2-year dataset carrying all nine variables at C§3.2 shapes.
 
