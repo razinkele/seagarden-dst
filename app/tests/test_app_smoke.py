@@ -224,26 +224,32 @@ def test_the_site_panel_renders_without_shiny_deckgl(monkeypatch):
     assert site.site_ui("site") is not None
 
 
-def test_site_does_not_import_shiny_deckgl_at_module_scope():
-    """A module-scope import turns CI's [app,dev] job red, because app/tests imports
-    this module and collection happens before any marker can deselect anything. This is
-    the guard for a refactor that moves the import back up."""
+def test_no_app_module_imports_shiny_deckgl_at_module_scope():
+    """A module-scope import anywhere under app/ turns CI's [app,dev] job red, because
+    app/tests imports these modules and collection happens before any marker can
+    deselect anything.
+
+    Scans the whole tree on purpose. The first version of this guard scanned only
+    modules/site.py, which is the file I was thinking about — and app/shell.py had the
+    same import, so CI stayed red and the test stayed green. A guard scoped to one file
+    defends one file, not the property.
+    """
     import ast
     import pathlib
 
-    source = pathlib.Path(app_site_path()).read_text(encoding="utf-8")
-    for node in ast.parse(source).body:  # top level only
-        names = []
-        if isinstance(node, ast.Import):
-            names = [a.name for a in node.names]
-        elif isinstance(node, ast.ImportFrom):
-            names = [node.module or ""]
-        assert not any(
-            n.split(".")[0] == "shiny_deckgl" for n in names
-        ), f"shiny_deckgl imported at module scope (line {node.lineno})"
+    root = pathlib.Path(__file__).resolve().parents[1]
+    offenders = []
+    for path in sorted(root.rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        for node in ast.parse(path.read_text(encoding="utf-8")).body:  # top level only
+            names = []
+            if isinstance(node, ast.Import):
+                names = [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module or ""]
+            if any(n.split(".")[0] == "shiny_deckgl" for n in names):
+                offenders.append(f"{path.relative_to(root)}:{node.lineno}")
+    assert not offenders, f"shiny_deckgl imported at module scope: {offenders}"
 
 
-def app_site_path():
-    import app.modules.site as site
-
-    return site.__file__

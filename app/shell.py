@@ -7,7 +7,6 @@ from WP4's Communication folder and is not in the repository yet - see BACKLOG).
 from __future__ import annotations
 
 from shiny import ui
-from shiny_deckgl.ui import head_includes
 
 REPO_URL = "https://github.com/razinkele/seagarden-dst"
 CONTACT_EMAIL = "arturas.razinkovas-baziukas@ku.lt"
@@ -139,12 +138,25 @@ def feedback_modal() -> ui.Tag:
     )
 
 
+def _map_head() -> tuple:
+    """deck.gl + MapLibre assets, when `shiny_deckgl` is installed.
+
+    `MapWidget.ui()` returns a bare div with no dependency attached, so without this the
+    map is an empty box and the failure is silent - the page renders, the panel looks
+    fine, nothing draws. Imported lazily for the same reason as in `modules/site.py`:
+    the package ships on a conda channel, is deliberately not a pip dependency, and
+    `app/tests` imports this module, so a module-scope import turns CI red at collection.
+    """
+    try:
+        from shiny_deckgl.ui import head_includes
+    except ImportError:
+        return ()
+    return (head_includes(),)
+
+
 def app_shell(*panels) -> ui.Tag:
     return ui.page_navbar(
-        # deck.gl + MapLibre, for the Site panel's map. `MapWidget.ui()` returns a bare
-        # div with no dependency attached, so without this the map is an empty box and
-        # the failure is silent - the page renders, the panel looks fine, nothing draws.
-        head_includes(),
+        *_map_head(),
         *panels,
         ui.nav_spacer(),
         _action("about", t("About")),
