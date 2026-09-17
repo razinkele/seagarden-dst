@@ -512,3 +512,42 @@ def test_a_coordinate_cannot_be_unpacked_like_a_bare_pair():
 
     with _pytest.raises(TypeError):
         _lat, _lon = SITE_COORDINATES["DK-belt"]
+
+
+def test_a_numpy_float32_nan_cannot_be_constructed_either():
+    """The dtype that actually arrives from a gridded product.
+
+    The guard filtered on `isinstance(value, (int, float))`. `np.float64` subclasses
+    Python's `float` and was caught; `np.float32` does not and was not — and float32 is
+    what every variable in the committed artifact is stored as. So the one dtype the
+    guard's own docstring is about ("a land cell in a gridded product gives NaN for
+    every variable") was the one it let through, and package D reading a land cell would
+    have produced exactly the confident-UNSUITABLE-from-missing-data this guard exists
+    to stop.
+    """
+    import numpy as np
+
+    from seagarden_dst.forcing import SiteConditions
+
+    with pytest.raises(ValueError, match="non-finite"):
+        SiteConditions(
+            region="XX-land", salinity_psu=7.0, mean_temp_c=10.0,
+            summer_temp_c=18.0, winter_temp_c=2.0, surface_par=400.0,
+            din_umol_l=5.0, dip_umol_l=0.5,
+            depth_m=np.float32("nan"), significant_wave_m=1.0,
+        )
+
+
+def test_a_finite_numpy_float32_is_still_accepted():
+    """The guard must reject non-finite numpy scalars without rejecting numpy scalars."""
+    import numpy as np
+
+    from seagarden_dst.forcing import SiteConditions
+
+    site = SiteConditions(
+        region="LT-coastal", salinity_psu=np.float32(7.0), mean_temp_c=10.0,
+        summer_temp_c=18.0, winter_temp_c=2.0, surface_par=400.0,
+        din_umol_l=5.0, dip_umol_l=0.5, depth_m=np.float32(8.0),
+        significant_wave_m=1.0,
+    )
+    assert float(site.depth_m) == 8.0

@@ -13,6 +13,7 @@ layer touches nothing in `growth`, `shellfish`, `nutrients` or `suitability`.
 from __future__ import annotations
 
 import math
+import numbers
 from dataclasses import dataclass, fields
 from datetime import date
 from enum import StrEnum
@@ -89,7 +90,13 @@ class SiteConditions:
         bad = []
         for field in fields(self):
             value = getattr(self, field.name)
-            if isinstance(value, (int, float)) and not math.isfinite(value):
+            # `numbers.Real`, NOT `(int, float)`. `np.float64` subclasses Python's
+            # `float` and was caught; `np.float32` does not subclass it and was not —
+            # and float32 is what every variable in the artifact is stored as, so the
+            # one dtype this guard's docstring is about was the one it let through.
+            # numpy registers its scalar types with the numbers ABCs, so `numbers.Real`
+            # catches both widths and still excludes `str`.
+            if isinstance(value, numbers.Real) and not math.isfinite(value):
                 bad.append(f"{field.name}={value}")
         if bad:
             raise ValueError(
