@@ -64,11 +64,16 @@ def probe_all(layers: Sequence[Layer]) -> list[ProbeResult]:
 
 
 def format_probe_report(results: Sequence[ProbeResult]) -> str:
-    """One line per layer, status first so a red job is readable at a glance."""
+    """One line per layer, status first so a red job is readable at a glance.
+
+    The status word is `ProbeResult.status`, not a boolean rendering. A drifted
+    version is a real failure but printing it as "UNREACHABLE" would send whoever
+    reads the monthly job hunting a network fault instead of correcting a manifest.
+    """
     lines = []
     for result in results:
-        status = "ok" if result.reachable else "UNREACHABLE"
-        lines.append(f"{status:<11} {result.name}  {result.detail}")
+        status = "ok" if result.reachable else result.status.upper()
+        lines.append(f"{status:<14} {result.name}  {result.detail}")
     return "\n".join(lines)
 
 

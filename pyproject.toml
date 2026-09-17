@@ -35,8 +35,10 @@ app = [
 # CORE: scripts/refresh_layers.py runs once a year, writes an artifact, and the tool then
 # reads that artifact with no network, no credentials and no service call. That is what
 # keeps the tool alive to 2034 on no maintenance budget. The CLI and its driver exist as
-# of 0.4.0 (package C-b); the five layers that feed them are package C-c, so `REGISTRY` is
-# still empty and a refresh run exits 1 rather than building anything.
+# of 0.4.0 (package C-b). Four of the five layers landed with package C-c1 —
+# `emodnet_bathy` is the outstanding one — so a refresh run still exits 1, now because
+# the manifest's every-variable-claimed-exactly-once validator refuses an artifact
+# missing its depth fields, not because REGISTRY is empty.
 #
 # "Build-time only" is true of the Copernicus/raster packages, and NOT of the whole extra:
 # the artifact reader package D adds will be a runtime NetCDF backend. The invariant is

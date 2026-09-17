@@ -3,11 +3,12 @@
 Both the driver and the probe job read this, so a layer added here appears in the
 refresh and in the monthly reachability check without being registered twice.
 
-**Nothing here may import xarray or copernicusmarine at module scope.** The probe
-workflow installs the bare package (`pip install -e .`, no `[spatial]` extra), so
-this module and everything it imports must load without them. The layer modules
-honour that by importing inside their methods; do not add a convenience import here
-that breaks it.
+**Nothing here may import xarray or copernicusmarine at module scope.** As of C-c2
+the probe workflow installs `[spatial]`, so the old reason — a bare `pip install -e
+.` — no longer holds. The rule does: the default test suite runs `-m 'not spatial'`
+and `-m` deselects AFTER collection, so a module-scope import here would break
+collection of every test in the repository. The layer modules honour this by
+importing inside their methods; do not add a convenience import here that breaks it.
 """
 
 from __future__ import annotations
@@ -45,8 +46,12 @@ def check_registered_names(registry: dict[str, Layer], names: tuple[str, ...]) -
     guard that disappears under an optimisation flag is a guard that cannot fail.
 
     The comparison is `<=` and not `==` only because `emodnet_bathy` is still to
-    come; C-c2's first task tightens it to equality, at which point a registered
-    layer C§5 does not name, OR a named layer nobody registered, fails at import.
+    come. An earlier version of this docstring said C-c2's FIRST task tightens it to
+    equality. That was wrong twice over: C-c2 is the catalogue probe and does not
+    add a layer at all, and tightening before `emodnet_bathy` exists would raise at
+    import, because `set(LAYER_NAMES) - set(REGISTRY)` is `{'emodnet_bathy'}` — the
+    whole suite would go red at collection. The tightening belongs in the SAME
+    commit that registers the layer, never before it.
     """
     unknown = sorted(set(registry) - set(names))
     if unknown:

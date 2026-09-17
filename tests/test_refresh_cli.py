@@ -171,10 +171,53 @@ def test_the_probe_workflow_runs_the_probe_flag():
     assert any("--probe" in str(step.get("run", "")) for step in steps)
 
 
-def test_the_probe_workflow_installs_without_the_spatial_extra():
-    # The probe path is deliberately xarray-free (C§8.2: catalogue metadata only).
-    # Installing the spatial extra here would make a reachability check depend on the
-    # scientific stack it exists to avoid needing.
+def test_a_version_drift_is_not_reported_as_unreachable():
+    """Three failures shared one word before C-c2. They need different responses:
+    a retired dataset needs a new source, a drift needs a manifest correction."""
+    from scripts.refresh_layers import format_probe_report
+    from seagarden_dst.refresh.layer import ProbeResult
+
+    report = format_probe_report(
+        [
+            ProbeResult(
+                name="copernicus_wav",
+                status="version_drift",
+                reachable=False,
+                detail="manifest says 202303, catalogue serves ['202411']",
+            )
+        ]
+    )
+
+    assert "VERSION_DRIFT" in report
+    assert "UNREACHABLE" not in report
+
+
+def test_the_probe_workflow_installs_the_spatial_extra():
+    """C§8.2 inverts as of C-c2: the probe now needs `copernicusmarine`.
+
+    It asserts on the install COMMAND, not on the word appearing anywhere in the
+    step, because a comment mentioning the spatial extra would satisfy a substring
+    test while the job installed the bare package and died on the import.
+    """
     steps = _workflow()["jobs"]["probe"]["steps"]
-    installs = " ".join(str(step.get("run", "")) for step in steps)
-    assert "spatial" not in installs
+    installs = [
+        line.strip()
+        for step in steps
+        for line in str(step.get("run", "")).splitlines()
+        if line.strip().startswith("pip install")
+    ]
+    assert installs, "the probe job runs no pip install at all"
+    assert any("[spatial]" in line for line in installs), installs
+
+
+def test_the_probe_workflow_passes_no_copernicus_credential():
+    """C§8.2: `describe()` accepts no credential and reads no cached one.
+
+    The two secrets this job used to pass were read by nothing. They looked
+    justified because the spec asked for them, and the spec looked confirmed
+    because the job passed them -- neither wrong when checked against the other.
+    Verified by running describe() with no credential against the live catalogue.
+    """
+    workflow = (_WORKFLOWS / "source-probe.yml").read_text(encoding="utf-8")
+    assert "COPERNICUSMARINE_SERVICE_USERNAME" not in workflow
+    assert "COPERNICUSMARINE_SERVICE_PASSWORD" not in workflow
