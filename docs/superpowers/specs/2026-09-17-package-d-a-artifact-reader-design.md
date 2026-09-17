@@ -219,21 +219,35 @@ earlier.
 integrated Baltic product carries PAR in any form, so the artifact records it in `absent`
 and the reader does not invent it.
 
-### The NaN defect
+### The NaN defect is already fixed, and that inverts the requirement
 
-C§3.5 assigns this to package D. Verified in the current code: if `depth_m` reaches
-`api.select_method` as NaN, every `m.min_depth_m <= conditions.depth_m <= m.max_depth_m`
-comparison is false, `workable` is empty, and `pool = workable or candidates` falls
-through to returning a method anyway. `suitability.assess_physical` then evaluates
-`not (min <= nan <= max)`, which is `True`, and returns a confident **UNSUITABLE**:
-*"Depth nan m is outside the workable window"* — a definitive negative verdict
-manufactured from missing data.
+C§3.5 assigns package D a NaN-handling defect in `select_method`/`assess_physical`: a NaN
+`depth_m` makes every tolerance comparison false, `pool = workable or candidates` returns
+a method anyway, and `assess_physical` evaluates `not (min <= nan <= max)` as `True`,
+producing a confident **UNSUITABLE** manufactured from missing data.
 
-The unassessable path prevents this structurally, since `conditions is None` returns
-early. **Both functions also gain an explicit guard**, so a NaN arriving by any other
-route is loud rather than confident. Structural prevention plus a check, because a
-structural argument is exactly the kind that quietly stops being true — this package's own
-`join="exact"` and `.git/HEAD` defects were both of that shape.
+**That description is stale.** Commit `6de3b0f` — *"Refuse non-finite site conditions, and
+correct where the guard sits"* — put the check in `SiteConditions.__post_init__`, which
+refuses any non-finite field at construction. `assess_physical(site: SiteConditions, ...)`
+therefore cannot receive a NaN through its own signature, and the defect is unreachable
+by that route. Its docstring anticipated this package by name: *"the guarantee is
+inherited by construction rather than by each caller remembering — including by package
+D's `GriddedForcing`, which does not exist yet."*
+
+Adding guards to `select_method` and `assess_physical` would therefore be dead code that
+looks load-bearing, which this project has spent the day removing rather than adding.
+
+**The requirement inverts.** Because `SiteConditions` **raises** on a non-finite field,
+`GriddedForcing` must decide coverage **before** attempting construction. A land cell
+must yield `CELL_INVALID` with `conditions=None`; if the reader instead builds a
+`SiteConditions` from that cell's NaNs it gets a `ValueError`, and a land-cell query
+**crashes** where §7 requires it to block visibly. The artifact's `valid` field —
+package C-b's intersection of contributing layer coverage — is exactly what the reader
+consults to know which it is, and is why that field exists.
+
+This is a better guard than the one C§3.5 asked for: it is reachable, it has a natural
+test (query a land cell, expect a blocked reading and no exception), and the mutation that
+proves it is removing the pre-check and watching a `ValueError` escape.
 
 ---
 
@@ -254,8 +268,10 @@ Four more the architecture needs:
    artifact present.
 7. The distance to the nearest valid cell is reported, and is plausible: §6.2 measured
    0.75–1.28 km across all six regions at native resolution.
-8. A NaN depth cannot produce a confident `UNSUITABLE`, proven by removing the guard and
-   watching the test fail for that reason.
+8. A query whose containing cell is land **blocks and does not raise**. `SiteConditions`
+   refuses non-finite fields at construction, so a reader that builds before checking
+   coverage turns a land cell into a `ValueError` where §7 requires a visible block.
+   Proven by removing the pre-check and watching a `ValueError` escape.
 
 And the visibility §7 demands, which is the point of the mechanism:
 
