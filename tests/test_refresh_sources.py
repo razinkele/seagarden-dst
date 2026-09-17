@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -123,6 +125,57 @@ def test_bgc_declares_a_window_for_both_variables_it_produces(tmp_path):
     assert layer.baseline_years() == {"din_umol_l": [2024], "dip_umol_l": [2024]}
 
 
+def test_bgc_refuses_to_state_a_window_it_has_not_built():
+    """R1, for `copernicus_bgc`. Modelled on phy's — the guard is per-layer code.
+
+    Before this existed, deleting the guard from all three yearly layers reddened
+    exactly one test. A guard only two-thirds defended is a guard that can be
+    removed from the other third without anything noticing.
+    """
+    from seagarden_dst.refresh.sources.bgc import CopernicusBgc
+
+    with pytest.raises(RuntimeError, match="before build"):
+        CopernicusBgc().baseline_years()
+
+
+def test_light_refuses_to_state_a_window_it_has_not_built():
+    """R1, for `copernicus_bgc_light`. See the note on the bgc case above."""
+    from seagarden_dst.refresh.sources.bgc_light import CopernicusBgcLight
+
+    with pytest.raises(RuntimeError, match="before build"):
+        CopernicusBgcLight().baseline_years()
+
+
+def test_phy_stays_lazy_when_handed_a_chunked_source():
+    """R2's headline claim: the reduction never forces a compute.
+
+    R2 exists so ~25.8 GB of hourly `VHM0` never lands on disk, and that rests
+    entirely on the pipeline staying lazy end to end — `open_dataset` returns a
+    dask-backed Dataset, and every transform between it and the writer must return
+    one too. No test handed any layer a chunked array, so an `.compute()`, a
+    `.values`, or any eager helper slipped into the chain would have been invisible
+    here and fatal against the real product.
+
+    `phy` rather than `wav`: it exercises `drop_depth` -> `to_yearly` (including the
+    `reindex` that now lives there), which is the path three of the four layers take.
+    """
+    from seagarden_dst.refresh.sources.phy import CopernicusPhy
+
+    chunked = monthly_source({"so": 7.0, "thetao": 12.0}, [2024, 2025]).chunk({"time": 12})
+    assert chunked["so"].chunks is not None  # the fixture really is dask-backed
+
+    built = CopernicusPhy(opener=lambda **kw: chunked).build(
+        tiny_grid(), YearRange(start=2024, end=2025), Path("unused")
+    )
+
+    for name in built.data_vars:
+        assert built[name].chunks is not None, (
+            f"{name} came back as a materialised array: something in the chain "
+            "forced a compute, which against the real hourly product means 25.8 GB "
+            "in memory (R2)"
+        )
+
+
 def daily_zsd_source(values_by_day: list[float], year: int = 2024):
     """A daily-frequency zsd Dataset. `values_by_day` repeats to fill the year."""
     import pandas as pd
@@ -240,6 +293,14 @@ def test_wav_window_is_fixed_and_ignores_the_requested_range(tmp_path):
 
 
 def test_wav_asks_for_its_own_window_not_the_requested_one(tmp_path):
+    """Both ends of the fixed window, against a requested range sharing NEITHER.
+
+    The requested range is 2016-2022 on purpose. An earlier version asked for
+    2016-2025, which shares its END year with the fixed 2023-2025 window — so the
+    `end_datetime` assertion passed even for a layer that simply echoed `years.end`,
+    and only the start assertion discriminated. With 2022 as the requested end, both
+    assertions fail against an echoing implementation.
+    """
     from seagarden_dst.refresh.sources.wav import CopernicusWav
 
     seen: dict[str, object] = {}
@@ -249,12 +310,26 @@ def test_wav_asks_for_its_own_window_not_the_requested_one(tmp_path):
         return hourly_wave_source([1.0, 2.0])
 
     CopernicusWav(opener=fake_opener).build(
-        tiny_grid(), YearRange(start=2016, end=2025), tmp_path
+        tiny_grid(), YearRange(start=2016, end=2022), tmp_path
     )
 
     assert seen["start_datetime"].startswith("2023-01-01")
     assert seen["end_datetime"].startswith("2025-12-31")
     assert "minimum_depth" not in seen  # the wave product is 2-D
+
+
+def test_wav_can_state_its_window_before_any_build():
+    """The positive half of the wav ruling: no R1 guard, because none is needed.
+
+    `wav.py` argues that it has no pre-`build()` guard because its window is a
+    constant of the design rather than a function of the request. Nothing proved
+    the claim's operative half — that calling `baseline_years()` on a fresh instance
+    actually SUCCEEDS. A guard added here "for symmetry" with the three yearly
+    layers would redden this test, which is precisely the point.
+    """
+    from seagarden_dst.refresh.sources.wav import CopernicusWav
+
+    assert CopernicusWav().baseline_years() == {"significant_wave_m": WAVE_BASELINE}
 
 
 def test_wav_claims_the_variable_it_produces():
