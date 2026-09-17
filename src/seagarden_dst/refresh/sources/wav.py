@@ -92,7 +92,11 @@ class CopernicusWav:
             source="Copernicus Marine Service",
             product_id=PRODUCT_ID,
             dataset_id=DATASET_ID,
-            version="202303",
+            # NOT 202303. The wave product is at its own catalogue version, checked
+            # on 15 September 2026 (C§11.1's table); physics and biogeochemistry are
+            # at 202303 because they are different products, not because the four
+            # layers share a version. This field is per-layer for exactly this case.
+            version="202411",
             retrieved_on=datetime.now(UTC),
             licence="Copernicus Marine Service licence",
             redistribution="allowed",

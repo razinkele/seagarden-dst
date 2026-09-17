@@ -1113,6 +1113,14 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Consumes: `cmems.open_window(..., surface=False)` — the wave product has no depth axis.
 - Produces: `CopernicusWav(...)` with `.name == "copernicus_wav"`. Emits `significant_wave_m` at the **monthly** shape, and declares a window **fixed** at `[2023, 2024, 2025]`.
 
+> **`version` is `202411` here, not `202303`.** An earlier revision of this plan
+> copy-pasted the provenance block across all four layers and carried `202303` along
+> with it — but C§11.1's catalogue check of 15 September 2026 records
+> `cmems_mod_bal_wav_my_PT1H-i` at **`202411`**, and says in so many words that the
+> wave product being at a different version from PHY/BGC is "exactly why `version` is
+> per-layer rather than per-artifact." The three other layers' `202303` is correct.
+> `tests/test_refresh_registry.py` now pins all four pairs to that table.
+
 - [ ] **Step 1: Write the failing test**
 
 Append to `tests/test_refresh_sources.py`:
@@ -1298,7 +1306,11 @@ class CopernicusWav:
             source="Copernicus Marine Service",
             product_id=PRODUCT_ID,
             dataset_id=DATASET_ID,
-            version="202303",
+            # NOT 202303. The wave product is at its own catalogue version, checked
+            # on 15 September 2026 (C§11.1's table); physics and biogeochemistry are
+            # at 202303 because they are different products, not because the four
+            # layers share a version. This field is per-layer for exactly this case.
+            version="202411",
             retrieved_on=datetime.now(UTC),
             licence="Copernicus Marine Service licence",
             redistribution="allowed",
