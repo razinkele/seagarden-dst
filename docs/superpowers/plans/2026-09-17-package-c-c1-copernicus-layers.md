@@ -21,6 +21,9 @@
 - **Surface level is 0.50 m**, the shallowest of the reanalysis's 56 levels — requested as a depth window of 0.0–1.0 m. This is a *model* level and is unrelated to EMODnet seabed depth.
 - **`archive.status` is `pending`** for all four layers, which requires both a `source_url` and an `unblocked_by` note (`manifest.py:54-61`).
 - **Line length 100** (`[tool.ruff]`), target py311. Run `micromamba run -n shiny ruff check .` before each commit.
+- **The CLI's refresh branch refuses while `REGISTRY` is incomplete** (Task 7, Step 3b).
+  Filling the registry removes the empty-registry guard's protection, and without a
+  replacement a refresh would fail after the download instead of before it.
 - **Out of scope — this is C-c2:** `emodnet_bathy`, the `rioxarray` regrid, the free-disk precheck, the measured transfer slice, and `docs/runbooks/annual-refresh.md`.
 
 ---
@@ -430,6 +433,25 @@ def drop_depth(data: xr.DataArray) -> xr.DataArray:
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_cmems.py -v -m spatial`
 Expected: 3 passed
 
+- [ ] **Step 4b: Check the kwargs against the real signature**
+
+The fake opener takes `**kwargs`, so it accepts a misspelled parameter name happily and
+the first real call would die with `TypeError`. This costs nothing and needs no
+credentials:
+
+```bash
+micromamba run -n shiny python -c "import inspect, copernicusmarine as cm; \
+params = set(inspect.signature(cm.open_dataset).parameters); \
+sent = {'dataset_id','variables','minimum_longitude','maximum_longitude', \
+'minimum_latitude','maximum_latitude','start_datetime','end_datetime', \
+'minimum_depth','maximum_depth'}; \
+print('MISSING:', sorted(sent - params) or 'none')"
+```
+
+Expected: `MISSING: none`. If any name is missing, correct `open_window` to match the
+installed `copernicusmarine` before continuing — do not adjust the test to agree with
+the wrong name.
+
 - [ ] **Step 5: Lint and commit**
 
 ```bash
@@ -502,11 +524,11 @@ def monthly_source(variables: dict[str, float], years: list[int]):
     )
 
 
-def test_phy_emits_salinity_and_temperature_at_the_yearly_shape():
+def test_phy_emits_salinity_and_temperature_at_the_yearly_shape(tmp_path):
     from seagarden_dst.refresh.sources.phy import CopernicusPhy
 
     layer = CopernicusPhy(opener=lambda **kw: monthly_source({"so": 7.0, "thetao": 12.0}, [2024, 2025]))
-    built = layer.build(tiny_grid(), YearRange(start=2024, end=2025), tmp_workdir())
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2025), tmp_path)
 
     assert set(built.data_vars) == {"salinity_psu", "temp_c"}
     for name in built.data_vars:
@@ -520,16 +542,16 @@ def test_phy_claims_exactly_what_it_produces():
     assert CopernicusPhy().provenance().variables == ["salinity_psu", "temp_c"]
 
 
-def test_phy_baseline_window_is_the_requested_range():
+def test_phy_baseline_window_is_the_requested_range(tmp_path):
     from seagarden_dst.refresh.sources.phy import CopernicusPhy
 
     layer = CopernicusPhy(opener=lambda **kw: monthly_source({"so": 7.0, "thetao": 12.0}, [2024, 2025]))
-    layer.build(tiny_grid(), YearRange(start=2024, end=2025), tmp_workdir())
+    layer.build(tiny_grid(), YearRange(start=2024, end=2025), tmp_path)
 
     assert layer.baseline_years() == {"salinity_psu": [2024, 2025], "temp_c": [2024, 2025]}
 
 
-def test_phy_refuses_to_state_a_window_it_has_not_built(tmp_path):
+def test_phy_refuses_to_state_a_window_it_has_not_built():
     """R1: the ordering the driver happens to use is enforced, not assumed."""
     from seagarden_dst.refresh.sources.phy import CopernicusPhy
 
@@ -545,12 +567,6 @@ def test_phy_provenance_is_pending_with_a_source_url_and_an_unblocked_by():
     assert archive.source_url
     assert archive.unblocked_by
 
-
-def tmp_workdir():
-    import tempfile
-    from pathlib import Path
-
-    return Path(tempfile.mkdtemp())
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -697,17 +713,21 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Append to `tests/test_refresh_sources.py`:
 
 ```python
-def test_bgc_sums_nitrate_and_ammonium_into_din():
+def test_bgc_sums_nitrate_and_ammonium_into_din(tmp_path):
     from seagarden_dst.refresh.sources.bgc import CopernicusBgc
 
     layer = CopernicusBgc(
         opener=lambda **kw: monthly_source({"no3": 4.0, "nh4": 1.5, "po4": 0.8}, [2024])
     )
-    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_workdir())
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
 
     assert set(built.data_vars) == {"din_umol_l", "dip_umol_l"}
     assert float(built["din_umol_l"].isel(year=0, month=0, latitude=0, longitude=0)) == 5.5
-    assert float(built["dip_umol_l"].isel(year=0, month=0, latitude=0, longitude=0)) == 0.8
+    # approx, not ==: float32 0.8 reads back as 0.800000011920929. 5.5 and 7.0 are
+    # exactly representable; 0.8 is not.
+    assert float(
+        built["dip_umol_l"].isel(year=0, month=0, latitude=0, longitude=0)
+    ) == pytest.approx(0.8)
 
 
 def test_bgc_claims_dip_only_because_din_is_claimed_by_a_derivation():
@@ -717,14 +737,14 @@ def test_bgc_claims_dip_only_because_din_is_claimed_by_a_derivation():
     assert CopernicusBgc().provenance().variables == ["dip_umol_l"]
 
 
-def test_bgc_declares_a_window_for_both_variables_it_produces():
+def test_bgc_declares_a_window_for_both_variables_it_produces(tmp_path):
     """The driver resolves baselines over merged data_vars, not over claims."""
     from seagarden_dst.refresh.sources.bgc import CopernicusBgc
 
     layer = CopernicusBgc(
         opener=lambda **kw: monthly_source({"no3": 4.0, "nh4": 1.5, "po4": 0.8}, [2024])
     )
-    layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_workdir())
+    layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
 
     assert layer.baseline_years() == {"din_umol_l": [2024], "dip_umol_l": [2024]}
 ```
@@ -900,7 +920,7 @@ def daily_zsd_source(values_by_day: list[float], year: int = 2024):
     )
 
 
-def test_light_averages_k_over_days_rather_than_inverting_the_monthly_mean():
+def test_light_averages_k_over_days_rather_than_inverting_the_monthly_mean(tmp_path):
     """C§3.4 and Jensen: mean(1.7/z) != 1.7/mean(z), and the difference is the bug.
 
     This test FAILS if the derivation is moved to the monthly product or reordered
@@ -909,20 +929,28 @@ def test_light_averages_k_over_days_rather_than_inverting_the_monthly_mean():
     from seagarden_dst.refresh.sources.bgc_light import CopernicusBgcLight
 
     layer = CopernicusBgcLight(opener=lambda **kw: daily_zsd_source([2.0, 8.0]))
-    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_workdir())
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
 
     computed = float(built["light_attenuation_k"].isel(year=0, month=0, latitude=0, longitude=0))
-    correct = float(np.mean([1.7 / 2.0, 1.7 / 8.0]))       # 0.53125
-    wrong = 1.7 / float(np.mean([2.0, 8.0]))               # 0.34
+
+    # Derive both expectations from the ACTUAL January the source builder produced.
+    # January has 31 days, so [2.0, 8.0] repeating gives 16 twos and 15 eights - NOT
+    # a balanced pair. Hard-coding mean([1.7/2, 1.7/8]) = 0.53125 would be wrong by
+    # 1.9% against a CORRECT implementation, and the obvious way to make that green
+    # is to reorder the division - which is the bug this test exists to catch.
+    january = np.resize(np.asarray([2.0, 8.0], dtype="float32"), 366)[:31]
+    correct = float(np.mean(1.7 / january))     # 0.5415
+    wrong = 1.7 / float(np.mean(january))       # 0.3467
+
     assert computed == pytest.approx(correct, rel=1e-4)
     assert computed != pytest.approx(wrong, rel=1e-2)
 
 
-def test_light_emits_only_k_at_the_yearly_shape():
+def test_light_emits_only_k_at_the_yearly_shape(tmp_path):
     from seagarden_dst.refresh.sources.bgc_light import CopernicusBgcLight
 
     layer = CopernicusBgcLight(opener=lambda **kw: daily_zsd_source([3.0]))
-    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_workdir())
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
 
     assert set(built.data_vars) == {"light_attenuation_k"}
     assert tuple(built["light_attenuation_k"].dims) == ("year", "month", "latitude", "longitude")
@@ -1108,12 +1136,12 @@ def hourly_wave_source(values: list[float], year: int = 2024):
     )
 
 
-def test_wav_reduces_hourly_waves_to_a_monthly_p95():
+def test_wav_reduces_hourly_waves_to_a_monthly_p95(tmp_path):
     from seagarden_dst.refresh.sources.wav import CopernicusWav
 
     hours = list(np.linspace(0.0, 10.0, 100))
     layer = CopernicusWav(opener=lambda **kw: hourly_wave_source(hours))
-    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_workdir())
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
 
     assert set(built.data_vars) == {"significant_wave_m"}
     assert tuple(built["significant_wave_m"].dims) == ("month", "latitude", "longitude")
@@ -1121,28 +1149,28 @@ def test_wav_reduces_hourly_waves_to_a_monthly_p95():
     assert january == pytest.approx(np.quantile(np.resize(hours, 31 * 24), 0.95), rel=1e-3)
 
 
-def test_wav_carries_no_quantile_coordinate_into_the_artifact():
+def test_wav_carries_no_quantile_coordinate_into_the_artifact(tmp_path):
     """groupby().quantile() leaves a scalar `quantile` coord that must not ship."""
     from seagarden_dst.refresh.sources.wav import CopernicusWav
 
     layer = CopernicusWav(opener=lambda **kw: hourly_wave_source([1.0, 2.0]))
-    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_workdir())
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
 
     assert "quantile" not in built.coords
     assert "quantile" not in built["significant_wave_m"].coords
 
 
-def test_wav_window_is_fixed_and_ignores_the_requested_range():
+def test_wav_window_is_fixed_and_ignores_the_requested_range(tmp_path):
     """C§3.2 fixes the p95 window at 2023-2025; R2 is the case this was written for."""
     from seagarden_dst.refresh.sources.wav import CopernicusWav
 
     layer = CopernicusWav(opener=lambda **kw: hourly_wave_source([1.0, 2.0]))
-    layer.build(tiny_grid(), YearRange(start=2016, end=2025), tmp_workdir())
+    layer.build(tiny_grid(), YearRange(start=2016, end=2025), tmp_path)
 
     assert layer.baseline_years() == {"significant_wave_m": WAVE_BASELINE}
 
 
-def test_wav_asks_for_its_own_window_not_the_requested_one():
+def test_wav_asks_for_its_own_window_not_the_requested_one(tmp_path):
     from seagarden_dst.refresh.sources.wav import CopernicusWav
 
     seen: dict[str, object] = {}
@@ -1152,7 +1180,7 @@ def test_wav_asks_for_its_own_window_not_the_requested_one():
         return hourly_wave_source([1.0, 2.0])
 
     CopernicusWav(opener=fake_opener).build(
-        tiny_grid(), YearRange(start=2016, end=2025), tmp_workdir()
+        tiny_grid(), YearRange(start=2016, end=2025), tmp_path
     )
 
     assert seen["start_datetime"].startswith("2023-01-01")
@@ -1330,9 +1358,6 @@ Create `tests/test_refresh_registry.py`:
 
 from __future__ import annotations
 
-import subprocess
-import sys
-
 from seagarden_dst.refresh.layer import LAYER_NAMES, Layer
 from seagarden_dst.refresh.registry import REGISTRY
 
@@ -1361,23 +1386,40 @@ def test_every_registered_layer_satisfies_the_protocol():
         assert isinstance(layer, Layer)
 
 
-def test_importing_the_registry_does_not_import_the_spatial_stack():
-    """R3: the probe job installs the bare package, so this import must stay clean.
+def test_no_module_on_the_probe_path_imports_the_spatial_stack_at_module_scope():
+    """R3: the probe job installs the bare package, so these imports must stay clean.
 
-    Run in a subprocess because the test session itself has xarray imported.
+    Parsed with `ast` rather than imported or subprocessed, following
+    `tests/test_refresh_isolation.py` - importing the module to see what it imports
+    is the coupling under test, and a subprocess cannot resolve `seagarden_dst` in
+    the development environment, where there is no editable install (see the
+    comment at the top of `scripts/refresh_layers.py`). The AST walk asks the
+    precise question R3 asks: is the import at MODULE scope, or inside a method?
     """
-    code = (
-        "import sys; "
-        "import seagarden_dst.refresh.registry as r; "
-        "bad = [m for m in ('xarray', 'copernicusmarine') if m in sys.modules]; "
-        "print(','.join(bad))"
-    )
-    result = subprocess.run(
-        [sys.executable, "-c", code], capture_output=True, text=True, check=True
-    )
-    assert result.stdout.strip() == "", (
-        f"importing registry.py pulled in {result.stdout.strip()} at module scope; "
-        "the probe job installs no spatial extra and would crash on import"
+    import ast
+    from pathlib import Path
+
+    forbidden = {"xarray", "copernicusmarine"}
+    refresh_dir = Path(__file__).resolve().parent.parent / "src" / "seagarden_dst" / "refresh"
+    probe_path = [refresh_dir / "registry.py", *sorted((refresh_dir / "sources").glob("*.py"))]
+
+    offenders: list[str] = []
+    for module_path in probe_path:
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        # Only the module body - an import inside a FunctionDef is what R3 allows.
+        for node in tree.body:
+            if isinstance(node, ast.Import):
+                names = {alias.name.split(".")[0] for alias in node.names}
+            elif isinstance(node, ast.ImportFrom):
+                names = {(node.module or "").split(".")[0]}
+            else:
+                continue
+            for name in sorted(names & forbidden):
+                offenders.append(f"{module_path.name}:{node.lineno} imports {name}")
+
+    assert offenders == [], (
+        "module-scope spatial imports on the probe path: " + "; ".join(offenders)
+        + ". The probe job installs no spatial extra and would crash on import (R3)"
     )
 ```
 
@@ -1429,11 +1471,43 @@ REGISTRY: dict[str, Layer] = {
 # `emodnet_bathy` is still to come; C-c2's first task tightens it to equality, at
 # which point a registered layer C§5 does not name, or a named layer nobody
 # registered, fails loudly at import.
-assert set(REGISTRY) <= set(LAYER_NAMES), (
-    f"registered layers {sorted(set(REGISTRY) - set(LAYER_NAMES))} are not named in "
-    "LAYER_NAMES (C§5)"
-)
+# A `raise`, not an `assert`: module-scope asserts vanish under `python -O`, and a
+# guard that disappears under an optimisation flag is a guard that cannot fail.
+if not set(REGISTRY) <= set(LAYER_NAMES):
+    raise RuntimeError(
+        f"registered layers {sorted(set(REGISTRY) - set(LAYER_NAMES))} are not "
+        "named in LAYER_NAMES (C§5)"
+    )
 ```
+
+- [ ] **Step 3b: Keep the CLI honest while the registry is incomplete**
+
+Before Task 7, `refresh_layers.py <start> <end>` hit the empty-registry guard and
+refused cleanly. After it, the guard passes, so a refresh would open four real
+Copernicus datasets, pull data over the wire, and only then die deep inside
+`compute_valid` or manifest validation, because `valid`'s derivation names
+`emodnet_bathy` and no such layer is registered. That is a regression in a shipped
+CLI: it trades a clean refusal for an expensive one.
+
+In `scripts/refresh_layers.py`, add to the **refresh branch only** — `--probe` stays
+permissive, because reporting on four reachable sources is still useful:
+
+```python
+    missing = sorted(set(LAYER_NAMES) - set(REGISTRY))
+    if missing:
+        parser.error(
+            f"cannot refresh: {', '.join(missing)} "
+            f"{'is' if len(missing) == 1 else 'are'} named in C\u00a75 but not "
+            "registered, so the artifact would be missing variables the manifest "
+            "must claim. Refusing before the download rather than after it."
+        )
+```
+
+Import `LAYER_NAMES` alongside `REGISTRY` — it is already exported from
+`refresh/layer.py`, which the CLI imports. Add a test to
+`tests/test_refresh_cli.py` asserting the refresh branch exits non-zero and names
+`emodnet_bathy`, and that `--probe` still reports its four rows. C-c2 deletes nothing
+here: once `emodnet_bathy` registers, `missing` is empty and the check goes quiet.
 
 - [ ] **Step 4: Run the whole suite**
 
@@ -1455,8 +1529,9 @@ git commit -m "feat(refresh): register the four Copernicus layers (C§5)
 
 REGISTRY is no longer empty, so --probe reports reachability instead of refusing.
 emodnet_bathy stays out until C-c2, so the LAYER_NAMES assertion is subset rather
-than equality; C-c2's first task tightens it. A subprocess test pins that importing
-registry.py still pulls in neither xarray nor copernicusmarine.
+than equality; C-c2's first task tightens it. An AST test pins that no module on the
+probe path imports xarray or copernicusmarine at module scope, and the refresh branch
+of the CLI refuses while the registry is incomplete.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
