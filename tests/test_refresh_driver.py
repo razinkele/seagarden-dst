@@ -347,6 +347,24 @@ def test_the_right_grid_passes_the_attestation_check(small_grid):
     check_grid(ok, small_grid)
 
 
+def test_a_grid_sized_dataset_with_no_coordinate_variable_is_refused(small_grid):
+    # Distinct from test_a_layer_set_built_off_grid_is_refused_end_to_end: that
+    # dataset carries real (wrong) latitude/longitude coordinate values. This one
+    # carries none at all — xarray gives a coord-less dim a bare integer index — so
+    # it exercises the branch that used to read `dim in dataset.coords and ...` and
+    # skip the coordinate check entirely for a dim with no coordinate variable.
+    off = xr.Dataset(
+        {
+            "depth_mean_m": (
+                ("latitude", "longitude"),
+                np.ones((small_grid.n_lat, small_grid.n_lon), dtype="float32"),
+            )
+        }
+    )
+    with pytest.raises(RefreshFailed, match="coordinates differ"):
+        check_grid(off, small_grid)
+
+
 def test_a_partial_layer_set_cannot_produce_a_manifest(tmp_path, small_grid):
     # A driver that built one layer still declares all nine variables, so C§4.4's
     # claimed-exactly-once rule fires at manifest construction. The manifest refuses
@@ -390,10 +408,15 @@ def test_the_cli_refresh_branch_builds_a_pair(
     assert (target / "manifest.json").exists()
 
 
-def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(monkeypatch):
+def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(tmp_path, monkeypatch):
     # The patch in the test above would hide a CLI that stopped calling `baltic`, so
     # pin the property that makes the patch safe: there is no grid option, therefore
     # `GridSpec.baltic()` is the only extent the refresh branch can possibly use.
+    #
+    # `--target`/`--workdir` are pinned to `tmp_path`, as its sibling
+    # `test_the_cli_refresh_branch_builds_a_pair` does: without them the CLI's
+    # defaults mkdir `.refresh-work/` in the working tree on every spatial run,
+    # and this repository's tree is shared with concurrent sessions.
     import scripts.refresh_layers as cli
     from seagarden_dst.artifact.grid import GridSpec
 
@@ -405,5 +428,10 @@ def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(monkeypatch):
         cli, "REGISTRY", {"copernicus_phy": FakeLayer("copernicus_phy", ["temp_c"])}
     )
     with pytest.raises(Exception):  # noqa: B017 - it fails downstream on a None grid
-        cli.main(["--start-year", "2024", "--end-year", "2024"])
+        cli.main(
+            [
+                "--start-year", "2024", "--end-year", "2024",
+                "--target", str(tmp_path / "out"), "--workdir", str(tmp_path / "work"),
+            ]
+        )
     assert called, "the refresh branch never asked for the Baltic grid"

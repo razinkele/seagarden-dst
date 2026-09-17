@@ -144,6 +144,21 @@ def test_compute_valid_refuses_a_layer_that_built_nothing():
         compute_valid({"copernicus_phy": empty})
 
 
+def test_merge_refuses_layers_disagreeing_on_the_latitude_coordinate():
+    # merge.py's own docstring and the driver's module docstring both claim
+    # `xr.merge(join="exact")` "catches layers disagreeing WITH EACH OTHER" — nothing
+    # in this suite proved it. Different variable names (so neither layer's own
+    # per-layer coverage guard fires first) on the same longitude but different
+    # latitude values: `join="exact"` must refuse the merge outright.
+    phy = _static("temp_c", [[1.0, 1.0], [1.0, 1.0]])
+    bathy = xr.Dataset(
+        {"depth_mean_m": (("latitude", "longitude"), np.ones((2, 2), dtype="float32"))},
+        coords={"latitude": [60.0, 60.5], "longitude": _LON},
+    )
+    with pytest.raises(ValueError):
+        merge_layers({"copernicus_phy": phy, "emodnet_bathy": bathy})
+
+
 def test_compute_valid_refuses_a_variable_missing_a_spatial_dim():
     # Renaming SPATIAL_DIMS alone is not enough: a C-c layer emitting the short form
     # must be refused, not silently reduced to a scalar.

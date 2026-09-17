@@ -136,7 +136,7 @@ def check_grid(dataset: xr.Dataset, grid: GridSpec) -> None:
                 f"the merged data does not sit on the grid the manifest attests: "
                 f"'{dim}' has {size} points, the GridSpec declares {len(axis)}"
             )
-        if dim in dataset.coords and not np.allclose(dataset[dim].values, axis):
+        if not np.allclose(dataset[dim].values, axis):
             raise RefreshFailed(
                 f"the merged data does not sit on the grid the manifest attests: "
                 f"'{dim}' coordinates differ from the GridSpec's, so the artifact "

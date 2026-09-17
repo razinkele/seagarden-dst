@@ -21,6 +21,11 @@ data/vectors/
 !tests/fixtures/data/*.nc
 *.zarr/
 
+# Scratch space the refresh CLI mkdirs by default (`scripts/refresh_layers.py`'s
+# `--workdir` default). A manual run without `--workdir` creates it in the working
+# tree; it is never a deliverable.
+.refresh-work/
+
 # Local application state (registrations, saved scenarios) - never committed.
 # Specification section 10.
 *.sqlite
