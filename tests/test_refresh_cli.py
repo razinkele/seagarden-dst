@@ -72,6 +72,25 @@ def test_an_empty_registry_does_not_probe_green(monkeypatch):
     assert main(["--probe"]) == 1
 
 
+def test_a_refresh_with_an_empty_registry_returns_one_rather_than_raising(tmp_path, monkeypatch):
+    # M6: the empty-REGISTRY guard covered `--probe` but not the refresh branch,
+    # which mkdir'd `workdir` and then died with an uncaught
+    # `ValueError: no coverage layer was built`. Unmarked (no xarray import on this
+    # path): the guard must return before the refresh branch's lazy xarray import.
+    import scripts.refresh_layers as cli
+
+    monkeypatch.setattr(cli, "REGISTRY", {})
+    workdir = tmp_path / "work"
+    code = cli.main(
+        [
+            "--start-year", "2024", "--end-year", "2024",
+            "--target", str(tmp_path / "out"), "--workdir", str(workdir),
+        ]
+    )
+    assert code == 1
+    assert not workdir.exists()
+
+
 def test_a_refresh_without_a_year_range_is_refused(capsys):
     with pytest.raises(SystemExit):
         main([])

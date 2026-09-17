@@ -48,13 +48,26 @@ def resolve_baselines(
     declaration against it. Keys come from `dataset.data_vars`, which keeps
     `set(baselines) == set(data_vars)` and lets the manifest's baselines-keys rule
     catch a produced-but-undeclared variable.
+
+    The "an unstated window is an error" rule (C§4.4) applies to every variable, not
+    only the ones without a `year` dim — a variable WITH a year dim and no
+    declaration is not a variable with a window to read off the data unchecked, it is
+    an undeclared window like any other. So the declared-or-refused check runs
+    first, before the year-dim branch, rather than being buried inside the `else`.
     """
     resolved: dict[str, list[int]] = {}
     for name, variable in dataset.data_vars.items():
         key = str(name)
+        if key not in declared:
+            raise RefreshFailed(
+                f"no layer declared a baseline window for '{key}'; an unstated "
+                "window is not an empty one (C§4.4) — `significant_wave_m` is "
+                "exactly this case, and a year dim does not exempt a variable from "
+                "declaring its window either"
+            )
         if "year" in variable.dims:
             from_data = [int(year) for year in variable["year"].values]
-            if key in declared and list(declared[key]) != from_data:
+            if list(declared[key]) != from_data:
                 raise RefreshFailed(
                     f"declared baseline for '{key}' is {list(declared[key])} but the "
                     f"built data carries {from_data}; the manifest would attest a "
@@ -62,12 +75,6 @@ def resolve_baselines(
                 )
             resolved[key] = from_data
             continue
-        if key not in declared:
-            raise RefreshFailed(
-                f"no layer declared a baseline window for '{key}', and it has no year "
-                "dimension to read one from; an unstated window is not an empty one "
-                "(C§4.4) — `significant_wave_m` is exactly this case"
-            )
         resolved[key] = list(declared[key])
     return resolved
 
@@ -172,6 +179,14 @@ def _declared_windows(layers: Sequence[Layer]) -> dict[str, list[int]]:
                 )
             declared[name] = list(window)
     # `valid` is the driver's own, computed in merge_layers, so no layer declares it.
+    # This must run AFTER the duplicate-claim loop but must not let a layer that DID
+    # declare `valid` be silently overwritten here — that would defeat the
+    # one-variable-one-layer guard three lines up for this one name.
+    if "valid" in declared:
+        raise RefreshFailed(
+            "a layer declared a baseline window for 'valid', but `valid` is computed "
+            "by the driver in merge_layers; no layer may claim it (C§5)"
+        )
     declared["valid"] = []
     return declared
 

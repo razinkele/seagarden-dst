@@ -5,8 +5,18 @@ import numpy as np  # noqa: E402
 import xarray as xr  # noqa: E402
 
 from seagarden_dst.refresh.shapes import EXPECTED_DIMS, SPATIAL_DIMS, check_shapes  # noqa: E402
+from seagarden_dst.refresh.variables import ARTIFACT_VARIABLES  # noqa: E402
 
 pytestmark = pytest.mark.spatial
+
+
+def test_expected_dims_and_artifact_variables_name_the_same_nine_variables():
+    # `ARTIFACT_VARIABLES` (refresh/variables.py) and the keys of `EXPECTED_DIMS`
+    # (refresh/shapes.py) are two independent enumerations of the same nine
+    # variables (C§3.2), and nothing compared them before this test. Two
+    # enumerations of one truth drifting apart silently is the exact hazard R4
+    # exists to prevent in this package.
+    assert set(EXPECTED_DIMS) == ARTIFACT_VARIABLES
 
 
 def test_the_spatial_dims_are_spelled_out():

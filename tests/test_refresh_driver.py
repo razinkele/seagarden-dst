@@ -69,6 +69,16 @@ def test_an_undeclared_window_is_refused_rather_than_defaulted():
         resolve_baselines(ds, {})
 
 
+def test_an_undeclared_window_is_refused_even_with_a_year_dimension():
+    # M4: the "an unstated window is an error" rule (C§4.4) was enforced only for
+    # variables WITHOUT a `year` dim; one WITH a year dim and no declaration was
+    # silently filled from the data instead — the dimensional shortcut the
+    # docstring forbids, applied inconsistently.
+    ds = _yearly("temp_c", [2024, 2025])
+    with pytest.raises(RefreshFailed, match="no layer declared a baseline window"):
+        resolve_baselines(ds, {})
+
+
 def test_one_failing_layer_fails_the_whole_refresh(tmp_path, small_grid):
     # C§6.1 row 1.
     layers = [
@@ -258,6 +268,17 @@ def test_two_layers_declaring_one_variable_are_refused():
         FakeLayer("copernicus_bgc", ["temp_c"]),
     ]
     with pytest.raises(RefreshFailed, match="two layers declared"):
+        _declared_windows(layers)
+
+
+def test_a_layer_claiming_valid_is_refused_rather_than_overwritten():
+    # M5: `declared["valid"] = []` used to run unconditionally after the
+    # duplicate-claim loop, silently overwriting a layer's own declaration for
+    # `valid` instead of being caught by the one-variable-one-layer guard three
+    # lines above. An unbuilt FakeLayer("...", ["valid"]) already declares
+    # {"valid": []} via baseline_years(), so no build() is needed to exercise it.
+    layers = [FakeLayer("copernicus_phy", ["valid"])]
+    with pytest.raises(RefreshFailed, match="no layer may claim it"):
         _declared_windows(layers)
 
 
