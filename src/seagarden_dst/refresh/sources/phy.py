@@ -22,7 +22,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 DATASET_ID = "cmems_mod_bal_phy_my_P1M-m"
 PRODUCT_ID = "BALTICSEA_MULTIYEAR_PHY_003_011"
-SOURCE_URL = cmems.product_url(PRODUCT_ID)
 # The PHY reanalysis's catalogue version, checked 15 September 2026 (C§11.1).
 # Per-layer, not shared: the wave product is at 202411.
 VERSION = "202303"

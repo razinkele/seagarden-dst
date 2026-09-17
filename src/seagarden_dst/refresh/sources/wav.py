@@ -49,7 +49,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 DATASET_ID = "cmems_mod_bal_wav_my_PT1H-i"
 PRODUCT_ID = "BALTICSEA_MULTIYEAR_WAV_003_015"
-SOURCE_URL = cmems.product_url(PRODUCT_ID)
 # NOT 202303. The wave product is at its own catalogue version, checked on
 # 15 September 2026 (C§11.1's table); physics and biogeochemistry are at 202303
 # because they are different products, not because the four layers share a version.

@@ -51,11 +51,13 @@ ARCHIVE_UNBLOCKED_BY = "Zenodo deposit of the built artifact; C§1 puts it outsi
 
 
 def product_url(product_id: str) -> str:
-    """The catalogue landing page for a product.
+    """The catalogue landing page for a product, recorded in provenance as `source_url`.
 
-    Derived rather than written out per layer so the URL a layer's `probe()` HEADs
-    and the URL its provenance records cannot drift apart — they are the same string
-    by construction.
+    Until C-c2 this was also the URL each layer's `probe()` sent an HTTP HEAD to, and
+    deriving it in one place kept the probed URL and the recorded URL identical. The
+    probe now asks the catalogue about the dataset instead (`catalogue.dataset_status`),
+    so the only remaining reader is `copernicus_provenance`. Kept as a function rather
+    than inlined so the product-page scheme stays in one place.
     """
     return f"{COPERNICUS_PRODUCT_BASE}/{product_id}"
 

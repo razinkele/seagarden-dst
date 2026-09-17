@@ -176,33 +176,54 @@ def test_the_dataset_id_asked_for_is_the_one_passed_through():
     assert seen["dataset_id"] == "cmems_mod_bal_bgc_my_P1D-m"
 
 
-def test_no_catalogue_or_layer_module_imports_copernicusmarine_or_xarray_at_module_scope():
+def _refresh_module_targets() -> list:
+    """Every module the module-scope-import constraint names.
+
+    `registry.py` imports the layer modules, which import `cmems.py`, which imports
+    `catalogue.py` — a module-scope `import copernicusmarine` or `import xarray`
+    anywhere in that chain breaks collection of the whole default suite (`-m` deselects
+    AFTER collection). Globbing `sources/*.py` rather than listing the four layer
+    modules by name means a fifth or sixth layer is covered automatically, with no one
+    remembering to add it here.
+    """
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1] / "src" / "seagarden_dst" / "refresh"
+    return sorted([root / "layer.py", root / "registry.py"] + list((root / "sources").glob("*.py")))
+
+
+@pytest.mark.parametrize(
+    "path", _refresh_module_targets(), ids=lambda p: p.name
+)
+def test_no_refresh_module_imports_the_spatial_stack_at_module_scope(path):
     """A module-scope import of either package would break collection of the whole
     default suite, which runs `-m 'not spatial'` — and `-m` deselects AFTER
     collection, so the marker would not save it. CI's default job installs neither
     package at all.
+
+    Parametrised over every module the constraint names, not just two: Task 2 added
+    two new module-scope imports to `cmems.py` (`ProbeResult`, and
+    `DescribeCallable`/`dataset_status` from `catalogue.py`), and a guard scanning only
+    `catalogue.py` and `layer.py` would not have noticed if either import had instead
+    named `copernicusmarine` directly. A parametrised failure names the offending file.
 
     Modelled on `app/tests/test_app_smoke.py::
     test_no_app_module_imports_shiny_deckgl_at_module_scope`, which scans for the
     same failure mode against `shiny_deckgl`.
     """
     import ast
-    import pathlib
 
-    root = pathlib.Path(__file__).resolve().parents[1] / "src" / "seagarden_dst" / "refresh"
-    targets = [root / "sources" / "catalogue.py", root / "layer.py"]
     offenders = []
-    for path in targets:
-        for node in ast.parse(path.read_text(encoding="utf-8")).body:  # top level only
-            names = []
-            if isinstance(node, ast.Import):
-                names = [a.name for a in node.names]
-            elif isinstance(node, ast.ImportFrom):
-                names = [node.module or ""]
-            for n in names:
-                top = n.split(".")[0]
-                if top in ("copernicusmarine", "xarray"):
-                    offenders.append(f"{path}:{node.lineno}:{top}")
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:  # top level only
+        names = []
+        if isinstance(node, ast.Import):
+            names = [a.name for a in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            names = [node.module or ""]
+        for n in names:
+            top = n.split(".")[0]
+            if top in ("copernicusmarine", "xarray"):
+                offenders.append(f"{path}:{node.lineno}:{top}")
     assert not offenders, f"copernicusmarine/xarray imported at module scope: {offenders}"
 
 
@@ -326,15 +347,35 @@ def test_a_layer_whose_catalogue_is_down_reports_it_rather_than_raising(layer_na
     assert result.reachable is False
 
 
-def test_the_probed_version_is_the_one_the_manifest_publishes():
+@pytest.mark.parametrize("layer_name", sorted(_C11_1))
+def test_the_probed_version_is_the_one_the_manifest_publishes(layer_name):
     """The probe and `provenance()` must read the SAME version.
 
     If `probe()` checked a literal while `provenance()` recorded another, the job
     would verify a version the manifest does not publish — green while shipping a
-    false provenance, which is the exact failure mode C-c1 hit.
+    false provenance, which is the exact failure mode C-c1 hit. Parametrised so a
+    failure names the layer rather than reporting the first mismatch in dict order.
     """
-    for layer_name, (expected_id, expected_version) in _C11_1.items():
-        layer = _layer_classes()[layer_name]()
-        record = layer.provenance()
-        assert record.dataset_id == expected_id
-        assert record.version == expected_version
+    expected_id, expected_version = _C11_1[layer_name]
+    layer = _layer_classes()[layer_name]()
+    record = layer.provenance()
+    assert record.dataset_id == expected_id
+    assert record.version == expected_version
+
+
+@pytest.mark.parametrize("layer_name", sorted(_C11_1))
+def test_probe_and_provenance_read_the_same_version_constant(layer_name, monkeypatch):
+    """A stray literal beside a matching VERSION constant would pass every other test
+    here. Rebinding the constant and watching BOTH surfaces move proves they read the
+    same name -- the property C-c1's 202303/202411 bug violated."""
+    import importlib
+
+    layer_class = _layer_classes()[layer_name]
+    module = importlib.import_module(layer_class.__module__)
+    monkeypatch.setattr(module, "VERSION", "SENTINEL")
+
+    probed = layer_class(describe=_describe_returning(["999999"])).probe()
+    recorded = layer_class().provenance()
+
+    assert "SENTINEL" in probed.detail
+    assert recorded.version == "SENTINEL"
