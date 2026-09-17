@@ -4,6 +4,12 @@ name: source-probe
 # and blocks no pull request. Gating merges on the continued existence of a
 # third-party service would make every PR hostage to Copernicus.
 on:
+  # GitHub disables `schedule:` triggers after 60 days with no repository activity.
+  # On a deliverable with no maintenance budget this job can then silently stop
+  # firing — nobody sees red because nothing runs at all, the same "a check that
+  # cannot fail" hazard the empty-REGISTRY guard in refresh_layers.py exists to
+  # prevent, one level up. `workflow_dispatch` is the manual fallback; there is no
+  # automated fallback for a repository that goes quiet for 60+ days.
   schedule:
     - cron: "0 6 1 * *"   # 06:00 UTC on the first of each month
   workflow_dispatch:
