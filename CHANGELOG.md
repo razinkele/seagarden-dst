@@ -19,6 +19,73 @@ unreleased.
 
 ---
 
+## [0.4.0] — 2026-09-17
+
+**The refresh tooling gets its driver — and still cannot fetch anything.**
+
+228 tests (198 at 0.3.0), of which 55 need the `spatial` extra. CI on Python 3.11 and 3.13
+across two install states.
+
+**What this release does NOT change: anything the tool displays.** Package C-b builds the
+machinery that will assemble the forcing artifact, but not the five layers that supply its
+data — those are package C-c. `REGISTRY` ships empty, so `scripts/refresh_layers.py` with a
+year range exits 1 without writing a file. Every site condition the app shows is still the
+placeholder constant it was at 0.3.0, with the same caveats: the Tagalaht DIN placeholder
+remains 5.3× the measured value and attenuation 2.0× measured, and `surface_par` remains
+permanently absent rather than pending.
+
+### Added
+
+- **Package C-b — the layer protocol, the driver and the probe.** A five-member `Layer`
+  protocol (`name`, `probe`, `build`, `provenance`, `baseline_years`) that the five real
+  layers will implement; a `REGISTRY` both the driver and the probe job read, so the source
+  list exists in exactly one place; and `run_refresh`, which builds each layer, merges them,
+  resolves every variable's baseline window, and writes the artifact/manifest pair through
+  the C-a writer. Proven end to end against synthetic layers, so no test makes a network
+  call and none needs a credential.
+- **An explicit `valid` field**, computed as the intersection of contributing layer
+  coverage. Copernicus land-masking sits on the 2 km model grid and EMODnet bathymetry is an
+  independent ~115 m product; they disagree exactly at the coastline, which is where every
+  farm is. Package D will read this field rather than infer validity from whichever variable
+  it happened to look at.
+- **`refresh_layers.py --probe`** and `.github/workflows/source-probe.yml`, a monthly job
+  deliberately separate from `ci.yml` so a dead upstream source turns that job red and
+  blocks no pull request.
+- **The deposit path**, exercised against a stub returning a synthetic DOI: recording it
+  flips the affected layers from `pending` to `deposited` and the manifest still validates.
+  No deposit is performed — a human runs that, and the runbook for it is package C-c's.
+- **Three ordered guards on the way to disk**, each catching what the others cannot: a layer
+  whose variables lack the artifact's spatial dimensions, a variable whose dimensions are
+  individually plausible but wrong for it, and a layer set that is internally consistent and
+  uniformly on the wrong grid. The manifest's own checksum and completeness rules cannot see
+  a wrong *shape*, only a wrong *name*.
+
+### Changed
+
+- **The map library is now `shiny_deckgl`**, the project maintainer's Shiny-for-Python to
+  deck.gl/MapLibre bridge, replacing `shinywidgets` + `ipyleaflet` for package E's map and
+  polygon drawing. It is **not** a pip dependency: it ships on the `razinka` conda channel
+  and every install path here is pip, so it is recorded as an environment prerequisite
+  (`micromamba install -n shiny -c razinka shiny-deckgl`) in the README and the deploy
+  runbook. Nothing imports it yet; `modules/site.py` is still the sub-region picker.
+
+### Known limits
+
+- `source-probe.yml` **exits 1 until package C-c registers the layers.** That is the
+  empty-registry guard working as designed: a monthly check that passes while checking
+  nothing is worse than no check at all. The first scheduled run will be red, and that is
+  the expected state, not a regression.
+- GitHub disables scheduled workflows after 60 days without repository activity. On a
+  deliverable with no maintenance budget that means the probe job can stop firing silently —
+  recorded in the workflow and in the C-c handoff notes, but not yet mitigated.
+- Done-when clauses 1, 6, 9 and 11 of the package C design are discharged. Clause 5 is
+  deliberately not claimed here: package C-a already proved the interrupted-write window
+  against the writer's test seam, and the driver adds no uncovered surface. Clause 7 — the
+  annual-refresh runbook followed end to end by someone who did not write it — cannot be
+  discharged by any implementer and remains open.
+
+---
+
 ## [0.3.0] — 2026-09-16
 
 **The refresh tooling gets its foundations, and five of seven sites get a position.**

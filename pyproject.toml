@@ -1,6 +1,6 @@
 [project]
 name = "seagarden-dst"
-version = "0.3.0"
+version = "0.4.0"
 description = "SeaGarden Decision Support Tool — analytical core (A2.3 / D2.2)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -32,9 +32,11 @@ app = [
 # which runs on the placeholder conditions in seagarden_dst.forcing.
 #
 # The data-layer design's central premise is that nothing here is imported by the MODEL
-# CORE: scripts/refresh_layers.py — package C, not yet written — will run once a year,
-# write an artifact, and the tool then reads that artifact with no network, no credentials
-# and no service call. That is what keeps the tool alive to 2034 on no maintenance budget.
+# CORE: scripts/refresh_layers.py runs once a year, writes an artifact, and the tool then
+# reads that artifact with no network, no credentials and no service call. That is what
+# keeps the tool alive to 2034 on no maintenance budget. The CLI and its driver exist as
+# of 0.4.0 (package C-b); the five layers that feed them are package C-c, so `REGISTRY` is
+# still empty and a refresh run exits 1 rather than building anything.
 #
 # "Build-time only" is true of the Copernicus/raster packages, and NOT of the whole extra:
 # the artifact reader package D adds will be a runtime NetCDF backend. The invariant is
