@@ -185,3 +185,79 @@ def test_light_reads_the_daily_dataset_not_the_monthly_one():
     from seagarden_dst.refresh.sources.bgc_light import CopernicusBgcLight
 
     assert CopernicusBgcLight().provenance().dataset_id.endswith("P1D-m")
+
+
+WAVE_BASELINE = [2023, 2024, 2025]
+
+
+def hourly_wave_source(values: list[float], year: int = 2024):
+    """An hourly VHM0 Dataset over January only, to keep the test small."""
+    import pandas as pd
+    import xarray as xr
+
+    times = pd.date_range(f"{year}-01-01", f"{year}-01-31 23:00", freq="h")
+    grid = tiny_grid()
+    column = np.resize(np.asarray(values, dtype="float32"), len(times))
+    data = np.repeat(np.repeat(column[:, None, None], 3, axis=1), 3, axis=2)
+    return xr.Dataset(
+        {"VHM0": (("time", "latitude", "longitude"), data)},
+        coords={"time": times, "latitude": grid.lats(), "longitude": grid.lons()},
+    )
+
+
+def test_wav_reduces_hourly_waves_to_a_monthly_p95(tmp_path):
+    from seagarden_dst.refresh.sources.wav import CopernicusWav
+
+    hours = list(np.linspace(0.0, 10.0, 100))
+    layer = CopernicusWav(opener=lambda **kw: hourly_wave_source(hours))
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
+
+    assert set(built.data_vars) == {"significant_wave_m"}
+    assert tuple(built["significant_wave_m"].dims) == ("month", "latitude", "longitude")
+    january = float(built["significant_wave_m"].isel(month=0, latitude=0, longitude=0))
+    assert january == pytest.approx(np.quantile(np.resize(hours, 31 * 24), 0.95), rel=1e-3)
+
+
+def test_wav_carries_no_quantile_coordinate_into_the_artifact(tmp_path):
+    """groupby().quantile() leaves a scalar `quantile` coord that must not ship."""
+    from seagarden_dst.refresh.sources.wav import CopernicusWav
+
+    layer = CopernicusWav(opener=lambda **kw: hourly_wave_source([1.0, 2.0]))
+    built = layer.build(tiny_grid(), YearRange(start=2024, end=2024), tmp_path)
+
+    assert "quantile" not in built.coords
+    assert "quantile" not in built["significant_wave_m"].coords
+
+
+def test_wav_window_is_fixed_and_ignores_the_requested_range(tmp_path):
+    """C§3.2 fixes the p95 window at 2023-2025; R2 is the case this was written for."""
+    from seagarden_dst.refresh.sources.wav import CopernicusWav
+
+    layer = CopernicusWav(opener=lambda **kw: hourly_wave_source([1.0, 2.0]))
+    layer.build(tiny_grid(), YearRange(start=2016, end=2025), tmp_path)
+
+    assert layer.baseline_years() == {"significant_wave_m": WAVE_BASELINE}
+
+
+def test_wav_asks_for_its_own_window_not_the_requested_one(tmp_path):
+    from seagarden_dst.refresh.sources.wav import CopernicusWav
+
+    seen: dict[str, object] = {}
+
+    def fake_opener(**kwargs: object):
+        seen.update(kwargs)
+        return hourly_wave_source([1.0, 2.0])
+
+    CopernicusWav(opener=fake_opener).build(
+        tiny_grid(), YearRange(start=2016, end=2025), tmp_path
+    )
+
+    assert seen["start_datetime"].startswith("2023-01-01")
+    assert seen["end_datetime"].startswith("2025-12-31")
+    assert "minimum_depth" not in seen  # the wave product is 2-D
+
+
+def test_wav_claims_the_variable_it_produces():
+    from seagarden_dst.refresh.sources.wav import CopernicusWav
+
+    assert CopernicusWav().provenance().variables == ["significant_wave_m"]
