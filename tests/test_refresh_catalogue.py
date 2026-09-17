@@ -233,3 +233,108 @@ def test_dataset_status_classifies_without_copernicusmarine_installed(monkeypatc
 
     status, _ = dataset_status("cmems_x", "202303", describe=describe_broken)
     assert status == "unreachable"
+
+
+# --- The four real layers, through the `describe` seam ---------------------------
+#
+# Every layer takes a `describe` for exactly this: proving C§8.2's probe path
+# offline, with no network and no credential. The predecessor of these tests caught
+# nothing for a whole package, because the `reachability_opener` parameter appeared
+# in no test at all.
+
+
+def _layer_classes():
+    """The four classes, imported lazily so a collection error names the layer."""
+    from seagarden_dst.refresh.sources.bgc import CopernicusBgc
+    from seagarden_dst.refresh.sources.bgc_light import CopernicusBgcLight
+    from seagarden_dst.refresh.sources.phy import CopernicusPhy
+    from seagarden_dst.refresh.sources.wav import CopernicusWav
+
+    return {
+        "copernicus_phy": CopernicusPhy,
+        "copernicus_bgc": CopernicusBgc,
+        "copernicus_bgc_light": CopernicusBgcLight,
+        "copernicus_wav": CopernicusWav,
+    }
+
+
+# C§11.1, copied verbatim. Written out here rather than read from provenance()
+# because a test that derived its expectation from the code under test would pass
+# for any pair of values, including the wrong one C-c1 shipped.
+_C11_1 = {
+    "copernicus_phy": ("cmems_mod_bal_phy_my_P1M-m", "202303"),
+    "copernicus_bgc": ("cmems_mod_bal_bgc_my_P1M-m", "202303"),
+    "copernicus_bgc_light": ("cmems_mod_bal_bgc_my_P1D-m", "202303"),
+    "copernicus_wav": ("cmems_mod_bal_wav_my_PT1H-i", "202411"),
+}
+
+
+@pytest.mark.parametrize("layer_name", sorted(_C11_1))
+def test_each_layer_probes_its_own_dataset_at_its_own_version(layer_name):
+    """C§8.2: the probe must ask about the DATASET, not the product page.
+
+    `copernicus_bgc` and `copernicus_bgc_light` read different datasets from the
+    same product, so their landing pages are byte-identical and the old HEAD probe
+    could not tell them apart. Their dataset ids differ, and this asserts each layer
+    asks about its own.
+    """
+    expected_id, expected_version = _C11_1[layer_name]
+    seen: dict[str, object] = {}
+
+    def describe(**kwargs: object) -> _FakeCatalogue:
+        seen.update(kwargs)
+        return _FakeCatalogue([expected_version])
+
+    result = _layer_classes()[layer_name](describe=describe).probe()
+
+    assert result.name == layer_name
+    assert result.status == "ok"
+    assert result.reachable is True
+    assert seen["dataset_id"] == expected_id
+
+
+@pytest.mark.parametrize("layer_name", sorted(_C11_1))
+def test_each_layer_reports_drift_against_the_version_it_publishes(layer_name):
+    """The check that would have caught C-c1's wav.py on the first monthly run.
+
+    The catalogue is made to serve a version no layer records, so every layer must
+    report drift naming its own recorded value. A layer that hard-coded someone
+    else's version would name the wrong number here.
+    """
+    _, expected_version = _C11_1[layer_name]
+    describe = _describe_returning(["999999"])
+
+    result = _layer_classes()[layer_name](describe=describe).probe()
+
+    assert result.status == "version_drift"
+    assert result.reachable is False
+    assert expected_version in result.detail
+    assert "999999" in result.detail
+
+
+@pytest.mark.parametrize("layer_name", sorted(_C11_1))
+def test_a_layer_whose_catalogue_is_down_reports_it_rather_than_raising(layer_name):
+    """One dead source must not fail the job for the other four (C§8.2)."""
+
+    def describe(**kwargs: object) -> None:
+        raise OSError("name resolution failed")
+
+    result = _layer_classes()[layer_name](describe=describe).probe()
+
+    assert result.name == layer_name
+    assert result.status == "unreachable"
+    assert result.reachable is False
+
+
+def test_the_probed_version_is_the_one_the_manifest_publishes():
+    """The probe and `provenance()` must read the SAME version.
+
+    If `probe()` checked a literal while `provenance()` recorded another, the job
+    would verify a version the manifest does not publish — green while shipping a
+    false provenance, which is the exact failure mode C-c1 hit.
+    """
+    for layer_name, (expected_id, expected_version) in _C11_1.items():
+        layer = _layer_classes()[layer_name]()
+        record = layer.provenance()
+        assert record.dataset_id == expected_id
+        assert record.version == expected_version

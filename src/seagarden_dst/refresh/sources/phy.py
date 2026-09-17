@@ -7,14 +7,13 @@ them — see C§3.4 for the one variable where that is false.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from seagarden_dst.artifact.manifest import LayerProvenance
 from seagarden_dst.refresh.layer import ProbeResult, YearRange
 from seagarden_dst.refresh.sources import cmems
-from seagarden_dst.refresh.sources.reachability import url_reachable
+from seagarden_dst.refresh.sources.catalogue import DescribeCallable
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import xarray as xr
@@ -24,6 +23,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 DATASET_ID = "cmems_mod_bal_phy_my_P1M-m"
 PRODUCT_ID = "BALTICSEA_MULTIYEAR_PHY_003_011"
 SOURCE_URL = cmems.product_url(PRODUCT_ID)
+# The PHY reanalysis's catalogue version, checked 15 September 2026 (C§11.1).
+# Per-layer, not shared: the wave product is at 202411.
+VERSION = "202303"
 
 # source variable -> artifact variable. No unit conversion: `so` is numerically psu
 # and `thetao` is degrees Celsius (package B's provenance table).
@@ -38,21 +40,17 @@ class CopernicusPhy:
     def __init__(
         self,
         opener: cmems.DatasetOpener | None = None,
-        reachability_opener: Callable[..., object] | None = None,
+        describe: DescribeCallable | None = None,
     ) -> None:
         self._opener = opener
-        self._reachability_opener = reachability_opener
+        self._describe = describe
         # R1: set by `build`, read by `baseline_years`. None until then, and
         # `baseline_years` refuses rather than guessing.
         self._years: YearRange | None = None
 
     def probe(self) -> ProbeResult:
-        reachable, detail = url_reachable(SOURCE_URL, opener=self._reachability_opener)
-        return ProbeResult(
-            name=self.name,
-            status="ok" if reachable else "unreachable",
-            reachable=reachable,
-            detail=detail,
+        return cmems.catalogue_probe(
+            self.name, DATASET_ID, VERSION, describe=self._describe
         )
 
     def build(self, grid: GridSpec, years: YearRange, workdir: Path) -> xr.Dataset:
@@ -74,9 +72,7 @@ class CopernicusPhy:
             name=self.name,
             product_id=PRODUCT_ID,
             dataset_id=DATASET_ID,
-            # The PHY reanalysis's catalogue version, checked 15 September 2026
-            # (C§11.1). Per-layer, not shared: the wave product is at 202411.
-            version="202303",
+            version=VERSION,
             variables=["salinity_psu", "temp_c"],
         )
 

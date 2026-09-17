@@ -8,10 +8,14 @@ reduces ~25.8 GB of hourly `VHM0` to a monthly p95, and the lazy route never lan
 those hours on disk. Package B used `subset` because it was measuring file sizes;
 that is not what a refresh needs.
 
-**Nothing spatial is imported at module scope (R3).** `registry.py` imports the layer
-modules, which import this one, and `registry.py` is imported by the probe job after
-`pip install -e .` with no `[spatial]` extra. `import copernicusmarine` therefore
-lives inside `_default_opener`, and `xarray` appears only under `TYPE_CHECKING`.
+**Nothing spatial is imported at module scope (R3).** The reason changed in C-c2
+and the rule did not. It used to be that the probe job installed the bare package;
+it now installs `[spatial]`, because `describe()` lives there. What still forbids a
+module-scope import is the test suite: `addopts` runs `-m 'not spatial'`, and `-m`
+deselects AFTER collection, so a module-scope `import copernicusmarine` here would
+break collection of every test in the repository regardless of markers.
+`import copernicusmarine` therefore lives inside `_default_opener` and inside
+`catalogue.dataset_status`, and `xarray` appears only under `TYPE_CHECKING`.
 """
 
 from __future__ import annotations
@@ -20,6 +24,8 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
 from seagarden_dst.artifact.manifest import Archive, LayerProvenance
+from seagarden_dst.refresh.layer import ProbeResult
+from seagarden_dst.refresh.sources.catalogue import DescribeCallable, dataset_status
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import xarray as xr
@@ -194,3 +200,23 @@ def drop_depth(data: xr.DataArray) -> xr.DataArray:
     elif "depth" in data.coords:
         data = data.drop_vars("depth")
     return data
+
+
+def catalogue_probe(
+    name: str,
+    dataset_id: str,
+    version: str,
+    *,
+    describe: DescribeCallable | None = None,
+) -> ProbeResult:
+    """Assemble one layer's `ProbeResult` from a catalogue lookup (C§8.2).
+
+    The one place a Copernicus `ProbeResult` is built. Before this, all four layers
+    carried an identical three-line `probe()` — the same copy-paste shape that let
+    `wav.py` ship `version="202303"` where C§11.1 says `202411`, because the one
+    field that legitimately differs travelled with the block that was duplicated.
+    """
+    status, detail = dataset_status(dataset_id, version, describe=describe)
+    return ProbeResult(
+        name=name, status=status, reachable=status == "ok", detail=detail
+    )
