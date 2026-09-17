@@ -54,6 +54,8 @@ Run against the live catalogue with `copernicusmarine` 2.4.0 on 2026-09-17. **Do
 **Files:**
 - Create: `src/seagarden_dst/refresh/sources/catalogue.py`
 - Modify: `src/seagarden_dst/refresh/layer.py` (the `ProbeResult` class, around line 43)
+- Modify: `src/seagarden_dst/refresh/sources/{phy,bgc,bgc_light,wav}.py` — **the `ProbeResult(...)` construction ONLY** (Step 6). The `probe()` mechanism stays a HEAD until Task 2.
+- Modify: `tests/refresh_fakes.py`, `tests/test_refresh_layer.py` — same, the construction only
 - Test: `tests/test_refresh_catalogue.py`
 
 **Interfaces:**
@@ -175,9 +177,32 @@ Comment out the `raise ValueError(...)` statement inside `_check_status_agrees_w
 Expected: the two `pytest.raises` tests go RED with `DID NOT RAISE`, and the third still passes. If either raises-test still passes, the validator is not what made it raise — stop and find what did.
 Restore the `raise` and re-run: 3 passed. Record both outputs in the report.
 
-- [ ] **Step 6: Fix the existing `ProbeResult` constructions that now lack `status`**
+- [ ] **Step 6: Fix EVERY existing `ProbeResult` construction, so this task ends green**
 
-`tests/refresh_fakes.py:67` and `tests/test_refresh_layer.py:20` construct `ProbeResult` without `status`. Add it — `status="ok"` wherever `reachable=True`, `status="unreachable"` wherever `reachable=False`. Run `micromamba run -n shiny python -m pytest` and fix every construction the failures name. The four layer modules still construct it without `status`; they are Task 2's and will be red until then, so restrict this step to `tests/`.
+Adding a required field breaks every existing caller. There are six, and all six are fixed here — **this task must not hand Task 2 a red suite**, because a task whose deliverable is a broken test run cannot be reviewed on its own.
+
+In `tests/refresh_fakes.py:67` and `tests/test_refresh_layer.py:20`, add `status="ok"` wherever `reachable=True` and `status="unreachable"` wherever `reachable=False`.
+
+In all four of `src/seagarden_dst/refresh/sources/{phy,bgc,bgc_light,wav}.py`, the `probe()` body still HEADs a URL — that is Task 2's to replace, **not yours**. Change only the construction, from:
+
+```python
+        return ProbeResult(name=self.name, reachable=reachable, detail=detail)
+```
+
+to:
+
+```python
+        return ProbeResult(
+            name=self.name,
+            status="ok" if reachable else "unreachable",
+            reachable=reachable,
+            detail=detail,
+        )
+```
+
+`"unreachable"` and not `"absent"` is correct here: a HEAD genuinely cannot tell the two apart, which is the whole reason Task 2 replaces it. Do not invent a richer mapping from a mechanism that has no such information.
+
+Run `micromamba run -n shiny python -m pytest` and confirm every construction the failures named is fixed.
 
 - [ ] **Step 7: Write the failing tests for `dataset_status`**
 
@@ -439,14 +464,15 @@ Restore and re-run: 9 passed.
 Run:
 ```
 micromamba run -n shiny python -m pytest
+micromamba run -n shiny python -m pytest -m spatial
 micromamba run -n shiny python -m ruff check .
 ```
-Expected: the four layer modules still call `url_reachable` and construct `ProbeResult` without `status`, so `tests/test_refresh_reachability.py` is RED at this point. That is expected and Task 2 fixes it. Everything else passes. Record the exact failure count.
+Expected: **all three green.** `tests/test_refresh_reachability.py` still passes — Step 6 kept the four layers' HEAD probe working while widening only the construction. If anything is red here, do not hand it on; this task's deliverable is a green suite plus the new seam. Record the three counts verbatim; do not write "verified".
 
 - [ ] **Step 14: Commit**
 
 ```bash
-git add src/seagarden_dst/refresh/sources/catalogue.py src/seagarden_dst/refresh/layer.py tests/test_refresh_catalogue.py tests/refresh_fakes.py tests/test_refresh_layer.py
+git add -A src tests
 git commit -m "Add the catalogue probe seam and a four-state ProbeResult
 
 An HTTP HEAD against a product landing page cannot see either event the
