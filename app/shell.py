@@ -7,6 +7,7 @@ from WP4's Communication folder and is not in the repository yet - see BACKLOG).
 from __future__ import annotations
 
 from shiny import ui
+from shiny_deckgl.ui import head_includes
 
 REPO_URL = "https://github.com/razinkele/seagarden-dst"
 CONTACT_EMAIL = "arturas.razinkovas-baziukas@ku.lt"
@@ -140,6 +141,10 @@ def feedback_modal() -> ui.Tag:
 
 def app_shell(*panels) -> ui.Tag:
     return ui.page_navbar(
+        # deck.gl + MapLibre, for the Site panel's map. `MapWidget.ui()` returns a bare
+        # div with no dependency attached, so without this the map is an empty box and
+        # the failure is silent - the page renders, the panel looks fine, nothing draws.
+        head_includes(),
         *panels,
         ui.nav_spacer(),
         _action("about", t("About")),
