@@ -97,6 +97,43 @@ def test_a_refresh_without_a_year_range_is_refused(capsys):
     assert "--start-year and --end-year are required" in capsys.readouterr().err
 
 
+def test_a_refresh_with_an_incomplete_registry_refuses_before_the_download(monkeypatch, capsys):
+    # Step 3b: four of the five C§5 layers are registered (emodnet_bathy is C-c2), so
+    # the empty-registry guard passes and, without this check, a refresh would open
+    # real Copernicus datasets over the wire before dying inside manifest validation.
+    import scripts.refresh_layers as cli
+
+    monkeypatch.setattr(
+        cli,
+        "REGISTRY",
+        {
+            "copernicus_phy": FakeLayer("copernicus_phy", ["temp_c"]),
+            "copernicus_bgc": FakeLayer("copernicus_bgc", ["din_umol_l"]),
+            "copernicus_bgc_light": FakeLayer("copernicus_bgc_light", []),
+            "copernicus_wav": FakeLayer("copernicus_wav", ["significant_wave_m"]),
+        },
+    )
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--start-year", "2024", "--end-year", "2024"])
+    assert excinfo.value.code != 0
+    assert "emodnet_bathy" in capsys.readouterr().err
+
+
+def test_probe_still_reports_all_four_layers_with_an_incomplete_registry(monkeypatch):
+    # --probe stays permissive while the registry is incomplete: reporting on four
+    # reachable sources is still useful even though a refresh would refuse.
+    import scripts.refresh_layers as cli
+
+    registry = {
+        "copernicus_phy": FakeLayer("copernicus_phy", ["temp_c"]),
+        "copernicus_bgc": FakeLayer("copernicus_bgc", ["din_umol_l"]),
+        "copernicus_bgc_light": FakeLayer("copernicus_bgc_light", []),
+        "copernicus_wav": FakeLayer("copernicus_wav", ["significant_wave_m"]),
+    }
+    monkeypatch.setattr(cli, "REGISTRY", registry)
+    assert main(["--probe"]) == 0
+
+
 _WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 _PROBE = _WORKFLOWS / "source-probe.yml"
 
