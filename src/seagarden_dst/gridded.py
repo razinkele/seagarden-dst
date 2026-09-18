@@ -26,6 +26,7 @@ from seagarden_dst.forcing import (
     SiteConditions,
     SiteQuery,
     SiteReading,
+    day_of_year,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -54,6 +55,10 @@ class GriddedForcing:
         self.latitudes = np.asarray(dataset["latitude"].values, dtype=float)
         self.longitudes = np.asarray(dataset["longitude"].values, dtype=float)
         self._years = [int(y) for y in np.asarray(dataset["year"].values)]
+        # `SiteConditions` deliberately carries no position. Remember the object this
+        # reader produced so the daily series uses the same cell rather than trying to
+        # reverse-engineer a location from annual means.
+        self._site_cells: dict[int, tuple[int, int]] = {}
 
     @classmethod
     def from_directory(cls, directory) -> GriddedForcing:
@@ -98,13 +103,54 @@ class GriddedForcing:
                 from_artifact=True,
             )
 
+        conditions = self._conditions_at(row, col, query.year, query.region)
+        self._site_cells[id(conditions)] = (row, col)
         return SiteReading(
-            conditions=self._conditions_at(row, col, query.year, query.region),
+            conditions=conditions,
             coverage=Coverage.VALID,
             year=query.year,
             aggregation=Aggregation.CONTAINING_CELL,
             from_artifact=True,
         )
+
+    def daily_forcing(
+        self, site: SiteConditions, window: tuple[int, int], year: int
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        row, col = self._cell_for_site(site)
+        start, end = window
+        first = day_of_year(start, 1)
+        last = day_of_year(end, 28)
+        wraps = last < first
+        if wraps:
+            next_year = year + 1
+            if next_year not in self._years:
+                raise ValueError(
+                    f"wrapping window needs {year} and {next_year}, but the artifact "
+                    f"carries {self._years}"
+                )
+            last += 365
+
+        if year not in self._years:
+            raise ValueError(f"artifact does not carry year {year}; available years {self._years}")
+
+        days = np.arange(first, last + 1, dtype=float)
+        month_years: list[tuple[int, int, int]] = []
+        if wraps:
+            month_years.extend((month, year, day_of_year(month)) for month in range(start, 13))
+            month_years.extend(
+                (month, year + 1, day_of_year(month) + 365) for month in range(1, end + 1)
+            )
+        else:
+            month_years.extend((month, year, day_of_year(month)) for month in range(start, end + 1))
+
+        temp = self._interpolated_monthly("temp_c", row, col, month_years, days)
+        din = self._interpolated_monthly("din_umol_l", row, col, month_years, days)
+
+        # The artifact carries no PAR (C§3.3), so only the seasonal shape matches the
+        # placeholder; the magnitude remains the site's invented placeholder value.
+        season = 0.5 * (1.0 + np.cos(2.0 * np.pi * (days - 172.0) / 365.25))
+        par = site.par_at_depth() * (0.25 + 0.75 * season)
+        return days, par, temp, din
 
     def _point_of(self, query: SiteQuery) -> tuple[float, float]:
         match = _POINT.fullmatch(query.geometry_wkt.strip())
@@ -143,6 +189,33 @@ class GriddedForcing:
             for r, c in zip(rows, cols, strict=True)
         ]
         return float(min(distances))
+
+    def _cell_for_site(self, site: SiteConditions) -> tuple[int, int]:
+        try:
+            return self._site_cells[id(site)]
+        except KeyError as exc:
+            raise ValueError(
+                "daily_forcing needs a SiteConditions object produced by this "
+                "GriddedForcing instance"
+            ) from exc
+
+    def _interpolated_monthly(
+        self,
+        name: str,
+        row: int,
+        col: int,
+        month_years: list[tuple[int, int, int]],
+        days: np.ndarray,
+    ) -> np.ndarray:
+        x = np.asarray([day for _, _, day in month_years], dtype=float)
+        values = np.asarray(
+            [
+                self._ds[name].values[self._years.index(year), month - 1, row, col]
+                for month, year, _ in month_years
+            ],
+            dtype=float,
+        )
+        return np.interp(days, x, values)
 
     def _conditions_at(self, row: int, col: int, year: int, region: str | None) -> SiteConditions:
         year_index = self._years.index(year)

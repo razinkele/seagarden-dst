@@ -121,3 +121,39 @@ def _restamp(directory):
     payload["artifact_sha256"] = sha256_of(artifact)
     payload["artifact_bytes"] = artifact.stat().st_size
     manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_daily_forcing_comes_from_the_monthly_fields_not_a_sinusoid(reader):
+    """§6.2: monthly fields REPLACE the sinusoid rather than feeding it."""
+    lats, lons = reader.latitudes, reader.longitudes
+    site = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2024)).conditions
+    days, par, temp, din = reader.daily_forcing(site, (4, 9), 2024)
+    assert len(days) == len(temp) == len(par) == len(din)
+    assert np.isfinite(temp).all()
+
+
+def test_two_years_give_different_series(reader):
+    """The whole reason `daily_forcing` takes a year: collapsing years into one
+    climatology costs -57% to +179% in final biomass (§6.2)."""
+    lats, lons = reader.latitudes, reader.longitudes
+    site = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2024)).conditions
+    _, _, temp_2024, _ = reader.daily_forcing(site, (4, 9), 2024)
+    _, _, temp_2025, _ = reader.daily_forcing(site, (4, 9), 2025)
+    assert not np.allclose(temp_2024, temp_2025)
+
+
+def test_a_wrapping_window_takes_january_from_the_following_year(reader):
+    """§6.2's year boundary. A window that wraps past December must take January from
+    Y+1, not from the same year's January twelve months earlier."""
+    lats, lons = reader.latitudes, reader.longitudes
+    site = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2024)).conditions
+    _, _, wrapped, _ = reader.daily_forcing(site, (11, 2), 2024)
+    assert np.isfinite(wrapped).all()
+
+
+def test_a_wrapping_window_blocks_when_the_following_year_is_absent(reader):
+    """The fixture carries 2024-2025, so a window wrapping out of 2025 has no Y+1."""
+    lats, lons = reader.latitudes, reader.longitudes
+    site = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2025)).conditions
+    with pytest.raises(ValueError, match="wrapping window needs"):
+        reader.daily_forcing(site, (11, 2), 2025)
