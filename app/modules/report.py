@@ -13,6 +13,7 @@ from shiny import module, render, ui
 
 from seagarden_dst import __version__
 from seagarden_dst.calibration import for_display
+from seagarden_dst.forcing import Coverage
 
 
 def render_report(assessment) -> str:
@@ -20,23 +21,31 @@ def render_report(assessment) -> str:
         return "No assessment yet. Pick a site and click Assess."
 
     context = assessment.context
+    conditions_line = "Conditions:  unavailable — data layer could not assess this site"
+    if context.conditions is not None:
+        conditions_line = (
+            f"Conditions:  salinity {context.conditions.salinity_psu:g} psu, "
+            f"DIN {context.conditions.din_umol_l:g} umol/L, "
+            f"depth {context.conditions.depth_m:g} m"
+        )
     lines = [
         "SEAGARDEN DECISION SUPPORT TOOL - SITE ASSESSMENT",
         "=" * 52,
         "",
         f"Site:        {context.label or context.region}",
         f"Sub-region:  {context.region}",
-        f"Conditions:  salinity {context.conditions.salinity_psu:g} psu, "
-        f"DIN {context.conditions.din_umol_l:g} umol/L, "
-        f"depth {context.conditions.depth_m:g} m",
+        conditions_line,
         f"Data confidence: {context.confidence}",
+        _data_source_line(context.from_artifact),
         f"Generated:   {date.today().isoformat()} - core v{__version__}",
         "",
         "RANKED OPTIONS",
         "-" * 52,
     ]
 
-    if not assessment.ranked:
+    if assessment.unassessable:
+        lines.append(f"UNASSESSED: {_unassessed_reason(assessment)}")
+    elif not assessment.ranked:
         lines.append("No species could be assessed at this site.")
     for option in assessment.ranked:
         harvest = for_display(option.harvest)
@@ -73,13 +82,38 @@ def render_report(assessment) -> str:
         "- Carbon is reported as carbon in harvested biomass only. Sequestration is "
         "not reported: calcification releases CO2, so a sequestration claim would "
         "depend on shell being removed from the water and kept out of it.",
-        "- Site conditions in this prototype are placeholders, not measurements.",
+        _data_source_caveat(context.from_artifact),
         "- Legal permissibility is unassessed until the regulatory records exist "
         "(A2.2, M12). An unknown legal status blocks the verdict rather than passing it.",
         "",
         "Prototype output. Indicative only; not a basis for permitting or consent.",
     ]
     return "\n".join(lines)
+
+
+def _unassessed_reason(assessment) -> str:
+    if assessment.coverage is Coverage.CELL_INVALID:
+        if assessment.nearest_valid_km is not None:
+            return (
+                "No data at this cell; nearest valid cell is "
+                f"{assessment.nearest_valid_km:.2f} km away."
+            )
+        return "No data at this cell."
+    if assessment.coverage is Coverage.YEAR_ABSENT:
+        return "The artifact does not carry the requested year."
+    return "The data layer could not provide conditions."
+
+
+def _data_source_line(from_artifact: bool) -> str:
+    if from_artifact:
+        return "Data source: gridded forcing artifact"
+    return "Data source: placeholder conditions"
+
+
+def _data_source_caveat(from_artifact: bool) -> str:
+    if from_artifact:
+        return "- Site conditions come from the gridded forcing artifact."
+    return "- Site conditions in this prototype are placeholders, not measurements."
 
 
 @module.ui

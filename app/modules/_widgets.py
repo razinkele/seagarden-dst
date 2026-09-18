@@ -12,6 +12,7 @@ from shiny import ui
 
 from seagarden_dst import SiteAssessment, Tier
 from seagarden_dst.calibration import Quantity, for_display
+from seagarden_dst.forcing import Coverage
 
 _TIER_COLOUR = {
     Tier.A: ("#1a7f37", "#e6f4ea"),
@@ -73,6 +74,8 @@ def headline_for(assessment: SiteAssessment) -> tuple[str, str]:
     or everything is unsuitable, which is the equivalent of the NiD4OCEAN headline
     guard against a false "top" when all net contributions are non-positive.
     """
+    if assessment.unassessable:
+        return "warn", f"Site unassessed: {_unassessable_reason(assessment)}"
     if not assessment.ranked:
         return "muted", "No species could be assessed at this site."
     if not assessment.any_reportable:
@@ -83,6 +86,27 @@ def headline_for(assessment: SiteAssessment) -> tuple[str, str]:
     tier = assessment.lowest_tier
     suffix = " (literature priors)" if tier is Tier.C else ""
     return "ok", f"Best option: {best.species_name}, {best.verdict}{suffix}."
+
+
+def _unassessable_reason(assessment: SiteAssessment) -> str:
+    if assessment.coverage is Coverage.CELL_INVALID:
+        distance = ""
+        if assessment.nearest_valid_km is not None:
+            distance = f" Nearest valid cell is {assessment.nearest_valid_km:.2f} km away."
+        return f"no data at this cell.{distance}"
+    if assessment.coverage is Coverage.YEAR_ABSENT:
+        return "the artifact does not carry the requested year."
+    return "the data layer could not provide conditions."
+
+
+def data_source_banner(*, from_artifact: bool) -> str:
+    """Sentence naming whether the app is running on measurements or placeholders."""
+    if from_artifact:
+        return "Data source: gridded forcing artifact."
+    return (
+        "Data source: placeholder conditions — plausible order-of-magnitude values, "
+        "not measurements."
+    )
 
 
 def calibration_legend() -> ui.Tag:

@@ -177,6 +177,7 @@ def app_shell(*panels) -> ui.Tag:
             ui.output_ui("user_mode_slot"),
             ui.input_action_button("assess", t("Assess"), class_="btn-primary"),
             ui.output_ui("status_slot"),
+            ui.output_ui("data_source_slot"),
             width=320,
         ),
     )

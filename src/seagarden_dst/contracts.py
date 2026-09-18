@@ -55,6 +55,7 @@ class SiteContext:
     protection: list[str] = field(default_factory=list)
     coverage: Coverage = Coverage.VALID
     nearest_valid_km: float | None = None
+    from_artifact: bool = False
 
     @classmethod
     def from_region(
@@ -81,6 +82,7 @@ class SiteContext:
             confidence="low",
             coverage=reading.coverage,
             nearest_valid_km=reading.nearest_valid_km,
+            from_artifact=reading.from_artifact,
         )
 
     @classmethod
@@ -101,6 +103,7 @@ class SiteContext:
             confidence="low",
             coverage=reading.coverage,
             nearest_valid_km=reading.nearest_valid_km,
+            from_artifact=reading.from_artifact,
         )
 
 
@@ -175,6 +178,7 @@ class SiteAssessment:
                 "label": self.context.label,
                 "confidence": self.context.confidence,
                 "geometry_wkt": self.context.geometry_wkt,
+                "from_artifact": self.context.from_artifact,
             },
             "ranked": [o.to_dict() for o in self.ranked],
             "best": None if self.best is None else self.best.to_dict(),

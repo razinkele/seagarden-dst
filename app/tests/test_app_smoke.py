@@ -253,3 +253,30 @@ def test_no_app_module_imports_shiny_deckgl_at_module_scope():
     assert not offenders, f"shiny_deckgl imported at module scope: {offenders}"
 
 
+def test_an_unassessable_assessment_reads_as_unassessed_not_unsuitable():
+    """§7's point. 'We did not look' and 'we looked and it is bad' are different
+    answers, and only one of them should stop somebody siting a farm there."""
+    from app.modules._widgets import headline_for
+    from seagarden_dst import SiteContext
+    from seagarden_dst.api import assess_site
+    from seagarden_dst.forcing import Aggregation, Coverage, SiteReading
+
+    blocked = SiteReading(
+        conditions=None, coverage=Coverage.CELL_INVALID, year=2024,
+        aggregation=Aggregation.CONTAINING_CELL, nearest_valid_km=1.1,
+        from_artifact=True,
+    )
+    result = assess_site(SiteContext.from_reading(blocked, label="Off-grid"))
+    _cls, text = headline_for(result)
+    assert "unassess" in text.lower()
+    assert "unsuitable" not in text.lower()
+
+
+def test_the_banner_names_what_the_tool_is_running_on():
+    """§7 row 1: fall back to PlaceholderForcing WITH A BANNER naming the source. A
+    silent fallback is the failure — the user cannot tell measurements from inventions."""
+    from app.modules._widgets import data_source_banner
+
+    assert "placeholder" in data_source_banner(from_artifact=False).lower()
+    assert "placeholder" not in data_source_banner(from_artifact=True).lower()
+
