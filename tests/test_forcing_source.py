@@ -13,7 +13,15 @@ import numpy as np
 import pytest
 
 from seagarden_dst import PLACEHOLDER_SITES, SiteContext, assess_site, default_parameters
-from seagarden_dst.forcing import DEFAULT_FORCING, ForcingSource, PlaceholderForcing
+from seagarden_dst.forcing import (
+    DEFAULT_FORCING,
+    Aggregation,
+    Coverage,
+    ForcingSource,
+    PlaceholderForcing,
+    SiteQuery,
+    SiteReading,
+)
 from seagarden_dst.growth import harvest_biomass
 
 
@@ -29,10 +37,10 @@ def test_a_stub_source_can_be_substituted():
     """The point of the seam: a source the core has never heard of must work."""
 
     class FlatForcing:
-        def conditions_for(self, region):
-            return DEFAULT_FORCING.conditions_for(region)
+        def reading_at(self, query):
+            return DEFAULT_FORCING.reading_at(query)
 
-        def daily_forcing(self, site, window):
+        def daily_forcing(self, site, window, year):
             days = np.arange(1.0, 101.0)
             return days, np.full(100, 200.0), np.full(100, 12.0), np.full(100, 5.0)
 
@@ -67,10 +75,10 @@ def test_an_injected_source_reaches_the_model_through_harvest_biomass():
     class RecordingForcing:
         calls = 0
 
-        def conditions_for(self, region):
-            return DEFAULT_FORCING.conditions_for(region)
+        def reading_at(self, query):
+            return DEFAULT_FORCING.reading_at(query)
 
-        def daily_forcing(self, site, window):
+        def daily_forcing(self, site, window, year):
             type(self).calls += 1
             days = np.arange(1.0, 101.0)
             return days, np.full(100, 200.0), np.full(100, 12.0), np.full(100, 5.0)
@@ -91,13 +99,20 @@ def test_an_injected_source_reaches_the_model_through_harvest_biomass():
 def test_an_injected_source_reaches_site_context_from_region():
     """Correction 2: `SiteContext.from_region` takes its forcing through the protocol."""
 
-    sentinel = DEFAULT_FORCING.conditions_for("LT-coastal")
+    sentinel = DEFAULT_FORCING.reading_at(
+        SiteQuery(geometry_wkt="", year=2024, region="LT-coastal")
+    ).conditions
 
     class SentinelForcing:
-        def conditions_for(self, region):
-            return sentinel
+        def reading_at(self, query):
+            return SiteReading(
+                conditions=sentinel,
+                coverage=Coverage.VALID,
+                year=query.year,
+                aggregation=Aggregation.CONTAINING_CELL,
+            )
 
-        def daily_forcing(self, site, window):
+        def daily_forcing(self, site, window, year):
             raise AssertionError("not needed for this test")
 
     context = SiteContext.from_region("LT-coastal", forcing=SentinelForcing())
@@ -106,7 +121,9 @@ def test_an_injected_source_reaches_site_context_from_region():
 
 def test_unknown_region_still_raises_key_error_through_the_placeholder():
     with pytest.raises(KeyError, match="No placeholder conditions"):
-        PlaceholderForcing().conditions_for("XX-nowhere")
+        PlaceholderForcing().reading_at(
+            SiteQuery(geometry_wkt="", year=2024, region="XX-nowhere")
+        )
 
 
 def test_assess_site_threads_an_injected_forcing_source_to_the_model():
@@ -126,14 +143,14 @@ def test_assess_site_threads_an_injected_forcing_source_to_the_model():
     """
 
     class RecordingForcing:
-        conditions_calls = 0
+        reading_calls = 0
         forcing_calls = 0
 
-        def conditions_for(self, region):
-            type(self).conditions_calls += 1
-            return DEFAULT_FORCING.conditions_for(region)
+        def reading_at(self, query):
+            type(self).reading_calls += 1
+            return DEFAULT_FORCING.reading_at(query)
 
-        def daily_forcing(self, site, window):
+        def daily_forcing(self, site, window, year):
             type(self).forcing_calls += 1
             days = np.arange(1.0, 101.0)
             return days, np.full(100, 200.0), np.full(100, 12.0), np.full(100, 5.0)
@@ -144,7 +161,7 @@ def test_assess_site_threads_an_injected_forcing_source_to_the_model():
     ctx = SiteContext.from_region("EE-coastal", forcing=stub)
     result = assess_site(ctx, species=["fucus_vesiculosus"], forcing=stub)
 
-    assert stub.conditions_calls == 1, "SiteContext.from_region never consulted the stub"
+    assert stub.reading_calls == 1, "SiteContext.from_region never consulted the stub"
     # Exactly two: the growth-viability constraint (assess -> assess_growth ->
     # harvest_biomass) and the headline harvest (the direct harvest_biomass call in
     # _assess_one). A weaker ">= 1" would still pass if either link dropped
@@ -169,10 +186,10 @@ def test_compare_threads_an_injected_forcing_source():
     class RecordingForcing:
         forcing_calls = 0
 
-        def conditions_for(self, region):
-            return DEFAULT_FORCING.conditions_for(region)
+        def reading_at(self, query):
+            return DEFAULT_FORCING.reading_at(query)
 
-        def daily_forcing(self, site, window):
+        def daily_forcing(self, site, window, year):
             type(self).forcing_calls += 1
             days = np.arange(1.0, 101.0)
             return days, np.full(100, 200.0), np.full(100, 12.0), np.full(100, 5.0)
@@ -214,10 +231,10 @@ class _NanForcing:
         self.where = where
         self.array = array
 
-    def conditions_for(self, region):
-        return DEFAULT_FORCING.conditions_for(region)
+    def reading_at(self, query):
+        return DEFAULT_FORCING.reading_at(query)
 
-    def daily_forcing(self, site, window):
+    def daily_forcing(self, site, window, year):
         days = np.arange(1.0, 101.0)
         series = {
             "par": np.full(100, 200.0),

@@ -8,9 +8,9 @@ asserts that; these tests are about behaviour.
 import pytest
 
 from seagarden_dst.forcing import (
+    PLACEHOLDER_SITES,
     Aggregation,
     Coverage,
-    PLACEHOLDER_SITES,
     SiteQuery,
     SiteReading,
 )

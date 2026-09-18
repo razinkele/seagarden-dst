@@ -43,7 +43,7 @@ class SiteConditions:
     umol N/L, depth and wave height in m.
     """
 
-    region: str
+    region: str | None
     salinity_psu: float
     mean_temp_c: float
     summer_temp_c: float
@@ -539,7 +539,7 @@ def daily_forcing(
 
 
 def require_finite_series(
-    region: str,
+    region: str | None,
     days: np.ndarray,
     par: np.ndarray,
     temperature: np.ndarray,
