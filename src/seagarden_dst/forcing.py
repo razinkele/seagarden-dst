@@ -180,6 +180,71 @@ class SiteCoordinate:
         return self.provenance.is_sited
 
 
+class Coverage(StrEnum):
+    """Whether the artifact has data for a query, and if not, why not (§6.2).
+
+    Read from the artifact's `valid` field, NEVER inferred from NaN. C§3.5 added that
+    field precisely because inferring validity from NaN is unreliable, and the committed
+    fixture proves it: its invalid cell holds finite values, so a NaN-inferring reader
+    would return conditions for a cell the mask excludes.
+    """
+
+    VALID = "valid"
+    CELL_INVALID = "cell_invalid"   # blocks; the distance to the nearest valid cell is reported
+    YEAR_ABSENT = "year_absent"     # blocks; never substitutes another year
+
+
+class Aggregation(StrEnum):
+    """How a reading's numbers were produced from the cells under the polygon.
+
+    Recorded on the reading so package D-b replaces a NAMED method rather than silently
+    changing what every multi-cell result meant.
+    """
+
+    CONTAINING_CELL = "containing_cell"      # farm scale - the normal case (§6.2)
+    UNWEIGHTED_MEAN = "unweighted_mean"      # provisional, multi-cell - package D-a
+    SALINITY_WEIGHTED = "salinity_weighted"  # the Maar et al. port - package D-b
+
+
+@dataclass(frozen=True)
+class SiteQuery:
+    """Where and when to read.
+
+    `geometry_wkt` is a WKT string, not a `shapely` geometry: shapely lives in the
+    `spatial` extra and this type is read by the model core. An empty string means
+    "use the region's coordinate", which is the placeholder path.
+    """
+
+    geometry_wkt: str
+    year: int
+    region: str | None = None
+
+
+@dataclass(frozen=True)
+class SiteReading:
+    """Conditions, and everything a caller needs to know about how far to trust them.
+
+    Deliberately not `SiteConditions | None`. A bare `None` says nothing about why it is
+    None or how far away data is, and §6.2 requires the distance to be surfaced — the
+    same reasoning that makes `SiteCoordinate` refuse to be unpacked.
+    """
+
+    conditions: SiteConditions | None
+    coverage: Coverage
+    year: int
+    aggregation: Aggregation
+    #: Great-circle distance to the nearest valid cell, km. Set when coverage blocks.
+    nearest_valid_km: float | None = None
+    #: False for the placeholder. §7's banner reads this rather than guessing.
+    from_artifact: bool = False
+    #: Age of the artifact in months, for §7's 18-month staleness note.
+    stale_months: int | None = None
+
+    @property
+    def is_assessable(self) -> bool:
+        return self.conditions is not None
+
+
 #: Where a site IS, as opposed to what the conditions there are — the coordinate package D
 #: will use to index the artifact. Kept apart from `SiteConditions`, which is a summary of
 #: conditions and carries no position, and apart from the website's `data/pilots.yaml`,
