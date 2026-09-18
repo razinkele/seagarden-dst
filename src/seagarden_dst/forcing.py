@@ -594,29 +594,42 @@ def require_finite_series(
 class ForcingSource(Protocol):
     """Where site conditions and seasonal forcing come from.
 
-    The interface is deliberately narrow - two methods - because swapping the
-    placeholder for the section 6 data layer must touch nothing in growth, shellfish,
-    nutrients or suitability.
+    Widened by package D-a. `conditions_for(region)` became `reading_at(query)` because
+    §7 requires a polygon outside every calibration domain to yield `region=None`, which
+    the caller cannot know before the lookup; and `daily_forcing` gained a year because
+    §6.2's measurement refutes the climatology — collapsing 2023-2025 into one costs
+    -57% to +179% against the +17.4% monthly resolution buys.
     """
 
-    def conditions_for(self, region: str) -> SiteConditions: ...
+    def reading_at(self, query: SiteQuery) -> SiteReading: ...
 
     def daily_forcing(
-        self, site: SiteConditions, window: tuple[int, int]
+        self, site: SiteConditions, window: tuple[int, int], year: int
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: ...
 
 
 class PlaceholderForcing:
     """The scaffold's invented conditions. Not measurements - see PLACEHOLDER_SITES."""
 
-    def conditions_for(self, region: str) -> SiteConditions:
-        if region not in PLACEHOLDER_SITES:
+    def reading_at(self, query: SiteQuery) -> SiteReading:
+        region = query.region
+        if region is None or region not in PLACEHOLDER_SITES:
             raise KeyError(f"No placeholder conditions for region {region!r}")
-        return PLACEHOLDER_SITES[region]
+        # Never blocks: there is no artifact, so there is no coverage to be missing.
+        # That these numbers are invented is carried by the calibration tiers, not here.
+        return SiteReading(
+            conditions=PLACEHOLDER_SITES[region],
+            coverage=Coverage.VALID,
+            year=query.year,
+            aggregation=Aggregation.CONTAINING_CELL,
+            from_artifact=False,
+        )
 
     def daily_forcing(
-        self, site: SiteConditions, window: tuple[int, int]
+        self, site: SiteConditions, window: tuple[int, int], year: int
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        # `year` is ignored: the placeholder has one invented seasonal cycle, not one
+        # per year. The parameter exists so GriddedForcing can satisfy the protocol.
         return daily_forcing(site, window)
 
 

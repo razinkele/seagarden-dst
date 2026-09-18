@@ -77,3 +77,58 @@ def test_a_query_may_name_a_region_instead_of_a_geometry():
     """The placeholder path has a region and no position."""
     query = SiteQuery(geometry_wkt="", year=2024, region="LT-coastal")
     assert query.region == "LT-coastal"
+
+
+def test_the_placeholder_satisfies_the_widened_protocol():
+    from seagarden_dst.forcing import ForcingSource, PlaceholderForcing
+
+    assert isinstance(PlaceholderForcing(), ForcingSource)
+
+
+def test_the_placeholder_answers_a_region_query():
+    from seagarden_dst.forcing import PlaceholderForcing
+
+    reading = PlaceholderForcing().reading_at(
+        SiteQuery(geometry_wkt="", year=2024, region="LT-coastal")
+    )
+    assert reading.coverage is Coverage.VALID
+    assert reading.aggregation is Aggregation.CONTAINING_CELL
+    assert reading.from_artifact is False
+    assert reading.conditions is PLACEHOLDER_SITES["LT-coastal"]
+
+
+def test_the_placeholder_never_blocks():
+    """It has no artifact, so it has no coverage to be missing. Its conditions are
+    invented and say so through the calibration tiers, not through Coverage."""
+    from seagarden_dst.forcing import PlaceholderForcing
+
+    for region in PLACEHOLDER_SITES:
+        reading = PlaceholderForcing().reading_at(
+            SiteQuery(geometry_wkt="", year=2024, region=region)
+        )
+        assert reading.is_assessable
+
+
+def test_an_unknown_region_still_raises_from_the_placeholder():
+    """`conditions_for` raised KeyError for an unknown region and callers rely on it.
+    Widening the protocol must not turn that into a silent blocked reading, which would
+    hide a typo as a coverage failure."""
+    from seagarden_dst.forcing import PlaceholderForcing
+
+    with pytest.raises(KeyError, match="No placeholder conditions"):
+        PlaceholderForcing().reading_at(
+            SiteQuery(geometry_wkt="", year=2024, region="XX-nowhere")
+        )
+
+
+def test_daily_forcing_takes_a_year():
+    """§6.2: the artifact carries one monthly field per year, so the series depends on
+    which year is asked for. The placeholder ignores it — it has one invented year —
+    but the signature has to carry it or `GriddedForcing` cannot satisfy the protocol."""
+    from seagarden_dst.forcing import PlaceholderForcing
+
+    days, par, temp, din = PlaceholderForcing().daily_forcing(
+        PLACEHOLDER_SITES["LT-coastal"], (4, 9), 2024
+    )
+    assert len(days) == len(par) == len(temp) == len(din)
+
