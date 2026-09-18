@@ -48,7 +48,7 @@
 - Consumes: `SiteConditions` (existing)
 - Produces: `Coverage`, `Aggregation`, `SiteQuery`, `SiteReading`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_site_reading.py
@@ -133,12 +133,12 @@ def test_a_query_may_name_a_region_instead_of_a_geometry():
     assert query.region == "LT-coastal"
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_site_reading.py -v`
 Expected: FAIL — `ImportError: cannot import name 'Aggregation'`
 
-- [ ] **Step 3: Add the vocabulary to `forcing.py`**
+- [x] **Step 3: Add the vocabulary to `forcing.py`**
 
 Place it immediately after `SiteCoordinate`, before `SITE_COORDINATES`.
 
@@ -208,12 +208,12 @@ class SiteReading:
         return self.conditions is not None
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_site_reading.py -v`
 Expected: 7 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/seagarden_dst/forcing.py tests/test_site_reading.py
@@ -232,7 +232,7 @@ git commit -m "feat(forcing): add the D-a reading vocabulary"
 - Consumes: Task 1's vocabulary
 - Produces: `ForcingSource.reading_at(query) -> SiteReading`; `ForcingSource.daily_forcing(site, window, year)`; `PlaceholderForcing` satisfying both
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_site_reading.py`:
 
@@ -291,12 +291,12 @@ def test_daily_forcing_takes_a_year():
     assert len(days) == len(par) == len(temp) == len(din)
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_site_reading.py -v`
 Expected: FAIL — `AttributeError: 'PlaceholderForcing' object has no attribute 'reading_at'`
 
-- [ ] **Step 3: Widen the protocol and the placeholder**
+- [x] **Step 3: Widen the protocol and the placeholder**
 
 Replace the `ForcingSource` protocol and `PlaceholderForcing` with:
 
@@ -346,19 +346,19 @@ class PlaceholderForcing:
 
 Leave the module-level `daily_forcing(site, window)` function unchanged — it is the sinusoid, and `GriddedForcing` replaces it with monthly fields rather than extending it.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_site_reading.py -v`
 Expected: 13 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/seagarden_dst/forcing.py tests/test_site_reading.py
 git commit -m "feat(forcing): widen ForcingSource to reading_at and a year-aware daily_forcing"
 ```
 
-- [ ] **Step 6: DELETE proof — the unknown-region guard**
+- [x] **Step 6: DELETE proof — the unknown-region guard**
 
 Remove the `if region is None or region not in PLACEHOLDER_SITES: raise` from `reading_at`. `test_an_unknown_region_still_raises_from_the_placeholder` must go red with `DID NOT RAISE` — not with a `KeyError` from the dict lookup below, which would mean the test cannot tell the guard from the dict. Record the actual output, restore, re-run green.
 
@@ -377,7 +377,7 @@ Remove the `if region is None or region not in PLACEHOLDER_SITES: raise` from `r
 - Consumes: Task 2's protocol
 - Produces: `SiteContext.conditions: SiteConditions | None`, `SiteContext.region: str | None`, `SiteContext.from_reading(reading, *, label)`, `assess_site` returning an `unassessable` result
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_unassessable.py
@@ -444,12 +444,12 @@ def test_an_assessable_site_is_not_flagged():
     assert result.ranked
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_unassessable.py -v`
 Expected: FAIL — `AttributeError: type object 'SiteContext' has no attribute 'from_reading'`
 
-- [ ] **Step 3: Migrate `SiteContext`**
+- [x] **Step 3: Migrate `SiteContext`**
 
 In `contracts.py`: change `region: str` to `region: str | None` and `conditions: SiteConditions` to `conditions: SiteConditions | None`, extend the `conditions` docstring line to say a `None` means the data layer could not answer, and add beside `from_region`:
 
@@ -479,7 +479,7 @@ Add `coverage` and `nearest_valid_km` fields to `SiteContext` with defaults (`Co
 
 Update `from_region` to build through `forcing.reading_at(SiteQuery(geometry_wkt="", year=..., region=region))`. Give `from_region` a `year: int = 2024` keyword so it can form the query; note in its docstring that the placeholder ignores the year.
 
-- [ ] **Step 4: Add the early return to `assess_site`**
+- [x] **Step 4: Add the early return to `assess_site`**
 
 In `api.py`, as the first statement of `assess_site`'s body:
 
@@ -499,13 +499,13 @@ In `api.py`, as the first statement of `assess_site`'s body:
 
 Add `unassessable: bool = False`, `coverage: Coverage = Coverage.VALID` and `nearest_valid_km: float | None = None` to `SiteAssessment` (`contracts.py:105`), whose existing fields are `context`, `ranked`, `best`, `excluded`, `caveats`, `pressure`, `pressure_note`. Append the three; do not reorder the existing ones.
 
-- [ ] **Step 5: Migrate the remaining callers**
+- [x] **Step 5: Migrate the remaining callers**
 
 `growth.py:102` and `growth.py:198`, and `api.py:72`, take `forcing: ForcingSource` and call `daily_forcing(site, window)`. Add the year. Where the caller has no year, thread one from the context — `SiteContext` gains no year field; pass `reading.year` where available, else the module default `2024`, and say so in a comment rather than inventing a field.
 
 Then fix the tests that call the old surface: `tests/test_forcing_source.py` (19 occurrences) and `tests/test_cultivation_window.py` (10). These are mechanical — add the `year` argument, and replace `conditions_for(region)` with `reading_at(SiteQuery(geometry_wkt="", year=2024, region=region)).conditions`.
 
-- [ ] **Step 6: Run the whole suite**
+- [x] **Step 6: Run the whole suite**
 
 ```bash
 micromamba run -n shiny python -m pytest -q
@@ -513,14 +513,14 @@ micromamba run -n shiny ruff check .
 ```
 Expected: all green. The pre-existing count was 239 before this branch; you will have added tests and changed none of the assertions, so the count rises and nothing falls.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/seagarden_dst/contracts.py src/seagarden_dst/api.py src/seagarden_dst/growth.py tests/
 git commit -m "feat(core): SiteContext may hold no conditions, and assess_site blocks when it does"
 ```
 
-- [ ] **Step 8: DELETE proof — the early return**
+- [x] **Step 8: DELETE proof — the early return**
 
 Remove the `if context.conditions is None:` block from `assess_site`. `test_an_unassessable_site_returns_unassessable_and_never_a_verdict` must go red — and record HOW. If it fails with an `AttributeError` from something reaching into `None`, say so: that is red for a crash, not for a verdict, and it means the test proves less than it claims. Restore, re-run green.
 
@@ -547,7 +547,7 @@ correct code, and the natural repair — skipping `contraindication()` when `reg
 deletes the OLAMUR finding for exactly the unlocated polygons where the salinity evidence
 still applies. That is the one verdict this tool exists to surface.
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 ```python
 # tests/test_unlocatable_contraindication.py
@@ -603,7 +603,7 @@ def test_an_above_floor_site_with_no_region_is_not_contraindicated():
     assert contraindication(_sugar_kelp(), site) is None
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_unlocatable_contraindication.py -v`
 Expected: **PASS, with no production change.** `contraindication()`'s salinity branch
@@ -616,14 +616,14 @@ the salinity branch does gate on region after all (in which case the spec's §8.
 and the code disagree, which is a finding for your human partner and not something to fix
 by editing the test).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/test_unlocatable_contraindication.py
 git commit -m "test: an unlocatable site below the salinity floor is still tier D"
 ```
 
-- [ ] **Step 4: DELETE proof**
+- [x] **Step 4: DELETE proof**
 
 In `growth.contraindication`, guard the salinity branch with `if site.region is not None:`
 — the exact repair an implementer would reach for. `test_a_below_floor_site_with_no_region_is_still_tier_d`
@@ -642,7 +642,7 @@ green. Restore, re-run green. Record both.
 - Consumes: Task 1 vocabulary, `artifact.pair.load_pair`, `artifact.manifest.Manifest`
 - Produces: `GriddedForcing.from_directory(path) -> GriddedForcing`, `GriddedForcing.reading_at(query)`, `artifact_directory() -> Path`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_gridded.py
@@ -800,7 +800,7 @@ def test_only_gridded_imports_xarray_outside_refresh():
     assert not offenders, f"spatial-extra imports outside refresh/ and gridded.py: {offenders}"
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 ```bash
 micromamba run -n shiny python -m pytest tests/test_gridded.py -v -m spatial
@@ -808,7 +808,7 @@ micromamba run -n shiny python -m pytest tests/test_gridded_isolation.py -v
 ```
 Expected: the first FAILs with `ModuleNotFoundError: No module named 'seagarden_dst.gridded'`; the second PASSES already (nothing imports xarray outside `refresh/` yet) — that is fine, it is a guard against regression, and Task 4 is what makes it meaningful.
 
-- [ ] **Step 3: Write `gridded.py`**
+- [x] **Step 3: Write `gridded.py`**
 
 ```python
 """Read the forcing artifact package C builds (§6).
@@ -919,7 +919,7 @@ The implementer completes `_point_of`, `_nearest_index`, `_nearest_valid_km` and
 - **`_nearest_valid_km(row, col)`** — over every cell where `valid` is True, compute the great-circle distance from the query cell's centre and return the minimum, in km, using `_EARTH_RADIUS_KM` and the haversine formula. Return `None` if no cell is valid.
 - **`_conditions_at(row, col, year, region)`** — build a `SiteConditions`. `float(...)` every value out of the array: they are float32, and while `SiteConditions` now catches non-finite float32 (`3f0bc35`), passing Python floats keeps the record's types honest. `surface_par` is NOT in the artifact (C§3.3) — use `PLACEHOLDER_SURFACE_PAR` from `forcing.py` and leave a comment saying the artifact records its absence deliberately. `significant_wave_m` has **no year dimension** — index it by month only. Take the annual mean over months for `mean_temp_c`, the max for `summer_temp_c`, the min for `winter_temp_c`. `region` is `query.region`, which may be `None`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 micromamba run -n shiny python -m pytest tests/test_gridded.py -v -m spatial
@@ -927,14 +927,14 @@ micromamba run -n shiny python -m pytest tests/test_gridded_isolation.py -v
 ```
 Expected: 6 passed, then 1 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/seagarden_dst/gridded.py tests/test_gridded.py tests/test_gridded_isolation.py
 git commit -m "feat(gridded): read the artifact, decide coverage from the valid field"
 ```
 
-- [ ] **Step 6: DELETE proof — the `valid` check**
+- [x] **Step 6: DELETE proof — the `valid` check**
 
 Replace `if not bool(self._ds["valid"].values[row, col]):` with a NaN test —
 `if not np.isfinite(self._ds["temp_c"].values[0, 0, row, col]):`. Against the committed
@@ -943,7 +943,7 @@ cell's values are finite. Against the NaN fixture built in
 `test_a_land_cell_with_nan_blocks_rather_than_raising` it stays green. That asymmetry is
 the proof that reading the mask is not the same as testing for NaN. Restore, re-run green.
 
-- [ ] **Step 7: DELETE proof — the year check**
+- [x] **Step 7: DELETE proof — the year check**
 
 Remove the `if query.year not in self._years:` block. `test_a_year_the_artifact_lacks_blocks_and_never_substitutes` must go red, and record how: an `IndexError` from indexing a missing year is a different failure from silently returning year 2024's data, and only the second is the one §6.2 forbids. Say which you saw. Restore, re-run green.
 
@@ -959,7 +959,7 @@ Remove the `if query.year not in self._years:` block. `test_a_year_the_artifact_
 - Consumes: Task 4's `GriddedForcing`
 - Produces: `GriddedForcing.daily_forcing(site, window, year)`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_gridded.py`:
 
@@ -1000,12 +1000,12 @@ def test_a_wrapping_window_blocks_when_the_following_year_is_absent(reader):
         reader.daily_forcing(site, (11, 2), 2025)
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_gridded.py -v -m spatial`
 Expected: FAIL — `AttributeError: 'GriddedForcing' object has no attribute 'daily_forcing'`
 
-- [ ] **Step 3: Implement `daily_forcing`**
+- [x] **Step 3: Implement `daily_forcing`**
 
 Add to `GriddedForcing`. The requirements, so nothing is invented:
 
@@ -1017,19 +1017,19 @@ Add to `GriddedForcing`. The requirements, so nothing is invented:
 - `din` comes from the artifact's `din_umol_l`; `temp` from `temp_c`.
 - The cell is the one the `site` came from. Store `(row, col)` on the reading path, or re-derive it — say which you chose and why in the module.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_gridded.py -v -m spatial`
 Expected: 10 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/seagarden_dst/gridded.py tests/test_gridded.py
 git commit -m "feat(gridded): build the daily series from the monthly fields, per year"
 ```
 
-- [ ] **Step 6: DELETE proof — the wrap-to-next-year rule**
+- [x] **Step 6: DELETE proof — the wrap-to-next-year rule**
 
 Change the wrap to take January from the **same** year instead of `year + 1`.
 `test_a_wrapping_window_blocks_when_the_following_year_is_absent` must go red with
@@ -1049,7 +1049,7 @@ blocking test is carrying the proof. Record both outcomes. Restore, re-run green
 - Consumes: Task 3's `unassessable`, `coverage`, `nearest_valid_km` on the assessment
 - Produces: a banner naming the data source; Results and Report distinguishing unassessed from unsuitable
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `app/tests/test_app_smoke.py`:
 
@@ -1082,12 +1082,12 @@ def test_the_banner_names_what_the_tool_is_running_on():
     assert "placeholder" not in data_source_banner(from_artifact=True).lower()
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `micromamba run -n shiny python -m pytest app/tests -q`
 Expected: FAIL — `ImportError: cannot import name 'data_source_banner'`
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Add `data_source_banner(*, from_artifact: bool) -> str` to `app/modules/_widgets.py`, returning a sentence naming the source — for the placeholder, that the numbers are plausible order-of-magnitude values and not measurements; for the artifact, which year and which artifact build date, read from the manifest.
 
@@ -1095,7 +1095,7 @@ Extend `headline_for` so an `unassessable` assessment returns an "unassessed" he
 
 Render the banner in the app's sidebar beside `status_slot`, and carry the unassessed reason into the report text in `app/modules/report.py`.
 
-- [ ] **Step 4: Run the whole suite**
+- [x] **Step 4: Run the whole suite**
 
 ```bash
 micromamba run -n shiny python -m pytest -q
@@ -1104,14 +1104,14 @@ micromamba run -n shiny ruff check .
 ```
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/ tests/
 git commit -m "feat(app): show the data source, and tell unassessed from unsuitable"
 ```
 
-- [ ] **Step 6: DELETE proof — the unassessed branch**
+- [x] **Step 6: DELETE proof — the unassessed branch**
 
 Make `headline_for` ignore the `unassessable` flag and fall through to its normal path.
 `test_an_unassessable_assessment_reads_as_unassessed_not_unsuitable` must go red. Record
