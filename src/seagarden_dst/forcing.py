@@ -366,6 +366,8 @@ SITE_COORDINATES: dict[str, SiteCoordinate] = {
 #: corrected here: changing them moves every reported number and the golden snapshot, and
 #: replacing them wholesale is package D's job, not a hand-patch of one of six sites from
 #: one cell of one product. Recorded so nobody reads "plausible" as "checked".
+PLACEHOLDER_SURFACE_PAR = 420.0
+
 PLACEHOLDER_SITES: dict[str, SiteConditions] = {
     "LT-coastal": SiteConditions(
         region="LT-coastal",
