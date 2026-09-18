@@ -1,6 +1,6 @@
 # Package C-c2 — The Catalogue Probe Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace the monthly probe's stdlib HTTP HEAD against a product landing page with `copernicusmarine.describe(dataset_id=...)`, so the job detects a retired `dataset_id` and a drifted provenance `version` — the two events it exists to catch and currently cannot see.
 
@@ -90,7 +90,7 @@ Run against the live catalogue with `copernicusmarine` 2.4.0 on 2026-09-17. **Do
   - `DescribeCallable` protocol in `catalogue.py`: `__call__(**kwargs: Any) -> Any`
   - `dataset_status(dataset_id: str, expected_version: str, *, describe: DescribeCallable | None = None) -> tuple[ProbeStatus, str]`
 
-- [ ] **Step 1: Write the failing test for `ProbeResult`'s consistency validator**
+- [x] **Step 1: Write the failing test for `ProbeResult`'s consistency validator**
 
 Create `tests/test_refresh_catalogue.py`:
 
@@ -142,12 +142,12 @@ def test_a_consistent_probe_result_is_accepted():
     assert result.status == "ok"
 ```
 
-- [ ] **Step 2: Run it to make sure it fails**
+- [x] **Step 2: Run it to make sure it fails**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_catalogue.py -v`
 Expected: FAIL — `ProbeResult` has `extra="forbid"`, so passing `status` raises `ValidationError` about an unexpected field, not about the contradiction. Both raises-tests fail on the `match=` and the third fails outright.
 
-- [ ] **Step 3: Extend `ProbeResult` in `src/seagarden_dst/refresh/layer.py`**
+- [x] **Step 3: Extend `ProbeResult` in `src/seagarden_dst/refresh/layer.py`**
 
 Add `Literal` to the `typing` import line, then replace the `ProbeResult` class:
 
@@ -190,18 +190,18 @@ class ProbeResult(BaseModel):
         return self
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_catalogue.py -v`
 Expected: 3 passed.
 
-- [ ] **Step 5: Prove the validator is load-bearing (DELETE proof)**
+- [x] **Step 5: Prove the validator is load-bearing (DELETE proof)**
 
 Comment out the `raise ValueError(...)` statement inside `_check_status_agrees_with_reachable` and run the same three tests.
 Expected: the two `pytest.raises` tests go RED with `DID NOT RAISE`, and the third still passes. If either raises-test still passes, the validator is not what made it raise — stop and find what did.
 Restore the `raise` and re-run: 3 passed. Record both outputs in the report.
 
-- [ ] **Step 6: Fix EVERY existing `ProbeResult` construction, so this task ends green**
+- [x] **Step 6: Fix EVERY existing `ProbeResult` construction, so this task ends green**
 
 Adding a required field breaks every existing caller. There are six, and all six are fixed here — **this task must not hand Task 2 a red suite**, because a task whose deliverable is a broken test run cannot be reviewed on its own.
 
@@ -228,7 +228,7 @@ to:
 
 Run `micromamba run -n shiny python -m pytest` and confirm every construction the failures named is fixed.
 
-- [ ] **Step 7: Write the failing tests for `dataset_status`**
+- [x] **Step 7: Write the failing tests for `dataset_status`**
 
 Append to `tests/test_refresh_catalogue.py`:
 
@@ -357,12 +357,12 @@ def test_the_module_imports_without_the_spatial_stack(monkeypatch):
     assert module.dataset_status is not None
 ```
 
-- [ ] **Step 8: Run them to verify they fail**
+- [x] **Step 8: Run them to verify they fail**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_catalogue.py -v`
 Expected: collection error — `ModuleNotFoundError: No module named 'seagarden_dst.refresh.sources.catalogue'`.
 
-- [ ] **Step 9: Write `src/seagarden_dst/refresh/sources/catalogue.py`**
+- [x] **Step 9: Write `src/seagarden_dst/refresh/sources/catalogue.py`**
 
 ```python
 """Whether a dataset still exists, at the version the manifest publishes (C§8.2).
@@ -466,24 +466,24 @@ def dataset_status(
     )
 ```
 
-- [ ] **Step 10: Run the tests to verify they pass**
+- [x] **Step 10: Run the tests to verify they pass**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_catalogue.py -v`
 Expected: 9 passed.
 
-- [ ] **Step 11: Prove the drift branch is load-bearing (DELETE proof)**
+- [x] **Step 11: Prove the drift branch is load-bearing (DELETE proof)**
 
 Change the final `return` of `dataset_status` to `return "ok", "…"` (keeping the same detail string) and re-run.
 Expected: `test_a_version_the_catalogue_no_longer_serves_is_drift` goes RED on `assert status == "version_drift"`, and no other test changes. If any other test also goes red, the tests are coupled — say so in the report.
 Restore and re-run: 9 passed.
 
-- [ ] **Step 12: Prove `absent` and `unreachable` are separately defended (SWAP proof)**
+- [x] **Step 12: Prove `absent` and `unreachable` are separately defended (SWAP proof)**
 
 These two branches return sibling strings and are the pair most likely to be conflated. Swap them: make the `DatasetNotFound` handler return `"unreachable", ...` and the `Exception` handler return `"absent", ...`.
 Expected: `test_a_retired_dataset_id_is_absent_not_unreachable` AND `test_a_network_failure_is_reported_not_raised` both go RED. If only one does, the other is asserting something both branches satisfy — fix that test before restoring.
 Restore and re-run: 9 passed.
 
-- [ ] **Step 13: Run the whole default suite and ruff**
+- [x] **Step 13: Run the whole default suite and ruff**
 
 Run:
 ```
@@ -493,7 +493,7 @@ micromamba run -n shiny python -m ruff check .
 ```
 Expected: **all three green.** `tests/test_refresh_reachability.py` still passes — Step 6 kept the four layers' HEAD probe working while widening only the construction. If anything is red here, do not hand it on; this task's deliverable is a green suite plus the new seam. Record the three counts verbatim; do not write "verified".
 
-- [ ] **Step 14: Commit**
+- [x] **Step 14: Commit**
 
 ```bash
 git add -A src tests
@@ -532,7 +532,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Consumes: `dataset_status(dataset_id, expected_version, *, describe=None) -> tuple[ProbeStatus, str]` and `DescribeCallable` from `seagarden_dst.refresh.sources.catalogue`; `ProbeResult(name, status, reachable, detail)` from `seagarden_dst.refresh.layer`.
 - Produces: `cmems.catalogue_probe(name: str, dataset_id: str, version: str, *, describe: DescribeCallable | None = None) -> ProbeResult`. Each of the four layer classes accepts `describe: DescribeCallable | None = None` as its second constructor keyword, replacing `reachability_opener`. Each layer module gains a `VERSION: str` module constant.
 
-- [ ] **Step 1: Write the failing tests for the four layers' `probe()`**
+- [x] **Step 1: Write the failing tests for the four layers' `probe()`**
 
 Append to `tests/test_refresh_catalogue.py`:
 
@@ -642,12 +642,12 @@ def test_the_probed_version_is_the_one_the_manifest_publishes():
         assert record.version == expected_version
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_catalogue.py -v`
 Expected: FAIL — `TypeError: __init__() got an unexpected keyword argument 'describe'` on every parametrised case.
 
-- [ ] **Step 3: Add `catalogue_probe` to `src/seagarden_dst/refresh/sources/cmems.py`**
+- [x] **Step 3: Add `catalogue_probe` to `src/seagarden_dst/refresh/sources/cmems.py`**
 
 Add the imports `from seagarden_dst.refresh.layer import ProbeResult` and `from seagarden_dst.refresh.sources.catalogue import DescribeCallable, dataset_status` at module scope — both are xarray-free and copernicusmarine-free. Then append:
 
@@ -672,7 +672,7 @@ def catalogue_probe(
     )
 ```
 
-- [ ] **Step 4: Rewrite the dead rationale in `cmems.py`'s module docstring**
+- [x] **Step 4: Rewrite the dead rationale in `cmems.py`'s module docstring**
 
 Replace the paragraph beginning **"Nothing spatial is imported at module scope (R3)."** with:
 
@@ -687,7 +687,7 @@ break collection of every test in the repository regardless of markers.
 `catalogue.dataset_status`, and `xarray` appears only under `TYPE_CHECKING`.
 ```
 
-- [ ] **Step 5: Switch the four layers**
+- [x] **Step 5: Switch the four layers**
 
 In each of `phy.py`, `bgc.py`, `bgc_light.py`, `wav.py`:
 
@@ -707,12 +707,12 @@ In each of `phy.py`, `bgc.py`, `bgc_light.py`, `wav.py`:
 6. If `Callable` is left unused in a module's imports after step 3, remove it. `ruff` will name the file if you miss one.
 7. `SOURCE_URL` is still used by `provenance()` — keep it. Only its use inside `probe()` goes.
 
-- [ ] **Step 6: Run the new tests to verify they pass**
+- [x] **Step 6: Run the new tests to verify they pass**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_catalogue.py -v`
 Expected: 22 passed.
 
-- [ ] **Step 7: Delete the HEAD probe and its tests**
+- [x] **Step 7: Delete the HEAD probe and its tests**
 
 ```bash
 git rm src/seagarden_dst/refresh/sources/reachability.py tests/test_refresh_reachability.py
@@ -720,12 +720,12 @@ git rm src/seagarden_dst/refresh/sources/reachability.py tests/test_refresh_reac
 
 Deleted rather than kept: after Step 5 nothing calls `url_reachable`, and a tested-but-uncalled module reports green forever while defending nothing. The EMODnet probe is a WCS `GetCapabilities` parse, not a HEAD, so it is unlikely to want this; if it does, `git show 3a57b1b:src/seagarden_dst/refresh/sources/reachability.py` recovers it.
 
-- [ ] **Step 8: Confirm nothing still references the deleted module**
+- [x] **Step 8: Confirm nothing still references the deleted module**
 
 Search the tree for `url_reachable` and `reachability` under `src/`, `tests/` and `scripts/`.
 Expected: no hits. Hits inside `.claude/worktrees/` belong to another session's worktree — **do not touch them.**
 
-- [ ] **Step 9: Run the whole suite and ruff**
+- [x] **Step 9: Run the whole suite and ruff**
 
 Run:
 ```
@@ -735,13 +735,13 @@ micromamba run -n shiny python -m ruff check .
 ```
 Expected: all green. The default count drops by the 7 deleted reachability tests and rises by the 22 new ones. Record the actual numbers; do not write "verified".
 
-- [ ] **Step 10: Prove the layers are individually defended (DELETE proof)**
+- [x] **Step 10: Prove the layers are individually defended (DELETE proof)**
 
 In `phy.py` ONLY, change `VERSION` to `"202411"` (wav's value) and run `micromamba run -n shiny python -m pytest tests/test_refresh_catalogue.py -v`.
 Expected: `test_each_layer_probes_its_own_dataset_at_its_own_version[copernicus_phy]`, `test_each_layer_reports_drift_against_the_version_it_publishes[copernicus_phy]` and `test_the_probed_version_is_the_one_the_manifest_publishes` go RED; **the other three layers' parametrised cases stay GREEN.** If a change to `phy.py` reddens `bgc`'s case, the parametrisation is not isolating layers.
 Restore and re-run. Record both outputs.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add -A src tests
@@ -780,7 +780,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Consumes: `ProbeResult.status` from Task 1; the layer `probe()` behaviour from Task 2.
 - Produces: no new Python interfaces. `format_probe_report` output gains the status word.
 
-- [ ] **Step 1: Write the failing workflow tests**
+- [x] **Step 1: Write the failing workflow tests**
 
 Replace `test_the_probe_workflow_installs_without_the_spatial_extra` in `tests/test_refresh_cli.py` with:
 
@@ -816,12 +816,12 @@ def test_the_probe_workflow_passes_no_copernicus_credential():
     assert "COPERNICUSMARINE_SERVICE_PASSWORD" not in workflow
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_cli.py -v -k "spatial_extra or credential"`
 Expected: both FAIL — the workflow installs `pip install -e .` with no extra and still passes both secrets.
 
-- [ ] **Step 3: Edit `.github/workflows/source-probe.yml`**
+- [x] **Step 3: Edit `.github/workflows/source-probe.yml`**
 
 Replace the `Install` and `Probe every registered source` steps with:
 
@@ -845,12 +845,12 @@ Replace the `Install` and `Probe every registered source` steps with:
 
 Leave the `on:` block and everything above `Install` untouched.
 
-- [ ] **Step 4: Run the workflow tests to verify they pass**
+- [x] **Step 4: Run the workflow tests to verify they pass**
 
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_cli.py -v`
 Expected: all pass, including the untouched `test_the_probe_workflow_blocks_no_pull_request` and `test_ci_does_not_run_the_probe`.
 
-- [ ] **Step 5: Write the failing test for the report**
+- [x] **Step 5: Write the failing test for the report**
 
 Add to `tests/test_refresh_cli.py`:
 
@@ -879,7 +879,7 @@ def test_a_version_drift_is_not_reported_as_unreachable():
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_cli.py::test_a_version_drift_is_not_reported_as_unreachable -v`
 Expected: FAIL on `assert "VERSION_DRIFT" in report` — the current `format_probe_report` prints the literal `UNREACHABLE` for anything not `reachable`. Record the failure before Step 6.
 
-- [ ] **Step 6: Make the CLI report the status**
+- [x] **Step 6: Make the CLI report the status**
 
 In `scripts/refresh_layers.py`, replace `format_probe_report`:
 
@@ -900,7 +900,7 @@ def format_probe_report(results: Sequence[ProbeResult]) -> str:
 
 Run the same test again. Expected: PASS.
 
-- [ ] **Step 7: Correct the false claim in `registry.py`**
+- [x] **Step 7: Correct the false claim in `registry.py`**
 
 In `check_registered_names`'s docstring, replace the final paragraph:
 
@@ -933,7 +933,7 @@ collection of every test in the repository. The layer modules honour this by
 importing inside their methods; do not add a convenience import here that breaks it.
 ```
 
-- [ ] **Step 8: Correct the stale `spatial` extra comment in `pyproject.toml`**
+- [x] **Step 8: Correct the stale `spatial` extra comment in `pyproject.toml`**
 
 Replace the sentence beginning `The CLI and its driver exist as of 0.4.0 (package C-b); the five layers that feed them are package C-c, so` and ending `rather than building anything.` with:
 
@@ -945,7 +945,7 @@ Replace the sentence beginning `The CLI and its driver exist as of 0.4.0 (packag
 # empty.
 ```
 
-- [ ] **Step 9: Run everything**
+- [x] **Step 9: Run everything**
 
 Run:
 ```
@@ -955,14 +955,14 @@ micromamba run -n shiny python -m ruff check .
 ```
 Expected: all green. Record the three counts verbatim.
 
-- [ ] **Step 10: Verify the workflow YAML still parses the way the tests read it**
+- [x] **Step 10: Verify the workflow YAML still parses the way the tests read it**
 
 `on:` is unquoted in this file and PyYAML parses it as the boolean `True`, which is why `tests/test_refresh_cli.py` indexes `_workflow()[True]`. Confirm the edit did not disturb it:
 
 Run: `micromamba run -n shiny python -m pytest tests/test_refresh_cli.py -v -k "scheduled or blocks_no"`
 Expected: PASS. If these fail with a `KeyError: True`, the `on:` block was altered — restore it.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add -A .github tests scripts src pyproject.toml
