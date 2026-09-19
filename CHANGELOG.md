@@ -19,6 +19,72 @@ unreleased.
 
 ---
 
+## [0.6.0] — 2026-09-19
+
+**The tool can read a forcing artifact, and can say when it cannot assess a site.**
+
+378 tests (235 at 0.5.0): 285 in the default selection, 93 needing the `spatial` extra.
+CI on Python 3.11 and 3.13 across two install states.
+
+Package D-a lands the reader the map was waiting for. Nothing you see in the app changes
+its numbers yet: the app still runs on the placeholder conditions, and now **says so** on
+the Site panel and in the report. What changes is that a site can, for the first time, be
+*unassessed* rather than forced to a verdict — and that the four Copernicus layers the
+refresh tooling will fetch are registered (package C-c1).
+
+### Added
+
+- **A reading vocabulary in `forcing.py`** — `SiteReading`, `Coverage`, `Aggregation`,
+  `SiteQuery` — plain records the model core and the app can both import without
+  xarray. Coverage is read from the artifact's `valid` field, **never inferred from
+  NaN**: the committed fixture's invalid cell holds finite values, so a NaN-inferring
+  reader would have returned conditions for a land cell.
+- **`GriddedForcing` in `gridded.py`**, the reader for the artifact package C builds. It
+  aggregates over a polygon, blocks by year, wraps windows across the year boundary, and
+  builds the daily series from the monthly fields per year. It is **the only module
+  outside `refresh/` that imports xarray**, and a test asserts that; the core and the app
+  import cleanly on an install with no `spatial` extra.
+- **The unassessable path.** `SiteContext` may now hold no conditions, and `assess_site`
+  returns an assessment that is blocked, not ranked, with the coverage reason and the
+  distance to the nearest valid cell when there is one. The results panel and the report
+  tell *unassessed* (no data here) from *unsuitable* (data says no). A site with no
+  region is still tier D when it sits below a species' salinity floor — tier C is a floor,
+  not a ceiling.
+- **A data-source banner** on the Site panel and a matching line and caveat in the
+  report, naming whether conditions came from the gridded artifact or from placeholders.
+- **The four Copernicus layers** (`copernicus_phy`, `copernicus_bgc`,
+  `copernicus_bgc_light`, `copernicus_wav`) registered in the refresh tooling, with an
+  injectable client seam and a stdlib-only reachability probe that needs no credential.
+- `.github/copilot-instructions.md`, corrected to the micromamba environment and the
+  current module set.
+
+### Changed
+
+- **`ForcingSource` widens** to `reading_at(query)` and a year-aware `daily_forcing`;
+  the placeholder implements both, so every existing caller runs unchanged.
+- The spec corpus received dated amendments for 35 claims that had gone stale against
+  the code; `docs/superpowers/specs/` is again the authority it claims to be.
+
+### Fixed
+
+- The non-finite guard on `SiteConditions` missed `float32`, the one dtype the artifact
+  actually carries.
+- The map no longer requires the conda-only `shiny_deckgl` at import time, so the
+  `[app,dev]` CI job and any install without it start cleanly.
+
+### Known limits
+
+- **The app is not yet wired to an artifact.** `GriddedForcing` is proven against the
+  committed 3×3 fixture only; no real artifact exists, and the app constructs the
+  placeholder source. Every result is still a literature prior on placeholder
+  conditions, and the banner says so.
+- Package C-c2, the catalogue probe that detects retired dataset ids and version drift,
+  is complete and reviewed but not merged into this release.
+- The map limits of 0.5.0 stand: no polygon drawing, two sub-regions without a position,
+  basemap tiles from a CDN.
+
+---
+
 ## [0.5.0] — 2026-09-17
 
 **The Site panel becomes a map.**
