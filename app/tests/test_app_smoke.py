@@ -280,3 +280,66 @@ def test_the_banner_names_what_the_tool_is_running_on():
     assert "placeholder" in data_source_banner(from_artifact=False).lower()
     assert "placeholder" not in data_source_banner(from_artifact=True).lower()
 
+
+
+# --- Brand theme ------------------------------------------------------------------
+
+
+def _page_html() -> str:
+    from app.app import app_ui
+
+    return str(app_ui)
+
+
+def test_the_brand_stylesheet_is_inlined_into_the_page():
+    """Inlined, not linked: the app runs behind a sub-path proxy and offline, and a
+    stylesheet that 404s degrades silently to stock Bootstrap."""
+    html = _page_html()
+    assert "--sg-navy" in html, "brand tokens missing: the stylesheet is not inlined"
+    assert "seagarden.css" not in html, "the stylesheet is linked, not inlined"
+
+
+def test_the_navbar_brand_carries_the_icon_mark():
+    html = _page_html()
+    assert 'class="sg-logo"' in html
+    assert "data:image/png;base64," in html, "the icon is not inlined"
+
+
+def test_the_funding_lockup_is_shown():
+    """Interreg's communication rules: the programme logo and the EU co-funding
+    statement must be visible on every digital product. The lockup is dark-on-white,
+    so it lives on a white strip, not in the navy bar."""
+    html = _page_html()
+    assert 'class="sg-funding"' in html
+    assert "Interreg South Baltic" in html and "European Union" in html
+
+
+def test_tier_and_verdict_widgets_are_styled_by_class_not_inline_colour():
+    """The semantic colours belong to the stylesheet's tokens. An inline hex on the
+    badge cannot follow the theme, and this is the badge users read the tier from."""
+    from app.modules._widgets import tier_badge, verdict_pill
+    from seagarden_dst import Tier
+
+    badge = str(tier_badge(Tier.D))
+    assert 'class="sg-tier sg-tier-d"' in badge
+    assert "style=" not in badge
+    pill = str(verdict_pill("unsuitable"))
+    assert 'class="sg-verdict sg-verdict-unsuitable"' in pill
+    assert "style=" not in pill
+
+
+def test_no_app_module_hard_codes_a_colour_in_an_inline_style():
+    """Colours live in app/www/seagarden.css. A hex literal in a `style=` attribute is
+    a colour the theme cannot reach."""
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    offenders = []
+    for path in sorted(root.rglob("*.py")):
+        if "__pycache__" in path.parts or path.parts[-2] == "tests":
+            continue
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"#[0-9a-fA-F]{3,8}\b", line) and "style" in line:
+                offenders.append(f"{path.relative_to(root)}:{i}")
+    assert not offenders, f"inline colours: {offenders}"

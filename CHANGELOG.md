@@ -11,7 +11,18 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
-Nothing yet. Changes land here, not in the published sections below. When you cut the next
+### Changed
+
+- **The app wears the SeaGarden brand**, in the NiD4OCEAN DST's design language: a
+  navy bar with the circular icon mark and a lime you-are-here underline, a lime Assess
+  button, glass cards, navy table headers, and the full SeaGarden | Interreg South
+  Baltic | EU lockup on a white strip under the sidebar, because the programme's
+  communication rules require it to be visible and it cannot sit on the dark bar. All
+  of it is one stylesheet (`app/www/seagarden.css`) inlined into the page; the tier
+  badges and verdict pills now take their colours from it by class instead of carrying
+  their own hex, and a smoke test refuses any inline colour under `app/`.
+
+Changes land here, not in the published sections below. When you cut the next
 release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
 open a section for it — `tests/test_version.py` asserts the literals agree with each other
 and with a matching heading here, but it cannot tell you that a merged change went

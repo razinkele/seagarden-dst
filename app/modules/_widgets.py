@@ -14,31 +14,16 @@ from seagarden_dst import SiteAssessment, Tier
 from seagarden_dst.calibration import Quantity, for_display
 from seagarden_dst.forcing import Coverage
 
-_TIER_COLOUR = {
-    Tier.A: ("#1a7f37", "#e6f4ea"),
-    Tier.B: ("#0969da", "#e8f1fb"),
-    Tier.C: ("#9a6700", "#fdf3d8"),
-    Tier.D: ("#a40e26", "#fbe9ec"),
-}
-
-_VERDICT_COLOUR = {
-    "suitable": "#1a7f37",
-    "marginal": "#9a6700",
-    "unsuitable": "#a40e26",
-    "unknown": "#57606a",
-}
+# Colours live in app/www/seagarden.css under these class names, so the badge follows
+# the theme's tokens rather than carrying its own hex.
+_VERDICTS = frozenset({"suitable", "marginal", "unsuitable", "unknown"})
 
 
 def tier_badge(tier: Tier) -> ui.Tag:
-    fg, bg = _TIER_COLOUR[tier]
     return ui.tags.span(
         tier.value,
         title=f"{tier.label} - {tier.presentation}",
-        style=(
-            f"display:inline-block;min-width:1.1rem;text-align:center;margin-left:.4rem;"
-            f"padding:0 .3rem;border-radius:.25rem;font-size:.75em;font-weight:700;"
-            f"color:{fg};background:{bg};"
-        ),
+        class_=f"sg-tier sg-tier-{tier.value.lower()}",
     )
 
 
@@ -48,7 +33,7 @@ def quantity(q: Quantity | None) -> ui.Tag:
         return ui.tags.span("-")
     shown = for_display(q)
     if not shown.calibration.is_reportable:
-        return ui.tags.span(shown.calibration.caveat(), style="color:#a40e26;")
+        return ui.tags.span(shown.calibration.caveat(), class_="sg-caveat")
     if shown.low is not None and shown.high is not None:
         text = f"{shown.low:.3g}-{shown.high:.3g} {shown.unit}"
     else:
@@ -57,14 +42,8 @@ def quantity(q: Quantity | None) -> ui.Tag:
 
 
 def verdict_pill(verdict: str) -> ui.Tag:
-    colour = _VERDICT_COLOUR.get(verdict, "#57606a")
-    return ui.tags.span(
-        verdict,
-        style=(
-            f"display:inline-block;padding:.05rem .45rem;border-radius:1rem;"
-            f"border:1px solid {colour};color:{colour};font-size:.8em;"
-        ),
-    )
+    kind = verdict if verdict in _VERDICTS else "unknown"
+    return ui.tags.span(verdict, class_=f"sg-verdict sg-verdict-{kind}")
 
 
 def headline_for(assessment: SiteAssessment) -> tuple[str, str]:
