@@ -331,3 +331,91 @@ def test_check_size_passes_small_bodies_through_and_rejects_oversized_ones():
     oversized = b"x" * (_MAX_CAPABILITIES_BYTES + 1)
     with pytest.raises(OSError, match="exceeded"):
         _check_size(oversized)
+
+
+# --- The layer: C§13.5 ----------------------------------------------------------------
+
+
+def _write_tile(path: Path, elevation: np.ndarray, tile) -> None:
+    import rasterio
+    from rasterio.transform import from_origin
+
+    rows, cols = elevation.shape
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with rasterio.open(
+        path, "w", driver="GTiff", height=rows, width=cols, count=1, dtype="float32",
+        crs="EPSG:4326",
+        transform=from_origin(tile.lon0, tile.lat1, (tile.lon1 - tile.lon0) / cols,
+                              (tile.lat1 - tile.lat0) / rows),
+    ) as dst:
+        dst.write(elevation.astype("float32"), 1)
+
+
+@pytest.mark.spatial
+def test_build_emits_the_two_static_depth_fields_on_the_grid(tmp_path):
+    from seagarden_dst.refresh.layer import YearRange
+    from seagarden_dst.refresh.shapes import check_shapes
+    from seagarden_dst.refresh.sources.emodnet import EmodnetBathy, Tile
+
+    grid = tiny_grid()  # 55.0-55.05 N, 21.0-21.0555 E -> one tile, 55-56 / 21-22
+
+    def fake_fetcher(url: str, destination: Path) -> None:
+        # 960 x 960 would be slow to write; 96 x 96 keeps ~10 px per cell in lat.
+        elevation = np.full((96, 96), -12.0)
+        elevation[:, 48:] = 1.0  # eastern half is land
+        _write_tile(destination, elevation, Tile(55.0, 56.0, 21.0, 22.0))
+
+    layer = EmodnetBathy(fetcher=fake_fetcher)
+    ds = layer.build(grid, YearRange(start=2024, end=2024), tmp_path)
+    check_shapes(ds)
+    assert set(ds.data_vars) == {"depth_mean_m", "depth_min_m"}
+    np.testing.assert_allclose(ds["latitude"].values, grid.lats())
+    np.testing.assert_allclose(ds["longitude"].values, grid.lons())
+    assert ds["depth_mean_m"].dtype == np.dtype("float32")
+    # The whole tiny grid sits in the wet western half of the tile.
+    assert float(ds["depth_mean_m"].min()) == pytest.approx(12.0)
+    assert float(ds["depth_min_m"].max()) == pytest.approx(12.0)
+
+
+@pytest.mark.spatial
+def test_build_ignores_the_year_range_because_bathymetry_is_static(tmp_path):
+    from seagarden_dst.refresh.layer import YearRange
+    from seagarden_dst.refresh.sources.emodnet import EmodnetBathy, Tile
+
+    calls: list[str] = []
+
+    def fake_fetcher(url: str, destination: Path) -> None:
+        calls.append(url)
+        _write_tile(destination, np.full((8, 8), -5.0), Tile(55.0, 56.0, 21.0, 22.0))
+
+    layer = EmodnetBathy(fetcher=fake_fetcher)
+    a = layer.build(tiny_grid(), YearRange(start=2020, end=2020), tmp_path)
+    b = layer.build(tiny_grid(), YearRange(start=2025, end=2025), tmp_path)
+    assert a.identical(b)
+    assert len(calls) == 1, "the second build read the cached tile"
+    assert "start" not in calls[0] and "2020" not in calls[0]
+
+
+def test_baseline_windows_are_empty_and_present_for_both_fields():
+    from seagarden_dst.refresh.sources.emodnet import EmodnetBathy
+
+    assert EmodnetBathy().baseline_years() == {"depth_mean_m": [], "depth_min_m": []}
+
+
+def test_provenance_pins_the_dated_coverage_and_is_pending_like_the_others():
+    from seagarden_dst.refresh.sources.cmems import ARCHIVE_UNBLOCKED_BY
+    from seagarden_dst.refresh.sources.emodnet import EmodnetBathy
+
+    p = EmodnetBathy().provenance()
+    assert (p.name, p.dataset_id, p.version) == ("emodnet_bathy", "emodnet__mean_2022", "2022")
+    assert p.source == "EMODnet Bathymetry" and p.redistribution == "allowed"
+    assert p.variables == ["depth_mean_m", "depth_min_m"]
+    assert p.archive.status == "pending" and p.archive.unblocked_by == ARCHIVE_UNBLOCKED_BY
+    assert p.product_id == "EMODnet DTM 2022"
+
+
+def test_the_layer_probe_goes_through_the_capabilities_seam():
+    from seagarden_dst.refresh.sources.emodnet import EmodnetBathy
+
+    result = EmodnetBathy(capabilities=lambda: _CAPS).probe()
+    assert result.name == "emodnet_bathy" and result.status == "ok"

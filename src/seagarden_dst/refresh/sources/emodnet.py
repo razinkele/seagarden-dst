@@ -19,15 +19,21 @@ import urllib.request
 import xml.etree.ElementTree as ET
 import zlib
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
 
+from seagarden_dst.artifact.manifest import Archive, LayerProvenance
 from seagarden_dst.refresh.layer import ProbeResult
+from seagarden_dst.refresh.sources.cmems import ARCHIVE_UNBLOCKED_BY
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    import xarray as xr
+
     from seagarden_dst.artifact.grid import GridSpec
+    from seagarden_dst.refresh.layer import YearRange
 
 
 class GridAccumulator:
@@ -76,6 +82,11 @@ class GridAccumulator:
 COVERAGE_ID = "emodnet__mean_2022"
 VERSION = "2022"
 WCS_URL = "https://ows.emodnet-bathymetry.eu/wcs"
+SOURCE = "EMODnet Bathymetry"
+PRODUCT_ID = "EMODnet DTM 2022"
+LICENCE = "EMODnet Bathymetry licence (CC BY 4.0)"
+SOURCE_URL = "https://emodnet.ec.europa.eu/en/bathymetry"
+VARIABLES = ["depth_mean_m", "depth_min_m"]
 _RETRIES = 3
 
 # Failure modes a flaky network or a misbehaving proxy can produce partway through a
@@ -272,3 +283,59 @@ def probe_coverage(
         name=name, status="absent", reachable=False,
         detail=f"{COVERAGE_ID} is no longer listed; the service lists {sorted(listed)}",
     )
+
+
+class EmodnetBathy:
+    """One layer, one dataset: the 2022 DTM, reduced onto the artifact grid (C§13)."""
+
+    name = "emodnet_bathy"
+
+    def __init__(
+        self,
+        fetcher: TileFetcher | None = None,
+        capabilities: CapabilitiesReader | None = None,
+    ) -> None:
+        self._fetcher = fetcher
+        self._capabilities = capabilities
+
+    def probe(self) -> ProbeResult:
+        return probe_coverage(self.name, capabilities=self._capabilities)
+
+    def build(self, grid: GridSpec, years: YearRange, workdir: Path) -> xr.Dataset:
+        """Static: `years` is accepted for the protocol and ignored (C§13.5)."""
+        import xarray as xr
+
+        del years
+        accumulator = GridAccumulator(grid)
+        for path in fetch_tiles(tiles_for(grid), Path(workdir), self._fetcher):
+            elevation, lats, lons = read_tile(path)
+            accumulator.add(elevation, lats, lons)
+        mean, minimum = accumulator.finish()
+        dims = ("latitude", "longitude")
+        return xr.Dataset(
+            {
+                "depth_mean_m": (dims, mean.astype("float32")),
+                "depth_min_m": (dims, minimum.astype("float32")),
+            },
+            coords={"latitude": grid.lats(), "longitude": grid.lons()},
+        )
+
+    def provenance(self) -> LayerProvenance:
+        return LayerProvenance(
+            name=self.name,
+            source=SOURCE,
+            product_id=PRODUCT_ID,
+            dataset_id=COVERAGE_ID,
+            version=VERSION,
+            retrieved_on=datetime.now(UTC),
+            licence=LICENCE,
+            redistribution="allowed",
+            source_url=SOURCE_URL,
+            archive=Archive(
+                status="pending", source_url=SOURCE_URL, unblocked_by=ARCHIVE_UNBLOCKED_BY
+            ),
+            variables=list(VARIABLES),
+        )
+
+    def baseline_years(self) -> dict[str, list[int]]:
+        return {name: [] for name in VARIABLES}

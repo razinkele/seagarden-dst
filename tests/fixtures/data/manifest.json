@@ -139,11 +139,11 @@
     {
       "name": "emodnet_bathy",
       "source": "EMODnet Bathymetry",
-      "product_id": "FIXTURE_PLACEHOLDER_EMODNET_BATHY_PRODUCT_ID",
-      "dataset_id": "emodnet_bathymetry_2024",
+      "product_id": "EMODnet DTM 2022",
+      "dataset_id": "emodnet__mean_2022",
       "version": "synthetic",
       "retrieved_on": "2026-01-01T00:00:00Z",
-      "licence": "EMODnet Bathymetry licence",
+      "licence": "EMODnet Bathymetry licence (CC BY 4.0)",
       "redistribution": "allowed",
       "source_url": "https://emodnet.ec.europa.eu/en/bathymetry",
       "archive": {
