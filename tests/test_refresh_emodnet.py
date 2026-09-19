@@ -224,3 +224,110 @@ def test_gzipped_capabilities_are_decompressed():
 
     assert _decode_body(gzip.compress(_CAPS), "gzip") == _CAPS
     assert _decode_body(_CAPS, None) == _CAPS
+
+
+# --- Fix review findings: nodata, tile-body validation, exceptions, size cap --------
+
+
+@pytest.mark.spatial
+def test_read_tile_maps_the_nodata_sentinel_to_nan(tmp_path):
+    import rasterio
+    from rasterio.transform import from_origin
+
+    from seagarden_dst.refresh.sources.emodnet import read_tile
+
+    data = np.array(
+        [[-1.0, -2.0], [-9999.0, -4.0]],
+        dtype="float32",
+    )
+    path = tmp_path / "nodata.tif"
+    with rasterio.open(
+        path, "w", driver="GTiff", height=2, width=2, count=1, dtype="float32",
+        crs="EPSG:4326", transform=from_origin(20.0, 56.0, 0.5, 0.5),
+        nodata=-9999.0,
+    ) as dst:
+        dst.write(data, 1)
+
+    elevation, _, _ = read_tile(path)
+    assert np.isnan(elevation[1, 0])
+    np.testing.assert_allclose(elevation[0, 0], -1.0)
+    np.testing.assert_allclose(elevation[0, 1], -2.0)
+    np.testing.assert_allclose(elevation[1, 1], -4.0)
+
+
+def test_is_tiff_recognises_the_two_tiff_magic_numbers_and_rejects_others(tmp_path):
+    from seagarden_dst.refresh.sources.emodnet import _is_tiff
+
+    little = tmp_path / "little.tif"
+    little.write_bytes(b"II*\x00rest-of-file")
+    assert _is_tiff(little) is True
+
+    big = tmp_path / "big.tif"
+    big.write_bytes(b"MM\x00*rest-of-file")
+    assert _is_tiff(big) is True
+
+    xml_body = tmp_path / "body.part"
+    xml_body.write_bytes(b"<?xml version='1.0'?><ows:ExceptionReport/>")
+    assert _is_tiff(xml_body) is False
+
+
+def test_finish_download_renames_a_tiff_partial_into_place(tmp_path):
+    from seagarden_dst.refresh.sources.emodnet import _finish_download
+
+    partial = tmp_path / "t.part"
+    partial.write_bytes(b"II*\x00rest-of-tiff-bytes")
+    destination = tmp_path / "t.tif"
+
+    _finish_download("http://example.test/wcs", partial, destination)
+
+    assert destination.read_bytes() == b"II*\x00rest-of-tiff-bytes"
+    assert not partial.exists()
+
+
+def test_finish_download_rejects_a_non_tiff_body_and_cleans_up(tmp_path):
+    from seagarden_dst.refresh.sources.emodnet import _finish_download
+
+    partial = tmp_path / "t.part"
+    partial.write_bytes(b"<ows:ExceptionReport/>")
+    destination = tmp_path / "t.tif"
+
+    with pytest.raises(OSError, match="non-TIFF"):
+        _finish_download("http://example.test/wcs", partial, destination)
+
+    assert not destination.exists()
+    assert not partial.exists()
+
+
+def test_fetch_tiles_retries_and_aborts_on_an_incomplete_read(tmp_path):
+    import http.client
+
+    from seagarden_dst.refresh.sources.emodnet import Tile, TileFetchFailed, fetch_tiles
+
+    def dead(url: str, destination: Path) -> None:
+        raise http.client.IncompleteRead(b"")
+
+    with pytest.raises(TileFetchFailed, match="Long\\(20.0,21.0\\)"):
+        fetch_tiles([Tile(55.0, 56.0, 20.0, 21.0)], tmp_path, dead)
+
+
+def test_the_probe_reports_unreachable_on_an_incomplete_read():
+    import http.client
+
+    from seagarden_dst.refresh.sources.emodnet import probe_coverage
+
+    def dead() -> bytes:
+        raise http.client.IncompleteRead(b"")
+
+    result = probe_coverage("emodnet_bathy", capabilities=dead)
+    assert result.status == "unreachable" and result.reachable is False
+
+
+def test_check_size_passes_small_bodies_through_and_rejects_oversized_ones():
+    from seagarden_dst.refresh.sources.emodnet import _MAX_CAPABILITIES_BYTES, _check_size
+
+    small = b"x" * 10
+    assert _check_size(small) == small
+
+    oversized = b"x" * (_MAX_CAPABILITIES_BYTES + 1)
+    with pytest.raises(OSError, match="exceeded"):
+        _check_size(oversized)

@@ -11,11 +11,13 @@ cell with no wet pixel comes out NaN and `compute_valid` (C§3.5) refuses it.
 from __future__ import annotations
 
 import gzip
+import http.client
 import math
 import os
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
@@ -76,6 +78,16 @@ VERSION = "2022"
 WCS_URL = "https://ows.emodnet-bathymetry.eu/wcs"
 _RETRIES = 3
 
+# Failure modes a flaky network or a misbehaving proxy can produce partway through a
+# read; all are treated as transport failures, retried by fetch_tiles and reported as
+# `unreachable` by probe_coverage rather than propagating raw.
+_TRANSPORT_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    http.client.HTTPException,
+    EOFError,
+    zlib.error,
+)
+
 
 class TileFetchFailed(RuntimeError):
     """A tile could not be fetched after the retries. Partial data is not data (C§6.1)."""
@@ -117,13 +129,39 @@ class TileFetcher(Protocol):
     def __call__(self, url: str, destination: Path) -> None: ...
 
 
+_TIFF_MAGIC = (b"II*\x00", b"MM\x00*")
+
+
+def _is_tiff(path: Path) -> bool:
+    """Whether `path` starts with a TIFF byte-order magic number (little- or big-endian)."""
+    with path.open("rb") as f:
+        header = f.read(4)
+    return header in _TIFF_MAGIC
+
+
+def _finish_download(url: str, partial: Path, destination: Path) -> None:
+    """Rename a completed download into place, but only if it is actually a TIFF.
+
+    Protects against exactly two things: a crash partway through the write (the
+    `.part` file never becomes `destination`) and a non-TIFF body arriving with an
+    HTTP 200 — an OWS ExceptionReport or an HTML error page — which would otherwise
+    be renamed into the cache and trusted forever by `fetch_tiles`'s
+    `if not path.exists()` check. Nothing else is validated here.
+    """
+    if not _is_tiff(partial):
+        header = partial.read_bytes()[:16]
+        partial.unlink(missing_ok=True)
+        raise OSError(f"{url} returned a non-TIFF body ({header!r})")
+    os.replace(partial, destination)
+
+
 def _default_fetcher(url: str, destination: Path) -> None:
     """urllib, to a temp file, then an atomic rename, so a torn download is never cached."""
     partial = destination.with_suffix(".part")
     with urllib.request.urlopen(url, timeout=120) as response, partial.open("wb") as out:
         while chunk := response.read(1 << 20):
             out.write(chunk)
-    os.replace(partial, destination)
+    _finish_download(url, partial, destination)
 
 
 def fetch_tiles(
@@ -141,7 +179,7 @@ def fetch_tiles(
                 try:
                     fetch(url, path)
                     break
-                except OSError as exc:
+                except _TRANSPORT_ERRORS as exc:
                     if attempt == _RETRIES:
                         raise TileFetchFailed(
                             f"tile {url} failed {_RETRIES} times ({exc}); refusing to build "
@@ -158,6 +196,8 @@ def read_tile(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     with rasterio.open(path) as src:
         elevation = src.read(1).astype("float64")
+        if src.nodata is not None:
+            elevation[elevation == src.nodata] = np.nan
         transform = src.transform
         rows = np.arange(src.height)
         cols = np.arange(src.width)
@@ -179,15 +219,24 @@ def _decode_body(body: bytes, content_encoding: str | None) -> bytes:
 _MAX_CAPABILITIES_BYTES = 8 << 20  # the live document is ~8 KB; anything near this is not it
 
 
-def _default_capabilities() -> bytes:
-    url = f"{WCS_URL}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCapabilities"
-    with urllib.request.urlopen(url, timeout=60) as response:
-        body = response.read(_MAX_CAPABILITIES_BYTES + 1)
+def _check_size(body: bytes) -> bytes:
+    """`body`, unchanged, if it is within `_MAX_CAPABILITIES_BYTES`; otherwise `OSError`.
+
+    Called both on the wire body (bounds a compressed bomb before decompression) and
+    again on the decoded body (bounds what decompression expanded it to).
+    """
     if len(body) > _MAX_CAPABILITIES_BYTES:
         raise OSError(
             f"GetCapabilities exceeded {_MAX_CAPABILITIES_BYTES} bytes; refusing to parse"
         )
-    return _decode_body(body, response.headers.get("Content-Encoding"))
+    return body
+
+
+def _default_capabilities() -> bytes:
+    url = f"{WCS_URL}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCapabilities"
+    with urllib.request.urlopen(url, timeout=60) as response:
+        body = _check_size(response.read(_MAX_CAPABILITIES_BYTES + 1))
+    return _check_size(_decode_body(body, response.headers.get("Content-Encoding")))
 
 
 def coverage_ids(xml: bytes) -> set[str]:
@@ -209,7 +258,7 @@ def probe_coverage(
     read = capabilities if capabilities is not None else _default_capabilities
     try:
         listed = coverage_ids(read())
-    except (OSError, ET.ParseError) as exc:
+    except (*_TRANSPORT_ERRORS, ET.ParseError) as exc:
         return ProbeResult(
             name=name, status="unreachable", reachable=False,
             detail=f"GetCapabilities failed: {exc}",
