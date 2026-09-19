@@ -17,14 +17,13 @@ claim `light_attenuation_k` twice and fail the manifest.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from seagarden_dst.artifact.manifest import LayerProvenance
 from seagarden_dst.refresh.layer import ProbeResult, YearRange
 from seagarden_dst.refresh.sources import cmems
-from seagarden_dst.refresh.sources.reachability import url_reachable
+from seagarden_dst.refresh.sources.catalogue import DescribeCallable
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import xarray as xr
@@ -33,7 +32,9 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 DATASET_ID = "cmems_mod_bal_bgc_my_P1D-m"
 PRODUCT_ID = "BALTICSEA_MULTIYEAR_BGC_003_012"
-SOURCE_URL = cmems.product_url(PRODUCT_ID)
+# The BGC reanalysis's catalogue version, checked 15 September 2026 (C§11.1).
+# Per-layer, not shared: the wave product is at 202411.
+VERSION = "202303"
 
 # Poole-Atkins. Named here once so the manifest's `relation` and the code agree.
 POOLE_ATKINS_COEFFICIENT = 1.7
@@ -47,15 +48,16 @@ class CopernicusBgcLight:
     def __init__(
         self,
         opener: cmems.DatasetOpener | None = None,
-        reachability_opener: Callable[..., object] | None = None,
+        describe: DescribeCallable | None = None,
     ) -> None:
         self._opener = opener
-        self._reachability_opener = reachability_opener
+        self._describe = describe
         self._years: YearRange | None = None
 
     def probe(self) -> ProbeResult:
-        reachable, detail = url_reachable(SOURCE_URL, opener=self._reachability_opener)
-        return ProbeResult(name=self.name, reachable=reachable, detail=detail)
+        return cmems.catalogue_probe(
+            self.name, DATASET_ID, VERSION, describe=self._describe
+        )
 
     def build(self, grid: GridSpec, years: YearRange, workdir: Path) -> xr.Dataset:
         import xarray as xr
@@ -77,9 +79,7 @@ class CopernicusBgcLight:
             # The DAILY dataset, not the monthly one it shares a product with. This
             # is the split C§11.1 records: same product, same version, two datasets.
             dataset_id=DATASET_ID,
-            # The BGC reanalysis's catalogue version, checked 15 September 2026
-            # (C§11.1). Per-layer, not shared: the wave product is at 202411.
-            version="202303",
+            version=VERSION,
             # EMPTY BY DESIGN (C§4.4). See the module docstring before changing this.
             variables=[],
         )
