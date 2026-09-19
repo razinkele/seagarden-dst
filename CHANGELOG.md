@@ -23,14 +23,15 @@ unreleased.
 
 **The tool can read a forcing artifact, and can say when it cannot assess a site.**
 
-378 tests (235 at 0.5.0): 285 in the default selection, 93 needing the `spatial` extra.
+408 tests (235 at 0.5.0): 314 in the default selection, 94 needing the `spatial` extra.
 CI on Python 3.11 and 3.13 across two install states.
 
 Package D-a lands the reader the map was waiting for. Nothing you see in the app changes
 its numbers yet: the app still runs on the placeholder conditions, and now **says so** on
 the Site panel and in the report. What changes is that a site can, for the first time, be
 *unassessed* rather than forced to a verdict — and that the four Copernicus layers the
-refresh tooling will fetch are registered (package C-c1).
+refresh tooling will fetch are registered (package C-c1) and watched for retirement and
+version drift (package C-c2).
 
 ### Added
 
@@ -54,7 +55,13 @@ refresh tooling will fetch are registered (package C-c1).
   report, naming whether conditions came from the gridded artifact or from placeholders.
 - **The four Copernicus layers** (`copernicus_phy`, `copernicus_bgc`,
   `copernicus_bgc_light`, `copernicus_wav`) registered in the refresh tooling, with an
-  injectable client seam and a stdlib-only reachability probe that needs no credential.
+  injectable client seam.
+- **The catalogue probe** (`refresh/sources/catalogue.py`), asking the Copernicus
+  catalogue whether each `dataset_id` still exists at the version the manifest
+  publishes, with a four-state `ProbeResult`. It replaces an HTTP HEAD against the
+  product landing page, which returns 200 long after the dataset behind it is retired
+  and says nothing about versions. It needs no credential; the probe workflow drops the
+  two secrets nothing had ever read and installs the `spatial` extra instead.
 - `.github/copilot-instructions.md`, corrected to the micromamba environment and the
   current module set.
 
@@ -78,8 +85,6 @@ refresh tooling will fetch are registered (package C-c1).
   committed 3×3 fixture only; no real artifact exists, and the app constructs the
   placeholder source. Every result is still a literature prior on placeholder
   conditions, and the banner says so.
-- Package C-c2, the catalogue probe that detects retired dataset ids and version drift,
-  is complete and reviewed but not merged into this release.
 - The map limits of 0.5.0 stand: no polygon drawing, two sub-regions without a position,
   basemap tiles from a CDN.
 
