@@ -43,7 +43,7 @@ class SiteConditions:
     umol N/L, depth and wave height in m.
     """
 
-    region: str
+    region: str | None
     salinity_psu: float
     mean_temp_c: float
     summer_temp_c: float
@@ -180,6 +180,71 @@ class SiteCoordinate:
         return self.provenance.is_sited
 
 
+class Coverage(StrEnum):
+    """Whether the artifact has data for a query, and if not, why not (§6.2).
+
+    Read from the artifact's `valid` field, NEVER inferred from NaN. C§3.5 added that
+    field precisely because inferring validity from NaN is unreliable, and the committed
+    fixture proves it: its invalid cell holds finite values, so a NaN-inferring reader
+    would return conditions for a cell the mask excludes.
+    """
+
+    VALID = "valid"
+    CELL_INVALID = "cell_invalid"   # blocks; the distance to the nearest valid cell is reported
+    YEAR_ABSENT = "year_absent"     # blocks; never substitutes another year
+
+
+class Aggregation(StrEnum):
+    """How a reading's numbers were produced from the cells under the polygon.
+
+    Recorded on the reading so package D-b replaces a NAMED method rather than silently
+    changing what every multi-cell result meant.
+    """
+
+    CONTAINING_CELL = "containing_cell"      # farm scale - the normal case (§6.2)
+    UNWEIGHTED_MEAN = "unweighted_mean"      # provisional, multi-cell - package D-a
+    SALINITY_WEIGHTED = "salinity_weighted"  # the Maar et al. port - package D-b
+
+
+@dataclass(frozen=True)
+class SiteQuery:
+    """Where and when to read.
+
+    `geometry_wkt` is a WKT string, not a `shapely` geometry: shapely lives in the
+    `spatial` extra and this type is read by the model core. An empty string means
+    "use the region's coordinate", which is the placeholder path.
+    """
+
+    geometry_wkt: str
+    year: int
+    region: str | None = None
+
+
+@dataclass(frozen=True)
+class SiteReading:
+    """Conditions, and everything a caller needs to know about how far to trust them.
+
+    Deliberately not `SiteConditions | None`. A bare `None` says nothing about why it is
+    None or how far away data is, and §6.2 requires the distance to be surfaced — the
+    same reasoning that makes `SiteCoordinate` refuse to be unpacked.
+    """
+
+    conditions: SiteConditions | None
+    coverage: Coverage
+    year: int
+    aggregation: Aggregation
+    #: Great-circle distance to the nearest valid cell, km. Set when coverage blocks.
+    nearest_valid_km: float | None = None
+    #: False for the placeholder. §7's banner reads this rather than guessing.
+    from_artifact: bool = False
+    #: Age of the artifact in months, for §7's 18-month staleness note.
+    stale_months: int | None = None
+
+    @property
+    def is_assessable(self) -> bool:
+        return self.conditions is not None
+
+
 #: Where a site IS, as opposed to what the conditions there are — the coordinate package D
 #: will use to index the artifact. Kept apart from `SiteConditions`, which is a summary of
 #: conditions and carries no position, and apart from the website's `data/pilots.yaml`,
@@ -301,6 +366,8 @@ SITE_COORDINATES: dict[str, SiteCoordinate] = {
 #: corrected here: changing them moves every reported number and the golden snapshot, and
 #: replacing them wholesale is package D's job, not a hand-patch of one of six sites from
 #: one cell of one product. Recorded so nobody reads "plausible" as "checked".
+PLACEHOLDER_SURFACE_PAR = 420.0
+
 PLACEHOLDER_SITES: dict[str, SiteConditions] = {
     "LT-coastal": SiteConditions(
         region="LT-coastal",
@@ -474,7 +541,7 @@ def daily_forcing(
 
 
 def require_finite_series(
-    region: str,
+    region: str | None,
     days: np.ndarray,
     par: np.ndarray,
     temperature: np.ndarray,
@@ -529,29 +596,42 @@ def require_finite_series(
 class ForcingSource(Protocol):
     """Where site conditions and seasonal forcing come from.
 
-    The interface is deliberately narrow - two methods - because swapping the
-    placeholder for the section 6 data layer must touch nothing in growth, shellfish,
-    nutrients or suitability.
+    Widened by package D-a. `conditions_for(region)` became `reading_at(query)` because
+    §7 requires a polygon outside every calibration domain to yield `region=None`, which
+    the caller cannot know before the lookup; and `daily_forcing` gained a year because
+    §6.2's measurement refutes the climatology — collapsing 2023-2025 into one costs
+    -57% to +179% against the +17.4% monthly resolution buys.
     """
 
-    def conditions_for(self, region: str) -> SiteConditions: ...
+    def reading_at(self, query: SiteQuery) -> SiteReading: ...
 
     def daily_forcing(
-        self, site: SiteConditions, window: tuple[int, int]
+        self, site: SiteConditions, window: tuple[int, int], year: int
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: ...
 
 
 class PlaceholderForcing:
     """The scaffold's invented conditions. Not measurements - see PLACEHOLDER_SITES."""
 
-    def conditions_for(self, region: str) -> SiteConditions:
-        if region not in PLACEHOLDER_SITES:
+    def reading_at(self, query: SiteQuery) -> SiteReading:
+        region = query.region
+        if region is None or region not in PLACEHOLDER_SITES:
             raise KeyError(f"No placeholder conditions for region {region!r}")
-        return PLACEHOLDER_SITES[region]
+        # Never blocks: there is no artifact, so there is no coverage to be missing.
+        # That these numbers are invented is carried by the calibration tiers, not here.
+        return SiteReading(
+            conditions=PLACEHOLDER_SITES[region],
+            coverage=Coverage.VALID,
+            year=query.year,
+            aggregation=Aggregation.CONTAINING_CELL,
+            from_artifact=False,
+        )
 
     def daily_forcing(
-        self, site: SiteConditions, window: tuple[int, int]
+        self, site: SiteConditions, window: tuple[int, int], year: int
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        # `year` is ignored: the placeholder has one invented seasonal cycle, not one
+        # per year. The parameter exists so GriddedForcing can satisfy the protocol.
         return daily_forcing(site, window)
 
 

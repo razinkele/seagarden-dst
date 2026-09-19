@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from shiny import App, reactive, render, ui
 
-from app.modules._widgets import headline_for
+from app.modules._widgets import data_source_banner, headline_for
 from app.modules.catalogue import catalogue_server, catalogue_ui
 from app.modules.report import report_server, report_ui
 from app.modules.results import results_server, results_ui, run_assessment
@@ -60,6 +60,17 @@ def server(input, output, session):  # noqa: A002 - Shiny's signature
             )
         _cls, text = headline_for(assessment)
         return ui.p(text)
+
+    @render.ui
+    def data_source_slot():
+        assessment = state.assessment.get()
+        context = state.context.get()
+        from_artifact = False
+        if assessment is not None:
+            from_artifact = assessment.context.from_artifact
+        elif context is not None:
+            from_artifact = context.from_artifact
+        return ui.p(data_source_banner(from_artifact=from_artifact))
 
     @reactive.effect
     @reactive.event(input.assess)

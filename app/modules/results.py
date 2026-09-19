@@ -51,6 +51,12 @@ def results_server(input, output, session, state) -> None:  # noqa: A002
         assessment = state.assessment.get()
         if assessment is None:
             return ui.p("Pick a site, then click Assess.", style="opacity:.7;")
+        if assessment.unassessable:
+            return ui.p(
+                "This site is unassessed because the data layer could not provide "
+                "conditions. See the report for the coverage reason.",
+                style="opacity:.7;",
+            )
         if not assessment.ranked:
             return ui.p("No species could be assessed at this site.")
 

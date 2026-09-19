@@ -100,6 +100,7 @@ def simulate(
     site: SiteConditions,
     max_step_days: float = 1.0,
     forcing: ForcingSource = DEFAULT_FORCING,
+    year: int = 2024,
 ) -> GrowthTrajectory:
     """Integrate the seasonal growth trajectory with `scipy.integrate.solve_ivp`.
 
@@ -107,13 +108,14 @@ def simulate(
     hard-coded, so recalibration against WP3 A3.4 data is a parameter edit.
 
     `forcing` defaults to the scaffold's placeholder; the data layer substitutes a
-    `ForcingSource` of its own without this function changing.
+    `ForcingSource` of its own without this function changing. `year` defaults to the
+    scaffold's 2024 query when no artifact year has been threaded in yet.
     """
     if species.growth is None:
         raise ValueError(f"{species.key} has no growth parameters (not a macroalga?)")
 
     g = species.growth
-    days, par, temp, din = forcing.daily_forcing(site, species.cultivation_window)
+    days, par, temp, din = forcing.daily_forcing(site, species.cultivation_window, year)
     require_finite_series(site.region, days, par, temp, din)
 
     f_i = np.asarray(f_irradiance(par, g.i_k), dtype=float)
@@ -222,6 +224,8 @@ def harvest_biomass(
         kg = fresh_t_per_ha * species.elemental.dry_matter * 1000.0 * (area_m2 / 10_000.0)
         return Quantity(value=kg, unit="kg DW", calibration=calibration)
 
+    # The public API does not yet carry an artifact year through SiteContext, so the
+    # model uses the default 2024 season until a real reader is explicitly threaded in.
     trajectory = simulate(species, site, forcing=forcing)
     kg = trajectory.final_biomass * area_m2 / 1000.0
     return Quantity(value=kg, unit="kg DW", calibration=calibration)

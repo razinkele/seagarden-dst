@@ -17,7 +17,14 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 from .calibration import Quantity, Tier
-from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
+from .forcing import (
+    DEFAULT_FORCING,
+    Coverage,
+    ForcingSource,
+    SiteConditions,
+    SiteQuery,
+    SiteReading,
+)
 
 
 @dataclass
@@ -25,10 +32,11 @@ class SiteContext:
     """Everything the core needs to know about one place.
 
     Attributes:
-        region: calibration sub-region key, e.g. "LT-coastal". Drives which
+        region: calibration sub-region key, e.g. "LT-coastal", or None when unknown. Drives which
             parameter calibration applies (see `params.SpeciesParams.calibration_for`).
         conditions: the environmental summary. Supplied by the data layer in the
-            delivered tool; by `forcing.PLACEHOLDER_SITES` in the scaffold.
+            delivered tool; by `forcing.PLACEHOLDER_SITES` in the scaffold. None means
+            the data layer could not answer and the site must not score.
         geometry_wkt: the drawn polygon, when there is one. Empty in the scaffold.
         label: human-readable site name, carried into the report so a set of numbers
             can never be shown under the wrong site's name.
@@ -38,30 +46,64 @@ class SiteContext:
         protection: designations present (Natura 2000, HELCOM MPA, ...).
     """
 
-    region: str
-    conditions: SiteConditions
+    region: str | None
+    conditions: SiteConditions | None
     geometry_wkt: str = ""
     label: str = ""
     confidence: str = "low"
     activities: list[str] = field(default_factory=list)
     protection: list[str] = field(default_factory=list)
+    coverage: Coverage = Coverage.VALID
+    nearest_valid_km: float | None = None
+    from_artifact: bool = False
 
     @classmethod
     def from_region(
-        cls, region: str, *, label: str = "", forcing: ForcingSource = DEFAULT_FORCING
+        cls,
+        region: str,
+        *,
+        label: str = "",
+        forcing: ForcingSource = DEFAULT_FORCING,
+        year: int = 2024,
     ) -> SiteContext:
         """Build a context from the conditions a `ForcingSource` has for a sub-region.
 
         The scaffold's only way in. Confidence is "low" by construction, because the
         default `forcing` (the placeholder) returns plausible order-of-magnitude
-        values and not measurements. `conditions_for()` raises `KeyError` for a
-        region it does not know about.
+        values and not measurements. The placeholder ignores `year`; it is present so
+        the same query shape can reach a real artifact. `reading_at()` raises `KeyError`
+        for a region it does not know about.
         """
+        reading = forcing.reading_at(SiteQuery(geometry_wkt="", year=year, region=region))
         return cls(
-            region=region,
-            conditions=forcing.conditions_for(region),
+            region=reading.conditions.region if reading.conditions else region,
+            conditions=reading.conditions,
             label=label or region,
             confidence="low",
+            coverage=reading.coverage,
+            nearest_valid_km=reading.nearest_valid_km,
+            from_artifact=reading.from_artifact,
+        )
+
+    @classmethod
+    def from_reading(
+        cls, reading: SiteReading, *, label: str = "", geometry_wkt: str = ""
+    ) -> SiteContext:
+        """Build a context from a `SiteReading`, blocked or not.
+
+        `from_region` remains for the placeholder path, where a region is all there is.
+        This is the path package D's reader uses, and it is the one that can carry a
+        context with no conditions — §7's mechanism for a site that must not score.
+        """
+        return cls(
+            region=reading.conditions.region if reading.conditions else None,
+            conditions=reading.conditions,
+            label=label,
+            geometry_wkt=geometry_wkt,
+            confidence="low",
+            coverage=reading.coverage,
+            nearest_valid_km=reading.nearest_valid_km,
+            from_artifact=reading.from_artifact,
         )
 
 
@@ -112,6 +154,9 @@ class SiteAssessment:
     caveats: dict[str, str] = field(default_factory=dict)
     pressure: dict[str, float] = field(default_factory=dict)
     pressure_note: str = ""
+    unassessable: bool = False
+    coverage: Coverage = Coverage.VALID
+    nearest_valid_km: float | None = None
 
     @property
     def any_reportable(self) -> bool:
@@ -133,6 +178,7 @@ class SiteAssessment:
                 "label": self.context.label,
                 "confidence": self.context.confidence,
                 "geometry_wkt": self.context.geometry_wkt,
+                "from_artifact": self.context.from_artifact,
             },
             "ranked": [o.to_dict() for o in self.ranked],
             "best": None if self.best is None else self.best.to_dict(),

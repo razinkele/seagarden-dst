@@ -133,6 +133,18 @@ def assess_site(
     Never raises on an optional engine. Domain and calibration caveats travel on the
     result, not in a log nobody reads.
     """
+    # §7: a site whose conditions are unknown must block rather than score. Returning a
+    # verdict here would be a definitive negative manufactured from missing data, which
+    # is the failure the whole unassessable mechanism exists to prevent.
+    if context.conditions is None:
+        return SiteAssessment(
+            context=context,
+            ranked=[],
+            unassessable=True,
+            coverage=context.coverage,
+            nearest_valid_km=context.nearest_valid_km,
+        )
+
     params = params or default_parameters()
     keys = list(species or params.species)
     methods = dict(methods or {})
