@@ -1,0 +1,356 @@
+/* =============================================================================
+   SeaGarden DST — brand theme
+   Palette sampled from the project logo (Communication/SeaGarden Logo): lime
+   green for the name and the circular arrow, Interreg navy for the type, a
+   steel-blue wave, kelp ochre for the seaweed and mussels. Design language is
+   the NiD4OCEAN DST's: design tokens, a gradient brand bar with a wave ribbon,
+   glass surfaces, restrained motion. CSS-only — targets stock bslib / Bootstrap 5
+   classes plus the handful of `sg-*` hooks the shell and widgets emit.
+   ============================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  /* --- Brand palette (sampled from the logo PNGs) --- */
+  --sg-navy:        #14345c;   /* icon navy — chrome, headings                 */
+  --sg-navy-deep:   #0b2342;   /* darker navy — bar gradient end, hovers       */
+  --sg-blue:        #0c4094;   /* Interreg blue — links, focus                 */
+  --sg-lime:        #98c83c;   /* SeaGarden lime — accent, you-are-here, CTA   */
+  --sg-lime-deep:   #6f9a22;   /* readable lime for text on white              */
+  --sg-wave:        #80a0bc;   /* steel-blue wave — soft accents               */
+  --sg-ochre:       #b46c28;   /* kelp ochre — caution / tier C                */
+  --sg-red:         #a40e26;   /* contraindicated / fatal / tier D             */
+
+  /* --- Neutrals (navy-tinted, not flat grey) --- */
+  --sg-ink:         #12213a;
+  --sg-muted:       #5b6b84;
+  --sg-bg:          #eff4f8;   /* page background (pale blue-green)            */
+  --sg-bg-2:        #f7fafc;
+  --sg-surface:     #ffffff;
+  --sg-line:        rgba(20, 52, 92, 0.14);
+  --sg-line-soft:   rgba(20, 52, 92, 0.08);
+
+  --sg-shadow-sm: 0 1px 2px rgba(11, 35, 66, 0.06), 0 1px 3px rgba(11, 35, 66, 0.05);
+  --sg-shadow-md: 0 6px 18px rgba(11, 35, 66, 0.09);
+  --sg-shadow-lg: 0 14px 34px rgba(11, 35, 66, 0.13);
+
+  --sg-radius:    14px;
+  --sg-radius-sm: 10px;
+
+  /* --- Bootstrap variable bridge --- */
+  --bs-primary: var(--sg-navy);
+  --bs-link-color: var(--sg-blue);
+  --bs-link-hover-color: var(--sg-navy-deep);
+  --bs-body-color: var(--sg-ink);
+  --bs-body-font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --bs-border-color: var(--sg-line);
+}
+
+/* ----------------------------------------------------------------------------
+   Base & ambient depth
+   ---------------------------------------------------------------------------- */
+body {
+  background: var(--sg-bg);
+  color: var(--sg-ink);
+  font-family: var(--bs-body-font-family);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ambient glow — lime top-left, wave-blue top-right, navy at the seabed. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 12% 8%,  rgba(152, 200, 60, 0.12) 0%, transparent 60%),
+    radial-gradient(55% 45% at 92% 4%,  rgba(128, 160, 188, 0.14) 0%, transparent 60%),
+    radial-gradient(70% 60% at 50% 100%, rgba(20, 52, 92, 0.07) 0%, transparent 70%);
+}
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+  font-family: 'Sora', var(--bs-body-font-family);
+  color: var(--sg-navy);
+  letter-spacing: -0.01em;
+}
+
+a { color: var(--sg-blue); text-decoration-color: var(--sg-line); }
+a:hover { color: var(--sg-navy-deep); }
+
+/* ----------------------------------------------------------------------------
+   Navbar — navy brand bar with the logo's wave along its lower edge
+   ---------------------------------------------------------------------------- */
+.navbar {
+  position: relative;
+  background: linear-gradient(120deg, var(--sg-navy) 0%, var(--sg-navy-deep) 100%) !important;
+  border: 0 !important;
+  box-shadow: 0 4px 20px rgba(11, 35, 66, 0.22);
+  padding-bottom: 0.9rem;
+}
+/* Two-tone wave ribbon: a steel-blue crest over the page-background trough. */
+.navbar::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 16px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 32' preserveAspectRatio='none'%3E%3Cpath d='M0,12 C150,30 330,-4 600,12 C870,28 1050,-4 1200,12 L1200,32 L0,32 Z' fill='%2380a0bc' opacity='0.55'/%3E%3Cpath d='M0,18 C150,34 330,2 600,18 C870,34 1050,2 1200,18 L1200,32 L0,32 Z' fill='%23eff4f8'/%3E%3C/svg%3E")
+    bottom / 100% 100% no-repeat;
+}
+.navbar .navbar-brand { padding-top: 0.1rem; padding-bottom: 0.1rem; }
+
+/* Brand lockup: the circular icon mark, the name in white, a "DST" tag. */
+.sg-brand { display: inline-flex; align-items: center; gap: 0.65rem; }
+.sg-logo {
+  height: 40px; width: 40px; display: block;
+  border-radius: 50%;
+  background: #fff;
+  padding: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.sg-name {
+  font-family: 'Sora', sans-serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #fff;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+.sg-name b { color: var(--sg-lime); font-weight: 700; }
+.sg-dst {
+  font-family: 'Sora', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  color: #fff;
+  padding-left: 0.65rem;
+  border-left: 2px solid rgba(255, 255, 255, 0.35);
+  line-height: 1;
+}
+.navbar .nav-link {
+  color: rgba(255, 255, 255, 0.78) !important;
+  font-weight: 500;
+  border-radius: 8px 8px 0 0;
+  padding: 0.5rem 0.9rem;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.navbar .nav-link:hover { color: #fff !important; background: rgba(255, 255, 255, 0.08); }
+.navbar .nav-link.active,
+.navbar .nav-link[aria-selected="true"] {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 -3px 0 var(--sg-lime);   /* lime underline = you-are-here */
+}
+
+/* Right-aligned top-bar actions (About / Help / Feedback) — ghost buttons. */
+.navbar .nav-item:has(.sg-action) { display: flex; align-items: center; }
+.navbar a.sg-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-weight: 500;
+  font-size: 0.92rem;
+  text-decoration: none;
+  padding: 0.35rem 0.7rem;
+  margin: 0 0.1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.navbar a.sg-action:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.sg-act-ico { width: 16px; height: 16px; flex: none; }
+@media (max-width: 860px) {
+  .navbar a.sg-action > span:last-child { display: none; }
+  .navbar a.sg-action { padding: 0.35rem 0.5rem; }
+}
+
+/* Branded modal chrome for the top-bar dialogs. */
+.modal-header { border-bottom: 2px solid var(--sg-line); }
+.modal-header .modal-title { font-family: 'Sora', sans-serif; color: var(--sg-navy); }
+.modal-content { border: 1px solid var(--sg-line); border-radius: var(--sg-radius); box-shadow: var(--sg-shadow-lg); }
+.modal-body a { color: var(--sg-blue); font-weight: 500; }
+.modal-xl .modal-body { max-height: 78vh; overflow-y: auto; }
+.modal-body table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; font-size: 0.92rem; }
+.modal-body th, .modal-body td { border: 1px solid var(--sg-line); padding: 0.3rem 0.5rem; vertical-align: top; }
+.modal-body th { background: var(--sg-line-soft); text-align: left; }
+
+/* ----------------------------------------------------------------------------
+   Sidebar — soft panel, uppercase section heading, a lime Assess button,
+   and the funding lockup on a white strip at the bottom
+   ---------------------------------------------------------------------------- */
+.bslib-sidebar-layout > .sidebar,
+.sidebar > .sidebar-content {
+  background: linear-gradient(180deg, #ffffff 0%, var(--sg-bg-2) 100%);
+}
+.bslib-sidebar-layout > .sidebar { border-right: 1px solid var(--sg-line); }
+.sidebar h2 {
+  font-size: 1.0rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sg-navy);
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--sg-line);
+}
+.sidebar .form-text, .sidebar .help-text { color: var(--sg-muted); }
+
+.sg-funding-strip {
+  margin-top: auto;
+  padding: 0.75rem 0.5rem 0.25rem;
+  border-top: 1px solid var(--sg-line);
+  background: #fff;
+  border-radius: var(--sg-radius-sm);
+}
+.sg-funding { display: block; width: 100%; height: auto; }
+
+/* ----------------------------------------------------------------------------
+   Buttons
+   ---------------------------------------------------------------------------- */
+.btn { border-radius: var(--sg-radius-sm); font-weight: 600; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--sg-lime) 0%, var(--sg-lime-deep) 130%) !important;
+  border: 0 !important;
+  color: var(--sg-navy-deep) !important;
+  box-shadow: 0 6px 16px rgba(111, 154, 34, 0.30);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(111, 154, 34, 0.38);
+  filter: brightness(1.04);
+}
+.btn-primary:active { transform: translateY(0); }
+.sidebar .btn-primary { width: 100%; padding: 0.6rem 1rem; font-size: 1.02rem; letter-spacing: 0.01em; }
+
+/* ----------------------------------------------------------------------------
+   Surfaces — cards and outputs get the glass-panel treatment
+   ---------------------------------------------------------------------------- */
+.card,
+.shiny-data-grid,
+.html-widget {
+  background: var(--sg-surface);
+  border: 1px solid var(--sg-line);
+  border-radius: var(--sg-radius);
+  box-shadow: var(--sg-shadow-sm);
+}
+.card { transition: box-shadow 0.18s ease, border-color 0.18s ease; }
+.card:hover { box-shadow: var(--sg-shadow-md); border-color: rgba(128, 160, 188, 0.6); }
+.card-header {
+  background: linear-gradient(180deg, var(--sg-line-soft), transparent);
+  border-bottom: 1px solid var(--sg-line);
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  color: var(--sg-navy);
+}
+.html-widget { overflow: hidden; }
+
+/* Section headings inside panels get a small lime-to-navy tick. */
+.tab-content h4 { position: relative; padding-left: 0.7rem; margin-top: 0.25rem; }
+.tab-content h4::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0.15em; bottom: 0.15em;
+  width: 4px; border-radius: 4px;
+  background: linear-gradient(180deg, var(--sg-lime), var(--sg-navy));
+}
+
+/* ----------------------------------------------------------------------------
+   Alerts / honesty banners — left accent rail
+   ---------------------------------------------------------------------------- */
+.alert {
+  border: 1px solid var(--sg-line);
+  border-left-width: 4px;
+  border-radius: var(--sg-radius-sm);
+  box-shadow: var(--sg-shadow-sm);
+}
+.alert-secondary { background: rgba(20, 52, 92, 0.05); border-left-color: var(--sg-navy); color: var(--sg-navy); }
+.alert-warning   { background: rgba(180, 108, 40, 0.10); border-left-color: var(--sg-ochre); color: #6b3f12; }
+.alert-info      { background: rgba(128, 160, 188, 0.16); border-left-color: var(--sg-wave); color: var(--sg-navy); }
+.alert-danger    { background: rgba(164, 14, 38, 0.08); border-left-color: var(--sg-red); color: var(--sg-red); }
+
+/* ----------------------------------------------------------------------------
+   Forms
+   ---------------------------------------------------------------------------- */
+.form-control, .form-select, .selectize-input {
+  border: 1px solid var(--sg-line) !important;
+  border-radius: var(--sg-radius-sm) !important;
+  background: var(--sg-surface);
+}
+.form-control:focus, .form-select:focus, .selectize-input.focus {
+  border-color: var(--sg-blue) !important;
+  box-shadow: 0 0 0 3px rgba(12, 64, 148, 0.16) !important;
+}
+.form-label, .control-label, label { color: var(--sg-navy); font-weight: 500; }
+.form-check-input:checked { background-color: var(--sg-navy); border-color: var(--sg-navy); }
+
+/* ----------------------------------------------------------------------------
+   Tables
+   ---------------------------------------------------------------------------- */
+.table, .shiny-data-grid table, .card table { font-variant-numeric: tabular-nums; }
+.shiny-data-grid thead th,
+.table thead th,
+.card table thead th {
+  background: linear-gradient(180deg, rgba(20, 52, 92, 0.07), transparent) !important;
+  color: var(--sg-navy) !important;
+  border-bottom: 2px solid var(--sg-navy) !important;
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  font-size: 0.9em;
+}
+.card table tbody tr:hover td { background: rgba(128, 160, 188, 0.10); }
+.card table td { padding: 0.3rem 1rem 0.3rem 0; vertical-align: top; }
+
+/* ----------------------------------------------------------------------------
+   Widgets the modules emit: tier badges, verdict pills
+   ---------------------------------------------------------------------------- */
+.sg-tier {
+  display: inline-block;
+  min-width: 1.1rem;
+  text-align: center;
+  margin-left: 0.4rem;
+  padding: 0 0.3rem;
+  border-radius: 0.25rem;
+  font-size: 0.75em;
+  font-weight: 700;
+  font-family: 'Sora', sans-serif;
+}
+.sg-tier-a { color: var(--sg-lime-deep); background: rgba(152, 200, 60, 0.18); }
+.sg-tier-b { color: var(--sg-blue);      background: rgba(12, 64, 148, 0.10); }
+.sg-tier-c { color: var(--sg-ochre);     background: rgba(180, 108, 40, 0.14); }
+.sg-tier-d { color: var(--sg-red);       background: rgba(164, 14, 38, 0.10); }
+
+.sg-caveat { color: var(--sg-red); }
+
+.sg-verdict {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid currentColor;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+.sg-verdict-suitable   { color: var(--sg-lime-deep); }
+.sg-verdict-marginal   { color: var(--sg-ochre); }
+.sg-verdict-unsuitable { color: var(--sg-red); }
+.sg-verdict-unknown    { color: var(--sg-muted); }
+
+/* ----------------------------------------------------------------------------
+   Focus, scrollbars, motion
+   ---------------------------------------------------------------------------- */
+.nav-tabs .nav-link.active { color: var(--sg-navy); border-bottom-color: var(--sg-lime); }
+:focus-visible { outline: 3px solid rgba(152, 200, 60, 0.6); outline-offset: 2px; }
+
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-thumb { background: rgba(20, 52, 92, 0.28); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(20, 52, 92, 0.45); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

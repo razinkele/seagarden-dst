@@ -19,6 +19,36 @@ unreleased.
 
 ---
 
+## [0.7.0] — 2026-09-19
+
+**The app wears the SeaGarden brand.**
+
+319 tests in the default selection (314 at 0.6.0), 94 needing the `spatial` extra. CI on
+Python 3.11 and 3.13 across two install states.
+
+A presentation release. Nothing about what the tool computes or claims has changed; every
+number, tier and caveat is the one 0.6.0 produced, and the app still runs on placeholder
+conditions and says so.
+
+### Changed
+
+- **The app wears the SeaGarden brand**, in the NiD4OCEAN DST's design language: a
+  navy bar with the circular icon mark and a lime you-are-here underline, a lime Assess
+  button, glass cards, navy table headers, and the full SeaGarden | Interreg South
+  Baltic | EU lockup on a white strip under the sidebar, because the programme's
+  communication rules require it to be visible and it cannot sit on the dark bar. All
+  of it is one stylesheet (`app/www/seagarden.css`) inlined into the page; the tier
+  badges and verdict pills now take their colours from it by class instead of carrying
+  their own hex, and a smoke test refuses any inline colour under `app/`.
+
+### Known limits
+
+- Those of 0.6.0 stand: no artifact is wired in, and the map limits of 0.5.0 remain.
+- The basemap and the two web fonts are fetched at runtime; offline, the page falls back
+  to system fonts and the map to an empty frame.
+
+---
+
 ## [0.6.0] — 2026-09-19
 
 **The tool can read a forcing artifact, and can say when it cannot assess a site.**

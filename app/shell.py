@@ -1,12 +1,23 @@
 """DST app shell: branding, sidebar, top-bar actions, English t() seam.
 
-Same shape as the NiD4OCEAN DST shell, minus the logo asset (SeaGarden branding comes
-from WP4's Communication folder and is not in the repository yet - see BACKLOG).
+Same shape as the NiD4OCEAN DST shell. The brand theme is `www/seagarden.css`, inlined
+into the page so it needs no static route and survives the sub-path proxy and an
+offline host. The two logo PNGs are base64-inlined for the same reason: a broken image
+link degrades silently to an empty box, and the funding lockup is one Interreg's
+communication rules require to be visible.
 """
 
 from __future__ import annotations
 
+import base64
+from pathlib import Path
+
 from shiny import ui
+
+_WWW = Path(__file__).parent / "www"
+_BRAND_CSS = _WWW / "seagarden.css"
+_ICON = _WWW / "seagarden-icon.png"  # the circular mark, from the Communication folder
+_FUNDING = _WWW / "seagarden-funding-lockup.png"  # SeaGarden | Interreg South Baltic | EU
 
 REPO_URL = "https://github.com/razinkele/seagarden-dst"
 CONTACT_EMAIL = "arturas.razinkovas-baziukas@ku.lt"
@@ -16,16 +27,30 @@ def t(key: str) -> str:  # i18n seam - English passthrough for the prototype
     return key
 
 
+def _data_uri(path: Path) -> str:
+    """Base64-inline a PNG so the page needs no static-asset route for it."""
+    return "data:image/png;base64," + base64.b64encode(path.read_bytes()).decode("ascii")
+
+
 def _brand() -> ui.Tag:
+    """Navbar brand: the circular icon mark, the name with the lime 'Sea', a DST tag."""
     return ui.tags.span(
-        ui.tags.span("SeaGarden", style="font-weight:600;letter-spacing:.02em;"),
-        ui.tags.span(
-            "DST",
-            style=(
-                "margin-left:.45rem;padding:.1rem .35rem;border-radius:.25rem;"
-                "background:rgba(255,255,255,.15);font-size:.8em;"
-            ),
+        ui.tags.img(src=_data_uri(_ICON), class_="sg-logo", alt=""),
+        ui.tags.span(ui.tags.b("Sea"), "Garden", class_="sg-name"),
+        ui.tags.span("DST", class_="sg-dst"),
+        class_="sg-brand",
+    )
+
+
+def _funding_strip() -> ui.Tag:
+    """The full lockup on a white strip: it is dark-on-white and cannot sit in the bar."""
+    return ui.div(
+        ui.tags.img(
+            src=_data_uri(_FUNDING),
+            class_="sg-funding",
+            alt="SeaGarden - Interreg South Baltic, co-funded by the European Union",
         ),
+        class_="sg-funding-strip",
     )
 
 
@@ -42,12 +67,14 @@ _ICONS = {
 
 def _action(id_: str, label: str) -> ui.Tag:
     svg = (
-        f"<svg viewBox='0 0 24 24' width='15' height='15' fill='none' stroke='currentColor' "
+        f"<svg class='sg-act-ico' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
         f"stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round' "
-        f"style='vertical-align:-2px;margin-right:.3rem' aria-hidden='true'>{_ICONS[id_]}</svg>"
+        f"aria-hidden='true'>{_ICONS[id_]}</svg>"
     )
     return ui.nav_control(
-        ui.input_action_link(id_, ui.TagList(ui.HTML(svg), ui.tags.span(label)))
+        ui.input_action_link(
+            id_, ui.TagList(ui.HTML(svg), ui.tags.span(label)), class_="sg-action"
+        )
     )
 
 
@@ -164,6 +191,8 @@ def app_shell(*panels) -> ui.Tag:
         _action("feedback", t("Feedback")),
         title=_brand(),
         id="main_nav",
+        # Inlined so it loads with no extra request and works offline.
+        header=ui.include_css(_BRAND_CSS, method="inline"),
         window_title="SeaGarden DST",
         sidebar=ui.sidebar(
             ui.tags.h1(t("SeaGarden Decision Support Tool"), class_="visually-hidden"),
@@ -178,6 +207,7 @@ def app_shell(*panels) -> ui.Tag:
             ui.input_action_button("assess", t("Assess"), class_="btn-primary"),
             ui.output_ui("status_slot"),
             ui.output_ui("data_source_slot"),
+            _funding_strip(),
             width=320,
         ),
     )

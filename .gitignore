@@ -64,3 +64,6 @@ SeaGarden_DST_proposal_extract.md
 # `.claude/settings.json` or `.claude/agents/` may be worth committing one day, and a
 # blanket `.claude/` would silently swallow them.
 .claude/worktrees/
+
+# Playwright MCP screenshots and snapshots
+.playwright-mcp/
