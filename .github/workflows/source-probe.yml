@@ -23,13 +23,17 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install
-        # No extras. probe() makes catalogue metadata calls only, and the CLI's probe
-        # path imports no xarray, so the spatial stack would be dead weight here.
+        # WITH the spatial extra, as of C-c2. probe() calls
+        # copernicusmarine.describe(dataset_id=...), which lives there. Until C-c2
+        # this job installed the bare package and asserted it did so, because the
+        # probe was a stdlib HTTP HEAD -- which returned 200 for a retired dataset
+        # and could not see a version at all.
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[spatial]"
       - name: Probe every registered source
-        env:
-          COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
-          COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
+        # No credential. describe() accepts no username, password or
+        # credentials_file -- get() and subset() accept all three -- and reads no
+        # cached credential file. The catalogue is public. Two Copernicus secrets
+        # were passed here until C-c2 and were read by nothing (C§8.2).
         run: python -m scripts.refresh_layers --probe

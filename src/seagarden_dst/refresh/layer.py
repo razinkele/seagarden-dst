@@ -1,13 +1,15 @@
 """The contract every refresh layer satisfies (C§5).
 
-Deliberately free of xarray at runtime: the probe job imports this module to read
-`REGISTRY` and must not drag the spatial stack in to ask whether a catalogue answers.
+Deliberately free of xarray at runtime: the probe job installs `[spatial]` as of
+C-c2, but the default test suite runs `-m 'not spatial'` and `-m` deselects AFTER
+collection, so a module-scope import here would still break collection of the whole
+default suite, not just this job's install.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -40,14 +42,42 @@ class YearRange(BaseModel):
         return list(range(self.start, self.end + 1))
 
 
+ProbeStatus = Literal["ok", "absent", "version_drift", "unreachable"]
+
+
 class ProbeResult(BaseModel):
-    """One layer's answer to 'do you still exist?' (C§8.2)."""
+    """One layer's answer to 'do you still exist, at the version we publish?' (C§8.2).
+
+    `reachable` was the whole answer while the probe was an HTTP HEAD: the page
+    loaded or it did not. The catalogue probe distinguishes three failures that a
+    single boolean flattened into one, and the operator reading a red monthly job
+    needs to tell them apart — a retired `dataset_id` is a data-availability
+    emergency, a drifted version is a manifest correction, and a network error is
+    something to retry.
+
+    `reachable` is kept rather than derived so that C-b's callers and
+    `format_probe_report` keep working, and the validator below makes the redundancy
+    safe: the two fields cannot disagree.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
+    status: ProbeStatus
     reachable: bool
     detail: str
+
+    @model_validator(mode="after")
+    def _check_status_agrees_with_reachable(self) -> ProbeResult:
+        expected = self.status == "ok"
+        if self.reachable != expected:
+            raise ValueError(
+                f"reachable={self.reachable} contradicts status={self.status!r}: "
+                f"reachable must be {expected} when status is {self.status!r}. The "
+                "two fields are one fact; a result that disagrees with itself would "
+                "print green and read red"
+            )
+        return self
 
 
 @runtime_checkable

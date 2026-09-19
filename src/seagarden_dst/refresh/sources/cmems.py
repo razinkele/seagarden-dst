@@ -8,10 +8,16 @@ reduces ~25.8 GB of hourly `VHM0` to a monthly p95, and the lazy route never lan
 those hours on disk. Package B used `subset` because it was measuring file sizes;
 that is not what a refresh needs.
 
-**Nothing spatial is imported at module scope (R3).** `registry.py` imports the layer
-modules, which import this one, and `registry.py` is imported by the probe job after
-`pip install -e .` with no `[spatial]` extra. `import copernicusmarine` therefore
-lives inside `_default_opener`, and `xarray` appears only under `TYPE_CHECKING`.
+**Nothing spatial is imported at module scope (R3).** The reason changed in C-c2
+and the rule did not. It used to be that the probe job installed the bare package;
+it now installs `[spatial]`, because `describe()` lives there. What still forbids a
+module-scope import is the test suite: `addopts` runs `-m 'not spatial'`, and `-m`
+deselects AFTER collection, so a module-scope `import copernicusmarine` here would
+break collection of every test in the repository regardless of markers.
+`import copernicusmarine` therefore lives inside `_default_opener` here and
+inside `catalogue._default_describe` -- the real path only; `dataset_status`
+itself imports nothing, which is what lets the unmarked tests run where the
+extra is not installed. `xarray` appears only under `TYPE_CHECKING`.
 """
 
 from __future__ import annotations
@@ -20,6 +26,8 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
 from seagarden_dst.artifact.manifest import Archive, LayerProvenance
+from seagarden_dst.refresh.layer import ProbeResult
+from seagarden_dst.refresh.sources.catalogue import DescribeCallable, dataset_status
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import xarray as xr
@@ -45,11 +53,13 @@ ARCHIVE_UNBLOCKED_BY = "Zenodo deposit of the built artifact; C§1 puts it outsi
 
 
 def product_url(product_id: str) -> str:
-    """The catalogue landing page for a product.
+    """The catalogue landing page for a product, recorded in provenance as `source_url`.
 
-    Derived rather than written out per layer so the URL a layer's `probe()` HEADs
-    and the URL its provenance records cannot drift apart — they are the same string
-    by construction.
+    Until C-c2 this was also the URL each layer's `probe()` sent an HTTP HEAD to, and
+    deriving it in one place kept the probed URL and the recorded URL identical. The
+    probe now asks the catalogue about the dataset instead (`catalogue.dataset_status`),
+    so the only remaining reader is `copernicus_provenance`. Kept as a function rather
+    than inlined so the product-page scheme stays in one place.
     """
     return f"{COPERNICUS_PRODUCT_BASE}/{product_id}"
 
@@ -194,3 +204,23 @@ def drop_depth(data: xr.DataArray) -> xr.DataArray:
     elif "depth" in data.coords:
         data = data.drop_vars("depth")
     return data
+
+
+def catalogue_probe(
+    name: str,
+    dataset_id: str,
+    version: str,
+    *,
+    describe: DescribeCallable | None = None,
+) -> ProbeResult:
+    """Assemble one layer's `ProbeResult` from a catalogue lookup (C§8.2).
+
+    The one place a Copernicus `ProbeResult` is built. Before this, all four layers
+    carried an identical three-line `probe()` — the same copy-paste shape that let
+    `wav.py` ship `version="202303"` where C§11.1 says `202411`, because the one
+    field that legitimately differs travelled with the block that was duplicated.
+    """
+    status, detail = dataset_status(dataset_id, version, describe=describe)
+    return ProbeResult(
+        name=name, status=status, reachable=status == "ok", detail=detail
+    )

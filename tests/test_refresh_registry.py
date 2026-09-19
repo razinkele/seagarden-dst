@@ -83,38 +83,6 @@ def test_the_catalogue_table_covers_exactly_the_registered_layers():
     assert set(REGISTRY) == set(C11_1_CATALOGUE)
 
 
-def test_no_module_on_the_probe_path_imports_the_spatial_stack_at_module_scope():
-    """R3: the probe job installs the bare package, so these imports must stay clean.
-
-    Parsed with `ast` rather than imported or subprocessed, following
-    `tests/test_refresh_isolation.py` - importing the module to see what it imports
-    is the coupling under test, and a subprocess cannot resolve `seagarden_dst` in
-    the development environment, where there is no editable install (see the
-    comment at the top of `scripts/refresh_layers.py`). The AST walk asks the
-    precise question R3 asks: is the import at MODULE scope, or inside a method?
-    """
-    import ast
-    from pathlib import Path
-
-    forbidden = {"xarray", "copernicusmarine"}
-    refresh_dir = Path(__file__).resolve().parent.parent / "src" / "seagarden_dst" / "refresh"
-    probe_path = [refresh_dir / "registry.py", *sorted((refresh_dir / "sources").glob("*.py"))]
-
-    offenders: list[str] = []
-    for module_path in probe_path:
-        tree = ast.parse(module_path.read_text(encoding="utf-8"))
-        # Only the module body - an import inside a FunctionDef is what R3 allows.
-        for node in tree.body:
-            if isinstance(node, ast.Import):
-                names = {alias.name.split(".")[0] for alias in node.names}
-            elif isinstance(node, ast.ImportFrom):
-                names = {(node.module or "").split(".")[0]}
-            else:
-                continue
-            for name in sorted(names & forbidden):
-                offenders.append(f"{module_path.name}:{node.lineno} imports {name}")
-
-    assert offenders == [], (
-        "module-scope spatial imports on the probe path: " + "; ".join(offenders)
-        + ". The probe job installs no spatial extra and would crash on import (R3)"
-    )
+# The R3 module-scope-import guard lives once, parametrised, at
+# tests/test_refresh_catalogue.py::test_no_refresh_module_imports_the_spatial_stack_at_module_scope
+# (it covers registry.py, layer.py, and every module under sources/).

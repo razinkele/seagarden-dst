@@ -66,6 +66,7 @@ class FakeLayer:
     def probe(self) -> ProbeResult:
         return ProbeResult(
             name=self.name,
+            status="ok" if self._reachable else "unreachable",
             reachable=self._reachable,
             detail="catalogue responded" if self._reachable else "catalogue 404",
         )

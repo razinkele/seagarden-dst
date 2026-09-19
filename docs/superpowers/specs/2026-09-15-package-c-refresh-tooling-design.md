@@ -654,14 +654,16 @@ a product page:
   run without anyone re-reading the catalogue table.
 
 `copernicusmarine` lives in the `spatial` extra, so **this job must install that extra**
-once real layers land. **As of this design, on `main`, it does not:** `source-probe.yml`
-runs `pip install -e .` with no extras, and `tests/test_refresh_cli.py`'s
-`test_the_probe_workflow_installs_without_the_spatial_extra` asserts exactly that, citing
-this section. Both are correct today, because `REGISTRY` is still empty (C§9, C§12) and
-the probe path is otherwise xarray-free — there is nothing yet to call
-`copernicusmarine.describe()` against. Both flip together in the commit that lands real
-layers: the workflow gains `[spatial]`, and the test's assertion inverts to require it.
-Until then, `copernicusmarine` cannot even be imported in that job.
+once real layers land. **Done in package C-c2.** `source-probe.yml` installs
+`.[spatial]`, the two Copernicus secrets are gone, and
+`tests/test_refresh_cli.py::test_the_probe_workflow_installs_the_spatial_extra` asserts
+the install command line — the command, not the word, so a comment cannot satisfy it.
+Before C-c2 the job installed the bare package and a test asserted that; both flipped
+together, as this paragraph said they would. One thing the flip did not change: no
+module on the probe path imports `copernicusmarine` at module scope, because the
+default test suite runs `-m 'not spatial'` and `-m` deselects after collection — a
+module-scope import would break collection repository-wide. `describe()` is imported
+inside the function that calls it.
 
 Separate from `ci.yml` so that a dead upstream source turns that job red and **blocks no
 pull request** — §4.1's "may fail loudly without blocking anything". Gating merges on the
