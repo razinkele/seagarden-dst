@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -96,3 +98,75 @@ def test_accumulation_across_tiles_is_the_same_as_one_array():
     split.add(np.array([[-3.0, -4.0]]), lats[1:], lons)
     for a, b in zip(whole.finish(), split.finish(), strict=True):
         np.testing.assert_allclose(a, b, equal_nan=True)
+
+
+# --- Tiles and fetching: C§13.4 -------------------------------------------------------
+
+
+def test_the_baltic_extent_is_126_whole_degree_tiles():
+    from seagarden_dst.refresh.sources.emodnet import Tile, tiles_for
+
+    tiles = tiles_for(GridSpec.baltic())
+    assert len(tiles) == 7 * 18
+    assert tiles[0] == Tile(lat0=53.0, lat1=54.0, lon0=9.0, lon1=10.0)
+    assert tiles[-1] == Tile(lat0=59.0, lat1=60.0, lon0=26.0, lon1=27.0)
+
+
+def test_a_tile_request_pins_the_dated_coverage_and_asks_for_geotiff():
+    from seagarden_dst.refresh.sources.emodnet import COVERAGE_ID, Tile, wcs_url
+
+    url = wcs_url(Tile(55.0, 56.0, 20.0, 21.0))
+    assert COVERAGE_ID == "emodnet__mean_2022"
+    assert f"COVERAGEID={COVERAGE_ID}" in url
+    assert "SUBSET=Lat(55.0,56.0)" in url and "SUBSET=Long(20.0,21.0)" in url
+    assert "FORMAT=image/tiff" in url
+    assert "emodnet__mean&" not in url, "the undated alias drifts silently (C§13.1)"
+
+
+def test_fetch_tiles_skips_tiles_already_on_disk(tmp_path):
+    from seagarden_dst.refresh.sources.emodnet import Tile, fetch_tiles, tile_path
+
+    tiles = [Tile(55.0, 56.0, 20.0, 21.0), Tile(55.0, 56.0, 21.0, 22.0)]
+    tile_path(tmp_path, tiles[0]).parent.mkdir(parents=True)
+    tile_path(tmp_path, tiles[0]).write_bytes(b"cached")
+    fetched: list[str] = []
+
+    def fake_fetcher(url: str, destination: Path) -> None:
+        fetched.append(url)
+        destination.write_bytes(b"new")
+
+    paths = fetch_tiles(tiles, tmp_path, fake_fetcher)
+    assert len(fetched) == 1 and "Long(21.0,22.0)" in fetched[0]
+    assert [p.read_bytes() for p in paths] == [b"cached", b"new"]
+
+
+def test_a_tile_the_fetcher_cannot_deliver_aborts_the_build(tmp_path):
+    from seagarden_dst.refresh.sources.emodnet import Tile, TileFetchFailed, fetch_tiles
+
+    def dead(url: str, destination: Path) -> None:
+        raise OSError("connection reset")
+
+    with pytest.raises(TileFetchFailed, match="Long\\(20.0,21.0\\)"):
+        fetch_tiles([Tile(55.0, 56.0, 20.0, 21.0)], tmp_path, dead)
+
+
+@pytest.mark.spatial
+def test_read_tile_returns_elevation_and_pixel_centres(tmp_path):
+    import rasterio
+    from rasterio.transform import from_origin
+
+    from seagarden_dst.refresh.sources.emodnet import read_tile
+
+    # 4 x 4 pixels of 0.25 deg over 55-56 N, 20-21 E, row 0 at the TOP (north).
+    data = np.arange(16, dtype="float32").reshape(4, 4) - 20.0
+    path = tmp_path / "t.tif"
+    with rasterio.open(
+        path, "w", driver="GTiff", height=4, width=4, count=1, dtype="float32",
+        crs="EPSG:4326", transform=from_origin(20.0, 56.0, 0.25, 0.25),
+    ) as dst:
+        dst.write(data, 1)
+
+    elevation, lats, lons = read_tile(path)
+    np.testing.assert_array_equal(elevation, data)
+    np.testing.assert_allclose(lats, [55.875, 55.625, 55.375, 55.125])
+    np.testing.assert_allclose(lons, [20.125, 20.375, 20.625, 20.875])
