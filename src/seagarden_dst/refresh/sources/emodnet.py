@@ -10,15 +10,19 @@ cell with no wet pixel comes out NaN and `compute_valid` (C§3.5) refuses it.
 
 from __future__ import annotations
 
+import gzip
 import math
 import os
 import time
 import urllib.request
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
+
+from seagarden_dst.refresh.layer import ProbeResult
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from seagarden_dst.artifact.grid import GridSpec
@@ -160,3 +164,62 @@ def read_tile(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         lons = transform.c + (cols + 0.5) * transform.a
         lats = transform.f + (rows + 0.5) * transform.e  # e is negative: north at row 0
     return elevation, lats, lons
+
+
+class CapabilitiesReader(Protocol):
+    def __call__(self) -> bytes: ...
+
+
+def _decode_body(body: bytes, content_encoding: str | None) -> bytes:
+    if content_encoding and "gzip" in content_encoding.lower():
+        return gzip.decompress(body)
+    return body
+
+
+_MAX_CAPABILITIES_BYTES = 8 << 20  # the live document is ~8 KB; anything near this is not it
+
+
+def _default_capabilities() -> bytes:
+    url = f"{WCS_URL}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCapabilities"
+    with urllib.request.urlopen(url, timeout=60) as response:
+        body = response.read(_MAX_CAPABILITIES_BYTES + 1)
+    if len(body) > _MAX_CAPABILITIES_BYTES:
+        raise OSError(
+            f"GetCapabilities exceeded {_MAX_CAPABILITIES_BYTES} bytes; refusing to parse"
+        )
+    return _decode_body(body, response.headers.get("Content-Encoding"))
+
+
+def coverage_ids(xml: bytes) -> set[str]:
+    """Every `CoverageId` in a capabilities document, whatever prefix the server used.
+
+    `Element.iter()` does not honour the `{*}` wildcard (only `find`/`findall` do), so
+    this uses `findall` with a `.//` search rather than the `iter` form.
+    """
+    root = ET.fromstring(xml)
+    return {el.text.strip() for el in root.findall(".//{*}CoverageId") if el.text}
+
+
+def probe_coverage(
+    name: str, *, capabilities: CapabilitiesReader | None = None
+) -> ProbeResult:
+    """`ok` when the dated coverage is listed; `absent` when it is not; `unreachable`
+    when the service cannot be asked. The version IS the coverage id, so drift is
+    absence and there is no `version_drift` here (C§13.4)."""
+    read = capabilities if capabilities is not None else _default_capabilities
+    try:
+        listed = coverage_ids(read())
+    except (OSError, ET.ParseError) as exc:
+        return ProbeResult(
+            name=name, status="unreachable", reachable=False,
+            detail=f"GetCapabilities failed: {exc}",
+        )
+    if COVERAGE_ID in listed:
+        return ProbeResult(
+            name=name, status="ok", reachable=True,
+            detail=f"{COVERAGE_ID} listed by {WCS_URL}",
+        )
+    return ProbeResult(
+        name=name, status="absent", reachable=False,
+        detail=f"{COVERAGE_ID} is no longer listed; the service lists {sorted(listed)}",
+    )

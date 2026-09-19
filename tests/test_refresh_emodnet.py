@@ -170,3 +170,57 @@ def test_read_tile_returns_elevation_and_pixel_centres(tmp_path):
     np.testing.assert_array_equal(elevation, data)
     np.testing.assert_allclose(lats, [55.875, 55.625, 55.375, 55.125])
     np.testing.assert_allclose(lons, [20.125, 20.375, 20.625, 20.875])
+
+
+# --- Probe: C§13.4 --------------------------------------------------------------------
+
+_CAPS = b"""<?xml version="1.0"?>
+<wcs:Capabilities xmlns:wcs="http://www.opengis.net/wcs/2.0">
+  <wcs:Contents>
+    <wcs:CoverageSummary><wcs:CoverageId>emodnet__mean</wcs:CoverageId></wcs:CoverageSummary>
+    <wcs:CoverageSummary><wcs:CoverageId>emodnet__mean_2022</wcs:CoverageId></wcs:CoverageSummary>
+  </wcs:Contents>
+</wcs:Capabilities>"""
+
+
+def test_coverage_ids_are_read_regardless_of_namespace_prefix():
+    from seagarden_dst.refresh.sources.emodnet import coverage_ids
+
+    assert coverage_ids(_CAPS) == {"emodnet__mean", "emodnet__mean_2022"}
+
+
+def test_the_probe_is_ok_when_the_dated_coverage_is_listed():
+    from seagarden_dst.refresh.sources.emodnet import probe_coverage
+
+    result = probe_coverage("emodnet_bathy", capabilities=lambda: _CAPS)
+    assert result.status == "ok" and result.reachable is True
+
+
+def test_the_probe_reports_absent_when_the_service_answers_without_the_coverage():
+    from seagarden_dst.refresh.sources.emodnet import probe_coverage
+
+    gone = _CAPS.replace(b"emodnet__mean_2022", b"emodnet__mean_2024")
+    result = probe_coverage("emodnet_bathy", capabilities=lambda: gone)
+    assert result.status == "absent" and result.reachable is False
+    assert "emodnet__mean_2022" in result.detail
+
+
+def test_the_probe_reports_unreachable_on_a_transport_failure():
+    from seagarden_dst.refresh.sources.emodnet import probe_coverage
+
+    def dead() -> bytes:
+        raise OSError("name resolution failed")
+
+    result = probe_coverage("emodnet_bathy", capabilities=dead)
+    assert result.status == "unreachable" and result.reachable is False
+    assert "name resolution failed" in result.detail
+
+
+def test_gzipped_capabilities_are_decompressed():
+    """The live server gzips XML without being asked (C§13.1)."""
+    import gzip
+
+    from seagarden_dst.refresh.sources.emodnet import _decode_body
+
+    assert _decode_body(gzip.compress(_CAPS), "gzip") == _CAPS
+    assert _decode_body(_CAPS, None) == _CAPS
