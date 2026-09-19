@@ -728,6 +728,7 @@ end-to-end by someone else."* Both stand. Expanded, so the row is checkable:
 
 To be made when this design is accepted, not silently assumed:
 
+- **C§13 (added 2026-09-19)** — the EMODnet layer is now specified: dated coverage `emodnet__mean_2022`, depth = -elevation referenced to LAT (assumed), wet = elevation < 0, centre-binned mean and shallowest-wet min per cell, 1° tile loop with a resumable cache, `GetCapabilities` probe. C§8.1's volume figure rises by ~0.5 GB. §8.1 gains a traceability row for it. C§12's first EMODnet risk is discharged by measurement, not removed.
 - **§6.1** — remove HELCOM from the nutrient row, or record why it is listed and unused.
   Record that `depth_m` resolves to `depth_mean_m` and `depth_min_m`.
 - **§6.2** — record the shipped extent (53.5–60.0 N, 9.5–27.0 E) and that it excludes the
@@ -887,3 +888,130 @@ version string of this form, and it remains the least-specified layer in this de
 - **`artifact_schema_version` starts at 1 with no negotiation mechanism.** If D and C
   disagree about the shape, the failure is a refusal to load — loud, but total. That is the
   intended trade, recorded so it is not a surprise.
+
+---
+
+## C§13 EMODnet Bathymetry — the spike, and the layer it specifies
+
+*Added 2026-09-19 (package C-d). C§12 called this fetch and probe "the least specified
+part of this design". This section records what a measured spike found, and fixes the
+decisions the layer is built on. Everything below was observed against the live service on
+19 September 2026 unless marked assumed.*
+
+### C§13.1 What the service is
+
+EMODnet Bathymetry publishes the DTM through an OGC **WCS 2.0.1** at
+`https://ows.emodnet-bathymetry.eu/wcs`, alongside a WMS and a REST viewer. There is no
+Python client. `GetCapabilities` lists eight coverages: an undated `emodnet__mean` and the
+dated releases `emodnet__mean_2016`, `_2018`, `_2020`, `_2022`, plus three styled rasters.
+Formats include `image/tiff;application=geotiff`; the only CRS is EPSG:4326; the scaling,
+interpolation and range-subsetting extensions are advertised.
+
+**The layer pins the dated coverage `emodnet__mean_2022`, never the undated alias.** The
+alias can change contents silently, which is exactly the version drift the C-c2 probe
+exists to catch. `dataset_id` is the coverage id and `version` is `2022`; the probe checks
+that coverage id is still listed in `GetCapabilities` (C§13.4).
+
+Two service quirks the implementation must expect: the server returns **gzip without being
+asked** on XML responses (a plain `urllib` read hands back compressed bytes; decompress on
+`Content-Encoding: gzip`); and `DescribeCoverage` labels the `Depth` field with a radiance
+unit, `W.m-2.Sr-1`, which is a metadata error to be ignored, not honoured.
+
+### C§13.2 The data
+
+| Property | Observed |
+|---|---|
+| Grid | 1/960° in both axes (≈115 m at these latitudes), EPSG:4326, axis order `Lat Long` |
+| Full extent | 11.0–90.0 N, −70.5–43.0 E; 108,960 × 75,840 pixels |
+| Value | `float32` **elevation** in metres, negative below the reference surface |
+| Land | carried as **0 or positive elevation**, not as nil; no NaN in any tile fetched |
+| Nil | declared as NaN "unknown"; none observed over the Baltic box |
+| Tiling | a 1°×1° request returns exactly 960×960 pixels, ~4.2 MB, in ~2 s; two abutting tiles share no edge row or column |
+| Vertical reference | **LAT** (lowest astronomical tide), per the EMODnet product description. **Assumed** to hold for the whole 2022 release: the WCS metadata does not state it |
+
+Depth is therefore **`depth = −elevation`**, and a pixel is *wet* when `elevation < 0`.
+LAT is the conservative reference for a structure with draft: the water is never shallower
+than LAT except by surge. The choice is recorded in the layer's provenance and the
+runbook; nobody downstream should discover the sign or the datum by reading a number.
+
+### C§13.3 Reduction onto the artifact grid
+
+`GridSpec.baltic()` steps are 1/60° in latitude (exactly 16 EMODnet pixels) and 1/36° in
+longitude (26.67 pixels). **A block reshape cannot work in longitude.** The layer bins each
+EMODnet pixel by the artifact cell that contains its centre:
+`i = floor((lat - lat_min) / lat_step)`, `j = floor((lon - lon_min) / lon_step)`, with
+`GridSpec.lats()`/`lons()` being the **lower cell edges** their docstrings declare. It then
+reduces per cell over **wet pixels only**:
+
+- `depth_mean_m` = mean of `-elevation` over wet pixels;
+- `depth_min_m` = shallowest wet depth = `-max(elevation)` over wet pixels, the number that
+  matters for a structure with draft (C§2);
+- a cell with **no wet pixel** gets NaN in both, and `compute_valid` (C§3.5) therefore marks
+  it invalid. One wet pixel is enough for a cell to carry a depth: the 60% valid-fraction
+  rule of §6.2 is a polygon-level rule for package D-b, not a cell-level one, and a
+  cell-level fraction would silently remove the near-shore cells every farm sits in.
+
+The ~115 m jitter of a pixel centre against a cell boundary is negligible against 1.7 km
+cells and is not corrected. Pixels outside the grid extent are dropped before binning.
+
+**One convention to confirm on the first real run.** `check_grid` compares every layer's
+coordinates to `GridSpec.lats()`/`lons()`, lower edges. The Copernicus products label cells
+by their centres. Whether `cmems.open_window` output passes `check_grid` has never been
+observed against real data, because every driver test uses fakes built from the GridSpec.
+The bathymetry layer follows the GridSpec as documented; if the first real run fails
+`check_grid` on a Copernicus layer, the fix is one shared coordinate-snapping step in
+`cmems.open_window`, not a change to the bathymetry binning.
+
+### C§13.4 Fetch and probe
+
+**Fetch: a tile loop, not one request.** The full box uncompressed is 6,240 × 16,800
+float32 ≈ **420 MB**; a single `GetCoverage` for it is a request the service may refuse and
+a download that cannot resume. The layer walks 1°×1° tiles over the extent, 7 × 18 = 126
+requests, ~530 MB on the wire including padding to whole degrees, a few minutes, writing
+each tile to `workdir/emodnet/<lat0>_<lon0>.tif` and **skipping tiles already present**, so
+an interrupted build resumes. Requests are sequential with three retries on transport
+error; a tile that still fails aborts the build (C§6.1: partial data is not data).
+
+Each tile is a `GetCoverage` with `COVERAGEID=emodnet__mean_2022`,
+`SUBSET=Lat(a,b)&SUBSET=Long(c,d)`, `FORMAT=image/tiff`, read with `rasterio` (already in
+the `spatial` extra). The fetcher is injectable, like `cmems.DatasetOpener`, so every test
+runs against GeoTIFFs written locally and no test touches the network.
+
+**Probe: a `GetCapabilities` parse, stdlib only.** `ok` when `emodnet__mean_2022` is among
+the listed `wcs:CoverageId`s; `absent` when the service answers but the id is gone;
+`unreachable` on a transport failure or a non-200. There is no `version_drift` state for
+this layer: the version is the coverage id, so drift *is* absence. The same
+`ProbeResult` invariants apply (C§8.2).
+
+### C§13.5 Provenance and manifest
+
+`LayerProvenance` for the layer: `source` "EMODnet Bathymetry"; `product_id`
+"EMODnet DTM 2022"; `dataset_id` "emodnet__mean_2022"; `version` "2022";
+`source_url` "https://emodnet.ec.europa.eu/en/bathymetry"; licence
+"EMODnet Bathymetry licence (CC BY 4.0)" with `redistribution: allowed`;
+`archive.status: pending` with the same `unblocked_by` note the Copernicus layers carry;
+`variables` `["depth_mean_m", "depth_min_m"]`. Both fields are static, so `baseline_years`
+returns `[]` for each, present, not omitted (C§4.4).
+
+Registering the layer tightens `check_registered_names` to equality in the same commit,
+as `registry.py` records, and the fixture's `emodnet_bathy` record takes its constants from
+the layer module the way the Copernicus records do, so
+`test_every_layer_records_the_dataset_and_version` sees one source of truth.
+
+### C§13.6 Where the artifact lives, and the first run
+
+The CLI defaults `--target` to `data/forcing`, inside the checkout, and `.gitignore` does
+not cover it. On laguna the checkout is the serving tree and a dirty tree fails the deploy
+preflight. **A real refresh therefore targets a directory outside the checkout**,
+`~/seagarden-data/forcing` on laguna, and the service reads it through
+`SEAGARDEN_DATA_DIR`, the locator package D-a honours. The committed manifest of C§8.1 is
+copied into `data/forcing/manifest.json` **without** the artifact, which stays out of git at
+~170 MB; the runbook states this. The first run is a documented, human-executed step of
+the runbook, and it does not discharge clause 7 (C§10): that clause needs a second person.
+
+### C§13.7 Volumes, revised
+
+C§8.1's ~30 GB on the wire becomes **~30.5 GB**: the bathymetry adds ~0.5 GB once, and
+nothing on subsequent refreshes while the tile cache in `workdir` survives. On disk the
+tiles add ~530 MB to the scratch space, and nothing to the artifact beyond the two static
+fields already counted.
