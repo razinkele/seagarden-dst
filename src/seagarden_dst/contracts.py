@@ -19,6 +19,7 @@ from dataclasses import asdict, dataclass, field
 from .calibration import Quantity, Tier
 from .forcing import (
     DEFAULT_FORCING,
+    PLACEHOLDER_YEAR,
     Coverage,
     ForcingSource,
     SiteConditions,
@@ -64,7 +65,7 @@ class SiteContext:
         *,
         label: str = "",
         forcing: ForcingSource = DEFAULT_FORCING,
-        year: int = 2024,
+        year: int = PLACEHOLDER_YEAR,
     ) -> SiteContext:
         """Build a context from the conditions a `ForcingSource` has for a sub-region.
 

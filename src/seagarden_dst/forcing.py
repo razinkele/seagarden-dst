@@ -15,9 +15,10 @@ from __future__ import annotations
 import math
 import numbers
 from dataclasses import dataclass, fields
-from datetime import date
+from datetime import date, datetime
 from enum import StrEnum
-from typing import Protocol, runtime_checkable
+from pathlib import Path
+from typing import Literal, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -178,6 +179,10 @@ class SiteCoordinate:
     @property
     def is_sited(self) -> bool:
         return self.provenance.is_sited
+
+    def as_wkt(self) -> str:
+        """`POINT (lon lat)`: WKT's axis order, which is the opposite of the human habit."""
+        return f"POINT ({self.lon} {self.lat})"
 
 
 class Coverage(StrEnum):
@@ -347,6 +352,19 @@ SITE_COORDINATES: dict[str, SiteCoordinate] = {
     #: open-coast longline are two different positions, and neither has been chosen.
     #: LT is two sub-sites, coastal and lagoon, and `LT-lagoon` is not in REGIONS yet.
 }
+
+
+def region_query(region: str, year: int) -> SiteQuery | None:
+    """A POINT query for a region with a coordinate; None for one without.
+
+    None, not an empty geometry: D§9 withdrew the "empty means the region's
+    coordinate" convention, and the reader refuses an empty string. The caller
+    decides what a None means (E§2: that site stays on the placeholder).
+    """
+    coordinate = SITE_COORDINATES.get(region)
+    if coordinate is None:
+        return None
+    return SiteQuery(geometry_wkt=coordinate.as_wkt(), year=year, region=region)
 
 
 #: Placeholder conditions per region, used by the scaffold so the application runs
@@ -640,3 +658,41 @@ class PlaceholderForcing:
 #: so the section 6 data layer substitutes a `GriddedForcing` at the boundary without
 #: any of those callers changing.
 DEFAULT_FORCING: ForcingSource = PlaceholderForcing()
+
+#: The scaffold has one invented seasonal cycle, not one per year; this is the year
+#: it answers to, and the query year the app uses when it runs on the placeholder.
+PLACEHOLDER_YEAR = 2024
+
+
+@dataclass(frozen=True)
+class ForcingChoice:
+    """What the tool is running on this session, and why (E§3.1).
+
+    `kind` and `reason` are what the banner shows. A silent fallback is the failure
+    §7 forbids, so a placeholder choice must say why and an artifact choice may not
+    carry a reason that would read as one.
+    """
+
+    source: ForcingSource
+    kind: Literal["artifact", "placeholder"]
+    reason: str
+    year: int
+    built_on: datetime | None
+    directory: Path | None
+
+    def __post_init__(self) -> None:
+        if self.kind == "artifact" and self.reason:
+            raise ValueError("an artifact choice carries no reason; the reason is for fallbacks")
+        if self.kind == "placeholder" and not self.reason:
+            raise ValueError("a placeholder choice must say why the artifact was not used")
+
+    @property
+    def is_artifact(self) -> bool:
+        return self.kind == "artifact"
+
+
+def placeholder_choice(reason: str, directory: Path | None = None) -> ForcingChoice:
+    return ForcingChoice(
+        source=DEFAULT_FORCING, kind="placeholder", reason=reason,
+        year=PLACEHOLDER_YEAR, built_on=None, directory=directory,
+    )
