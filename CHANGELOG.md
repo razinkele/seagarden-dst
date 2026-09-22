@@ -11,6 +11,25 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
+Nothing yet. Changes land here, not in the published sections below. When you cut the next
+release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
+open a section for it — `tests/test_version.py` asserts the literals agree with each other
+and with a matching heading here, but it cannot tell you that a merged change went
+unreleased.
+
+---
+
+## [0.9.0] — 2026-09-22
+
+**The refresh refuses a full disk before it starts.**
+
+474 tests (465 at 0.8.0): 375 in the default selection, 99 needing the `spatial` extra. CI on
+Python 3.11 and 3.13 across two install states.
+
+One change, released on its own because the first real refresh is about to run on the
+server and this is the guard that keeps it from failing at 80% of a 30 GB transfer.
+Nothing on screen changes; the app still runs on placeholder conditions and says so.
+
 ### Fixed
 
 - **The refresh refuses to start on insufficient free disk** (C§6.1), closing 0.8.0's
@@ -18,11 +37,10 @@ tool whose caveats live only in conversation is one whose caveats get lost.
   on one filesystem, exits 1 with one line naming the directory, the need and the have.
   Nothing is downloaded first.
 
-Changes land here, not in the published sections below. When you cut the next
-release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
-open a section for it — `tests/test_version.py` asserts the literals agree with each other
-and with a matching heading here, but it cannot tell you that a merged change went
-unreleased.
+### Known limits
+
+- Those of 0.8.0 stand, less the free-disk gap: no artifact is wired in, the grid check has
+  never met real Copernicus coordinates, and the map and placeholder caveats remain.
 
 ---
 
