@@ -10,7 +10,6 @@ cell with no wet pixel comes out NaN and `compute_valid` (C§3.5) refuses it.
 
 from __future__ import annotations
 
-import gzip
 import http.client
 import math
 import os
@@ -87,7 +86,8 @@ PRODUCT_ID = "EMODnet DTM 2022"
 LICENCE = "EMODnet Bathymetry licence (CC BY 4.0)"
 SOURCE_URL = "https://emodnet.ec.europa.eu/en/bathymetry"
 VARIABLES = ["depth_mean_m", "depth_min_m"]
-_RETRIES = 3
+# Three attempts in total (C§13.4 says "three retries" loosely).
+_ATTEMPTS = 3
 
 # Failure modes a flaky network or a misbehaving proxy can produce partway through a
 # read; all are treated as transport failures, retried by fetch_tiles and reported as
@@ -155,9 +155,10 @@ def _finish_download(url: str, partial: Path, destination: Path) -> None:
 
     Protects against exactly two things: a crash partway through the write (the
     `.part` file never becomes `destination`) and a non-TIFF body arriving with an
-    HTTP 200 — an OWS ExceptionReport or an HTML error page — which would otherwise
-    be renamed into the cache and trusted forever by `fetch_tiles`'s
-    `if not path.exists()` check. Nothing else is validated here.
+    HTTP 200 — an OWS ExceptionReport or an HTML error page. `fetch_tiles` also
+    revalidates a cached file's magic number on every call, so even a non-TIFF file that
+    somehow reached `destination` is re-fetched rather than trusted forever. Nothing else
+    is validated here.
     """
     if not _is_tiff(partial):
         header = partial.read_bytes()[:16]
@@ -178,23 +179,26 @@ def _default_fetcher(url: str, destination: Path) -> None:
 def fetch_tiles(
     tiles: list[Tile], workdir: Path, fetcher: TileFetcher | None = None
 ) -> list[Path]:
-    """Every tile on disk, fetching the missing ones; an existing file is trusted (C§13.4)."""
+    """Every tile on disk, fetching the missing ones; a cached file is trusted only when
+    it is actually a TIFF (C§13.4) — a non-TIFF cached file (e.g. a stale OWS error page)
+    is re-fetched rather than trusted forever."""
     fetch = fetcher if fetcher is not None else _default_fetcher
     paths: list[Path] = []
     for tile in tiles:
         path = tile_path(workdir, tile)
         path.parent.mkdir(parents=True, exist_ok=True)
-        if not path.exists():
+        if not path.exists() or not _is_tiff(path):
             url = wcs_url(tile)
-            for attempt in range(1, _RETRIES + 1):
+            for attempt in range(1, _ATTEMPTS + 1):
                 try:
                     fetch(url, path)
                     break
                 except _TRANSPORT_ERRORS as exc:
-                    if attempt == _RETRIES:
+                    if attempt == _ATTEMPTS:
+                        path.with_suffix(".part").unlink(missing_ok=True)
                         raise TileFetchFailed(
-                            f"tile {url} failed {_RETRIES} times ({exc}); refusing to build "
-                            "from partial bathymetry (C§6.1)"
+                            f"tile {url} failed after {_ATTEMPTS} attempts ({exc}); refusing "
+                            "to build from partial bathymetry (C§6.1)"
                         ) from exc
                     time.sleep(2.0 * attempt)
         paths.append(path)
@@ -206,6 +210,8 @@ def read_tile(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     import rasterio  # lazy: the spatial extra (see module docstring)
 
     with rasterio.open(path) as src:
+        if src.crs is None or src.crs.to_epsg() != 4326:
+            raise ValueError(f"{path}: expected EPSG:4326 pixels, got {src.crs}")
         elevation = src.read(1).astype("float64")
         if src.nodata is not None:
             elevation[elevation == src.nodata] = np.nan
@@ -221,20 +227,32 @@ class CapabilitiesReader(Protocol):
     def __call__(self) -> bytes: ...
 
 
-def _decode_body(body: bytes, content_encoding: str | None) -> bytes:
-    if content_encoding and "gzip" in content_encoding.lower():
-        return gzip.decompress(body)
-    return body
-
-
 _MAX_CAPABILITIES_BYTES = 8 << 20  # the live document is ~8 KB; anything near this is not it
+
+
+def _decode_body(body: bytes, content_encoding: str | None) -> bytes:
+    """Gzip-decode `body` if `content_encoding` says gzip, bounding the decompressed
+    size at `_MAX_CAPABILITIES_BYTES` so a small compressed body cannot expand into a
+    decompression bomb: `zlib.decompressobj.decompress` is given a `max_length` one byte
+    past the cap, and anything left in `unconsumed_tail` (or a result over the cap) means
+    the true decompressed size exceeds the cap, so we refuse rather than keep decoding.
+    """
+    if content_encoding and "gzip" in content_encoding.lower():
+        d = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        out = d.decompress(body, _MAX_CAPABILITIES_BYTES + 1)
+        if d.unconsumed_tail or len(out) > _MAX_CAPABILITIES_BYTES:
+            raise OSError("GetCapabilities decompressed past the cap; refusing to parse")
+        return out
+    return body
 
 
 def _check_size(body: bytes) -> bytes:
     """`body`, unchanged, if it is within `_MAX_CAPABILITIES_BYTES`; otherwise `OSError`.
 
-    Called both on the wire body (bounds a compressed bomb before decompression) and
-    again on the decoded body (bounds what decompression expanded it to).
+    Called both on the wire body (bounds a compressed bomb before decompression starts)
+    and again on the decoded body (a second, independent bound on the plain-text result;
+    `_decode_body` already bounds the decompression itself so this call cannot be beaten
+    by decompression growth, only by an already-oversized plain body).
     """
     if len(body) > _MAX_CAPABILITIES_BYTES:
         raise OSError(

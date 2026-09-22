@@ -62,10 +62,11 @@ def test_pixels_bin_by_the_cell_containing_their_centre_with_lower_edge_coordina
 
     grid = tiny_grid()
     acc = GridAccumulator(grid)
-    # One pixel per cell, placed just above each lower edge; lon step is 26.67 px so a
-    # block reshape would misplace these, centre-binning must not.
-    lats = grid.lats() + 0.0005
-    lons = grid.lons() + 0.0005
+    # One pixel per cell, placed close to the UPPER edge (0.9 of the way across the
+    # cell); a centre-labelled grid would bin these one cell over, so this discriminates
+    # the lower-edge convention rather than passing under either one.
+    lats = grid.lats() + 0.9 * grid.lat_step
+    lons = grid.lons() + 0.9 * grid.lon_step
     elevation = -np.arange(1, 7, dtype=float).reshape(3, 2)  # -1 .. -6
     acc.add(elevation, lats, lons)
     mean, _ = acc.finish()
@@ -128,26 +129,86 @@ def test_fetch_tiles_skips_tiles_already_on_disk(tmp_path):
 
     tiles = [Tile(55.0, 56.0, 20.0, 21.0), Tile(55.0, 56.0, 21.0, 22.0)]
     tile_path(tmp_path, tiles[0]).parent.mkdir(parents=True)
-    tile_path(tmp_path, tiles[0]).write_bytes(b"cached")
+    tile_path(tmp_path, tiles[0]).write_bytes(b"II*\x00cached-tiff-bytes")
     fetched: list[str] = []
 
     def fake_fetcher(url: str, destination: Path) -> None:
         fetched.append(url)
-        destination.write_bytes(b"new")
+        destination.write_bytes(b"MM\x00*new-tiff-bytes")
 
     paths = fetch_tiles(tiles, tmp_path, fake_fetcher)
     assert len(fetched) == 1 and "Long(21.0,22.0)" in fetched[0]
-    assert [p.read_bytes() for p in paths] == [b"cached", b"new"]
+    assert [p.read_bytes() for p in paths] == [
+        b"II*\x00cached-tiff-bytes",
+        b"MM\x00*new-tiff-bytes",
+    ]
 
 
-def test_a_tile_the_fetcher_cannot_deliver_aborts_the_build(tmp_path):
+def test_fetch_tiles_refetches_a_cached_file_that_is_not_actually_a_tiff(tmp_path):
+    """A stale OWS exception report or HTML error page cached under the tile name must
+    not be trusted forever (C§13.4)."""
+    from seagarden_dst.refresh.sources.emodnet import Tile, fetch_tiles, tile_path
+
+    tiles = [Tile(55.0, 56.0, 20.0, 21.0)]
+    tile_path(tmp_path, tiles[0]).parent.mkdir(parents=True)
+    tile_path(tmp_path, tiles[0]).write_bytes(b"<?xml version='1.0'?><ows:ExceptionReport/>")
+    fetched: list[str] = []
+
+    def fake_fetcher(url: str, destination: Path) -> None:
+        fetched.append(url)
+        destination.write_bytes(b"II*\x00real-tiff-bytes")
+
+    paths = fetch_tiles(tiles, tmp_path, fake_fetcher)
+    assert len(fetched) == 1
+    assert paths[0].read_bytes() == b"II*\x00real-tiff-bytes"
+
+
+def test_a_tile_the_fetcher_cannot_deliver_aborts_the_build(tmp_path, monkeypatch):
+    from seagarden_dst.refresh.sources import emodnet
     from seagarden_dst.refresh.sources.emodnet import Tile, TileFetchFailed, fetch_tiles
+
+    monkeypatch.setattr(emodnet.time, "sleep", lambda _s: None)
 
     def dead(url: str, destination: Path) -> None:
         raise OSError("connection reset")
 
     with pytest.raises(TileFetchFailed, match="Long\\(20.0,21.0\\)"):
         fetch_tiles([Tile(55.0, 56.0, 20.0, 21.0)], tmp_path, dead)
+
+
+def test_fetch_tiles_recovers_when_a_transient_failure_clears(tmp_path, monkeypatch):
+    from seagarden_dst.refresh.sources import emodnet
+    from seagarden_dst.refresh.sources.emodnet import Tile, fetch_tiles
+
+    monkeypatch.setattr(emodnet.time, "sleep", lambda _s: None)
+    calls: list[str] = []
+
+    def flaky(url: str, destination: Path) -> None:
+        calls.append(url)
+        if len(calls) == 1:
+            raise OSError("connection reset")
+        destination.write_bytes(b"II*\x00real-tiff-bytes")
+
+    paths = fetch_tiles([Tile(55.0, 56.0, 20.0, 21.0)], tmp_path, flaky)
+    assert len(paths) == 1
+    assert len(calls) == 2
+
+
+def test_fetch_tiles_cleans_up_the_part_file_when_all_attempts_fail(tmp_path, monkeypatch):
+    from seagarden_dst.refresh.sources import emodnet
+    from seagarden_dst.refresh.sources.emodnet import Tile, TileFetchFailed, fetch_tiles, tile_path
+
+    monkeypatch.setattr(emodnet.time, "sleep", lambda _s: None)
+    tile = Tile(55.0, 56.0, 20.0, 21.0)
+
+    def dead(url: str, destination: Path) -> None:
+        destination.with_suffix(".part").write_bytes(b"torn download")
+        raise OSError("connection reset")
+
+    with pytest.raises(TileFetchFailed):
+        fetch_tiles([tile], tmp_path, dead)
+
+    assert not tile_path(tmp_path, tile).with_suffix(".part").exists()
 
 
 @pytest.mark.spatial
@@ -183,10 +244,30 @@ _CAPS = b"""<?xml version="1.0"?>
 </wcs:Capabilities>"""
 
 
+_CAPS_UNPREFIXED = b"""<?xml version="1.0"?>
+<Capabilities xmlns="http://www.opengis.net/wcs/2.0">
+  <Contents>
+    <CoverageSummary><CoverageId>emodnet__mean</CoverageId></CoverageSummary>
+    <CoverageSummary><CoverageId>emodnet__mean_2022</CoverageId></CoverageSummary>
+  </Contents>
+</Capabilities>"""
+
+_CAPS_X_PREFIXED = b"""<?xml version="1.0"?>
+<x:Capabilities xmlns:x="http://www.opengis.net/wcs/2.0">
+  <x:Contents>
+    <x:CoverageSummary><x:CoverageId>emodnet__mean</x:CoverageId></x:CoverageSummary>
+    <x:CoverageSummary><x:CoverageId>emodnet__mean_2022</x:CoverageId></x:CoverageSummary>
+  </x:Contents>
+</x:Capabilities>"""
+
+
 def test_coverage_ids_are_read_regardless_of_namespace_prefix():
     from seagarden_dst.refresh.sources.emodnet import coverage_ids
 
-    assert coverage_ids(_CAPS) == {"emodnet__mean", "emodnet__mean_2022"}
+    expected = {"emodnet__mean", "emodnet__mean_2022"}
+    assert coverage_ids(_CAPS) == expected
+    assert coverage_ids(_CAPS_UNPREFIXED) == expected
+    assert coverage_ids(_CAPS_X_PREFIXED) == expected
 
 
 def test_the_probe_is_ok_when_the_dated_coverage_is_listed():
@@ -255,6 +336,25 @@ def test_read_tile_maps_the_nodata_sentinel_to_nan(tmp_path):
     np.testing.assert_allclose(elevation[1, 1], -4.0)
 
 
+@pytest.mark.spatial
+def test_read_tile_refuses_a_tile_not_in_epsg_4326(tmp_path):
+    import rasterio
+    from rasterio.transform import from_origin
+
+    from seagarden_dst.refresh.sources.emodnet import read_tile
+
+    data = np.zeros((2, 2), dtype="float32")
+    path = tmp_path / "wrong_crs.tif"
+    with rasterio.open(
+        path, "w", driver="GTiff", height=2, width=2, count=1, dtype="float32",
+        crs="EPSG:3857", transform=from_origin(20.0, 56.0, 0.5, 0.5),
+    ) as dst:
+        dst.write(data, 1)
+
+    with pytest.raises(ValueError, match="EPSG:4326"):
+        read_tile(path)
+
+
 def test_is_tiff_recognises_the_two_tiff_magic_numbers_and_rejects_others(tmp_path):
     from seagarden_dst.refresh.sources.emodnet import _is_tiff
 
@@ -298,10 +398,13 @@ def test_finish_download_rejects_a_non_tiff_body_and_cleans_up(tmp_path):
     assert not partial.exists()
 
 
-def test_fetch_tiles_retries_and_aborts_on_an_incomplete_read(tmp_path):
+def test_fetch_tiles_retries_and_aborts_on_an_incomplete_read(tmp_path, monkeypatch):
     import http.client
 
+    from seagarden_dst.refresh.sources import emodnet
     from seagarden_dst.refresh.sources.emodnet import Tile, TileFetchFailed, fetch_tiles
+
+    monkeypatch.setattr(emodnet.time, "sleep", lambda _s: None)
 
     def dead(url: str, destination: Path) -> None:
         raise http.client.IncompleteRead(b"")
@@ -320,6 +423,21 @@ def test_the_probe_reports_unreachable_on_an_incomplete_read():
 
     result = probe_coverage("emodnet_bathy", capabilities=dead)
     assert result.status == "unreachable" and result.reachable is False
+
+
+def test_decode_body_refuses_a_gzip_body_that_decompresses_past_the_cap():
+    """A small compressed body can still expand past the cap; `_decode_body` must bound
+    the decompression itself, not just trust `_check_size` on the input (C§13.4)."""
+    import gzip
+
+    from seagarden_dst.refresh.sources.emodnet import _MAX_CAPABILITIES_BYTES, _decode_body
+
+    reps = (_MAX_CAPABILITIES_BYTES + 1024) // len(b"<a/>") + 1
+    huge = b"<a/>" * reps
+    compressed = gzip.compress(huge)
+
+    with pytest.raises(OSError, match="cap"):
+        _decode_body(compressed, "gzip")
 
 
 def test_check_size_passes_small_bodies_through_and_rejects_oversized_ones():
