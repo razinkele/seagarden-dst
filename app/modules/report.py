@@ -156,11 +156,11 @@ def report_server(input, output, session, state) -> None:  # noqa: A002
     @output
     @render.code
     def report_text():
-        return render_report(state.assessment.get())
+        return render_report(state.assessment.get(), state.forcing.get())
 
     @render.download(filename=lambda: f"seagarden-dst-{date.today().isoformat()}.txt")
     def download_txt():
-        yield render_report(state.assessment.get())
+        yield render_report(state.assessment.get(), state.forcing.get())
 
     @render.download(filename=lambda: f"seagarden-dst-{date.today().isoformat()}.json")
     def download_json():

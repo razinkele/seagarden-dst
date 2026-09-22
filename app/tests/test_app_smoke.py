@@ -15,6 +15,7 @@ from app.modules.results import run_assessment
 from app.modules.user_mode import MODES
 from app.state import AppState
 from seagarden_dst import SiteContext
+from seagarden_dst.forcing import placeholder_choice
 
 
 def test_app_object_builds():
@@ -82,6 +83,7 @@ class _FakeState:
         self.assessment = _Value(None)
         self.eutropy_scenario = _Value(None)
         self.bowtie_inference = _Value(None)
+        self.forcing = _Value(placeholder_choice("test: no artifact"))
 
 
 def _artifact_choice():
@@ -93,6 +95,121 @@ def _artifact_choice():
         source=DEFAULT_FORCING, kind="artifact", reason="", year=2025,
         built_on=datetime(2026, 9, 22, tzinfo=UTC), directory=None,
     )
+
+
+def test_state_carries_the_forcing_choice_unset_until_the_session_chooses():
+    from shiny import reactive
+
+    state = AppState()
+    with reactive.isolate():
+        assert state.forcing.get() is None
+    assert AppState.defaults()["forcing"] is None
+
+
+def test_a_region_with_a_coordinate_commits_through_the_readers_reading():
+    from app.modules.site import build_site_context
+    from seagarden_dst.forcing import (
+        DEFAULT_FORCING,
+        Aggregation,
+        Coverage,
+        ForcingChoice,
+        SiteQuery,
+        SiteReading,
+    )
+
+    seen: list[SiteQuery] = []
+
+    class _Reader:
+        def reading_at(self, query):
+            seen.append(query)
+            return SiteReading(
+                conditions=DEFAULT_FORCING.reading_at(
+                    SiteQuery("", year=2024, region="LT-lagoon")
+                ).conditions,
+                coverage=Coverage.VALID, year=query.year,
+                aggregation=Aggregation.CONTAINING_CELL, from_artifact=True,
+            )
+
+        def daily_forcing(self, site, window, year):
+            return DEFAULT_FORCING.daily_forcing(site, window, year)
+
+    choice = ForcingChoice(
+        source=_Reader(), kind="artifact", reason="", year=2025, built_on=None, directory=None
+    )
+    context = build_site_context("LT-lagoon", "Curonian", choice)
+    assert seen and seen[0].region == "LT-lagoon" and seen[0].year == 2025
+    assert seen[0].geometry_wkt.startswith("POINT (")
+    assert context.from_artifact is True and context.source_note == ""
+    assert context.label == "Curonian" and context.region == "LT-lagoon"
+
+
+def test_a_region_without_a_coordinate_stays_on_the_placeholder_with_a_note():
+    from app.modules.site import build_site_context
+    from seagarden_dst.contracts import SOURCE_NOTE_NO_POSITION
+
+    context = build_site_context("LT-coastal", "Melnrage", _artifact_choice())
+    assert context.from_artifact is False
+    assert context.source_note == SOURCE_NOTE_NO_POSITION
+    assert context.region == "LT-coastal"
+
+
+def test_on_the_placeholder_a_site_commits_as_today_with_no_note():
+    from app.modules.site import build_site_context
+
+    context = build_site_context("LT-lagoon", "Curonian", placeholder_choice("no artifact"))
+    assert context.from_artifact is False and context.source_note == ""
+
+
+def test_a_blocked_reading_keeps_the_region_it_was_asked_for():
+    from app.modules.site import build_site_context
+    from seagarden_dst.forcing import Aggregation, Coverage, ForcingChoice, SiteReading
+
+    class _Blocked:
+        def reading_at(self, query):
+            return SiteReading(
+                conditions=None, coverage=Coverage.CELL_INVALID, year=query.year,
+                aggregation=Aggregation.CONTAINING_CELL, nearest_valid_km=2.5,
+                from_artifact=True,
+            )
+
+        def daily_forcing(self, site, window, year):
+            raise AssertionError("not called")
+
+    choice = ForcingChoice(
+        source=_Blocked(), kind="artifact", reason="", year=2025, built_on=None, directory=None
+    )
+    context = build_site_context("LT-lagoon", "Curonian", choice)
+    assert context.conditions is None and context.coverage is Coverage.CELL_INVALID
+    assert context.region == "LT-lagoon", "the region is known even when the cell is not"
+
+
+def test_the_assessment_uses_the_chosen_source_unless_the_site_fell_back():
+    from app.modules.results import forcing_for
+    from seagarden_dst.contracts import SOURCE_NOTE_NO_POSITION
+    from seagarden_dst.forcing import DEFAULT_FORCING
+
+    choice = _artifact_choice()
+    on_artifact = SiteContext.from_region("LT-lagoon")
+    assert forcing_for(on_artifact, choice) is choice.source
+    fell_back = SiteContext.from_region("LT-coastal")
+    fell_back.source_note = SOURCE_NOTE_NO_POSITION
+    assert forcing_for(fell_back, choice) is DEFAULT_FORCING
+
+
+def test_run_assessment_passes_the_source_through(monkeypatch):
+    import app.modules.results as results
+
+    captured = {}
+
+    def fake_assess(context, **kwargs):
+        captured.update(kwargs)
+        raise RuntimeError("stop here")
+
+    monkeypatch.setattr(results, "assess_site", fake_assess)
+    state = _FakeState(SiteContext.from_region("LT-lagoon", label="Curonian"))
+    with pytest.raises(RuntimeError, match="stop here"):
+        results.run_assessment(state)
+    assert captured["forcing"] is state.forcing.get().source
 
 
 def test_run_assessment_without_a_site_clears_rather_than_raises():

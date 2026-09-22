@@ -21,6 +21,7 @@ from app.modules.site import site_server, site_ui
 from app.modules.user_mode import user_mode_server, user_mode_ui
 from app.shell import about_modal, app_shell, feedback_modal, help_modal, t
 from app.state import AppState
+from seagarden_dst.gridded import select_forcing
 
 app_ui = app_shell(
     ui.nav_panel("Site", site_ui("site")),
@@ -32,6 +33,7 @@ app_ui = app_shell(
 
 def server(input, output, session):  # noqa: A002 - Shiny's signature
     state = AppState()
+    state.forcing.set(select_forcing())
 
     user_mode_server("um", state=state)
     site_server("site", state=state)
@@ -63,14 +65,10 @@ def server(input, output, session):  # noqa: A002 - Shiny's signature
 
     @render.ui
     def data_source_slot():
+        choice = state.forcing.get()
         assessment = state.assessment.get()
-        context = state.context.get()
-        from_artifact = False
-        if assessment is not None:
-            from_artifact = assessment.context.from_artifact
-        elif context is not None:
-            from_artifact = context.from_artifact
-        return ui.p(data_source_banner(from_artifact=from_artifact))
+        context = assessment.context if assessment is not None else state.context.get()
+        return ui.p(data_source_banner(choice, context))
 
     @reactive.effect
     @reactive.event(input.assess)

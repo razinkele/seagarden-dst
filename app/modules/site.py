@@ -24,7 +24,8 @@ from __future__ import annotations
 from shiny import module, reactive, render, ui
 
 from seagarden_dst import REGIONS, SiteContext
-from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+from seagarden_dst.contracts import SOURCE_NOTE_NO_POSITION
+from seagarden_dst.forcing import SITE_COORDINATES, ForcingChoice, SiteProvenance, region_query
 
 #: `shiny_deckgl` ships on a conda channel and is NOT a pip dependency (see the comment
 #: in `pyproject.toml`'s spatial extra), so an install that followed only the pip
@@ -102,6 +103,26 @@ def map_is_available() -> bool:
     except ImportError:
         return False
     return True
+
+
+def build_site_context(region: str, label: str, choice: ForcingChoice) -> SiteContext:
+    """What 'Use this site' commits (E§3.5).
+
+    Through the reader when the session runs on the artifact and the region has a
+    coordinate; otherwise through the placeholder as before, with a note when that is
+    a fallback rather than the session's normal state. A blocked reading keeps the
+    region it was asked for: the cell may be unknown, the sub-region is not.
+    """
+    query = region_query(region, choice.year) if choice.is_artifact else None
+    if query is None:
+        context = SiteContext.from_region(region, label=label)
+        if choice.is_artifact:
+            context.source_note = SOURCE_NOTE_NO_POSITION
+        return context
+    context = SiteContext.from_reading(choice.source.reading_at(query), label=label)
+    if context.region is None:
+        context.region = region
+    return context
 
 
 def _widget():
@@ -254,7 +275,7 @@ def site_server(input, output, session, state) -> None:  # noqa: A002
     def _set_site():
         region = input.region()
         label = (input.label() or "").strip() or REGIONS[region]
-        state.context.set(SiteContext.from_region(region, label=label))
+        state.context.set(build_site_context(region, label, state.forcing.get()))
         state.site_label.set(label)
 
     @output

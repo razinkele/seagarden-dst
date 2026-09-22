@@ -14,6 +14,8 @@ _DEFAULTS = {
     "assessment": None,           # SiteAssessment | None
     "eutropy_scenario": None,     # dict | None, optional nutrient forcing
     "bowtie_inference": None,     # dict | None, optional pressure context
+    "forcing": None,              # ForcingChoice | None; set once per session by server(),
+                                   # never reset
 }
 
 
@@ -42,6 +44,7 @@ class AppState:
         self.bowtie_inference: reactive.Value = reactive.Value(
             _DEFAULTS["bowtie_inference"]
         )
+        self.forcing: reactive.Value = reactive.Value(_DEFAULTS["forcing"])
 
     @staticmethod
     def defaults() -> dict:
