@@ -11,7 +11,14 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
-Nothing yet. Changes land here, not in the published sections below. When you cut the next
+### Fixed
+
+- **The refresh refuses to start on insufficient free disk** (C§6.1), closing 0.8.0's
+  known gap: less than 2 GB in the workdir or 200 MB in the target, summed when both sit
+  on one filesystem, exits 1 with one line naming the directory, the need and the have.
+  Nothing is downloaded first.
+
+Changes land here, not in the published sections below. When you cut the next
 release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
 open a section for it — `tests/test_version.py` asserts the literals agree with each other
 and with a matching heading here, but it cannot tell you that a merged change went

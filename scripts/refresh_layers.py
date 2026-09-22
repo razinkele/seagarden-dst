@@ -127,15 +127,21 @@ def main(argv: list[str] | None = None) -> int:
 
     # Imported here, not at module scope: the probe path must stay free of xarray.
     from seagarden_dst.artifact.grid import GridSpec
-    from seagarden_dst.refresh.driver import run_refresh
+    from seagarden_dst.refresh import driver
 
-    artifact, manifest = run_refresh(
-        list(REGISTRY.values()),
-        grid=GridSpec.baltic(),
-        years=YearRange(start=args.start_year, end=args.end_year),
-        target_dir=args.target,
-        workdir=args.workdir,
-    )
+    try:
+        artifact, manifest = driver.run_refresh(
+            list(REGISTRY.values()),
+            grid=GridSpec.baltic(),
+            years=YearRange(start=args.start_year, end=args.end_year),
+            target_dir=args.target,
+            workdir=args.workdir,
+        )
+    except driver.RefreshFailed as exc:
+        # C§6.1: refuse and say why. A refusal is an outcome the runbook documents,
+        # not a crash, so it reaches the operator as one line, not a traceback.
+        print(f"refresh refused: {exc}", file=sys.stderr)
+        return 1
     print(f"wrote {artifact}\nwrote {manifest}")
     return 0
 

@@ -452,11 +452,13 @@ def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(
     called = []
     monkeypatch.setattr(GridSpec, "baltic", classmethod(lambda cls: called.append(cls) or None))
     monkeypatch.setattr(cli, "REGISTRY", {ly.name: ly for ly in nine_variable_layers})
-    with pytest.raises(Exception):  # noqa: B017 - it fails downstream on a None grid
-        cli.main(
-            [
-                "--start-year", "2024", "--end-year", "2024",
-                "--target", str(tmp_path / "out"), "--workdir", str(tmp_path / "work"),
-            ]
-        )
+    # A None grid fails inside the first layer's build; the driver wraps that in
+    # RefreshFailed and the CLI reports it as exit 1 (C§6.1), not a traceback.
+    code = cli.main(
+        [
+            "--start-year", "2024", "--end-year", "2024",
+            "--target", str(tmp_path / "out"), "--workdir", str(tmp_path / "work"),
+        ]
+    )
+    assert code == 1
     assert called, "the refresh branch never asked for the Baltic grid"

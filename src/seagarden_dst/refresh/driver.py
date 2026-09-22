@@ -8,7 +8,9 @@ manifest against what was actually built. It does not call `check_declaration` �
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import os
+import shutil
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -32,6 +34,71 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 class RefreshFailed(RuntimeError):
     """Any layer failing takes the whole refresh with it (C§6.1 row 1)."""
+
+
+# The runbook's figures (annual-refresh.md §2): the wave stream peaks around 1 GB of
+# working space and the EMODnet tile cache adds ~530 MB; the pair on disk is ~170 MB.
+WORKDIR_MIN_BYTES = 2 * (1 << 30)
+TARGET_MIN_BYTES = 200 * (1 << 20)
+
+
+def _nearest_existing(path: Path) -> Path:
+    """The CLI creates workdir and target itself, so measure where they will land."""
+    path = Path(path).resolve()
+    while not path.exists():
+        path = path.parent
+    return path
+
+
+def _device_of(path: Path) -> int:
+    return os.stat(path).st_dev
+
+
+def _human(n: int) -> str:
+    return f"{n / (1 << 30):.1f} GB" if n >= (1 << 30) else f"{n // (1 << 20)} MB"
+
+
+def check_free_disk(
+    workdir: Path,
+    target_dir: Path,
+    *,
+    disk_usage: Callable[[Path], object] = shutil.disk_usage,
+    device_of: Callable[[Path], int] = _device_of,
+) -> None:
+    """Refuse BEFORE starting when the disk cannot hold the refresh (C§6.1).
+
+    Failing at 80% through a 30 GB transfer is the expensive failure; this is the
+    cheap one, and it names the path, what it needs and what it has. When both
+    directories sit on one filesystem the requirements are summed: 2.1 GB free
+    passes each check alone and still runs out mid-transfer.
+    """
+    work_at = _nearest_existing(workdir)
+    target_at = _nearest_existing(target_dir)
+    shortfalls: list[str] = []
+    if device_of(work_at) == device_of(target_at):
+        need = WORKDIR_MIN_BYTES + TARGET_MIN_BYTES
+        have = disk_usage(work_at).free
+        if have < need:
+            shortfalls.append(
+                f"workdir {workdir} and target {target_dir} share the same filesystem "
+                f"({work_at}): needs {_human(need)} free before starting, has {_human(have)}"
+            )
+    else:
+        for label, asked, at, need in (
+            ("workdir", workdir, work_at, WORKDIR_MIN_BYTES),
+            ("target", target_dir, target_at, TARGET_MIN_BYTES),
+        ):
+            have = disk_usage(at).free
+            if have < need:
+                shortfalls.append(
+                    f"{label} {asked} (on {at}): needs {_human(need)} free before "
+                    f"starting, has {_human(have)}"
+                )
+    if shortfalls:
+        raise RefreshFailed(
+            "insufficient free disk, refusing before the download (C§6.1): "
+            + "; ".join(shortfalls)
+        )
 
 
 def resolve_baselines(
@@ -201,6 +268,7 @@ def run_refresh(
     synthetic: bool = False,
 ) -> tuple[Path, Path]:
     """Run a full refresh for `years` and write the pair (C§10 clause 1)."""
+    check_free_disk(Path(workdir), Path(target_dir))  # before any layer, any mkdir
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
 
