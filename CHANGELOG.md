@@ -11,11 +11,20 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
-Nothing yet. Changes land here, not in the published sections below. When you cut the next
+Changes land here, not in the published sections below. When you cut the next
 release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
 open a section for it — `tests/test_version.py` asserts the literals agree with each other
 and with a matching heading here, but it cannot tell you that a merged change went
 unreleased.
+
+### Added
+
+- **The fifth layer, `emodnet_bathy`** (package C-d): EMODnet's 2022 DTM, fetched as 1°
+  tiles over WCS with a resumable cache, reduced onto the artifact grid as the mean and
+  shallowest wet depth per cell, referenced to LAT. A refresh now produces every variable
+  the manifest requires, and the registry guard is tightened to equality.
+- **The annual-refresh runbook**, `docs/runbooks/annual-refresh.md`, with volumes,
+  runtimes, the institutional-credential rule, and where the artifact lives on laguna.
 
 ---
 

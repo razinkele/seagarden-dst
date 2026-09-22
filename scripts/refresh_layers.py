@@ -109,13 +109,13 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
 
-    # The refresh branch only: registering four of the five C§5 layers passed the
-    # empty-registry guard above, so without this check a refresh would open real
-    # Copernicus datasets, pull data over the wire, and only then die deep inside
-    # `compute_valid` or manifest validation because `valid`'s derivation names
-    # `emodnet_bathy` and no such layer is registered. Refusing here trades an
-    # expensive failure for a cheap one. `--probe` stays permissive: reporting on
-    # four reachable sources is still useful while the fifth is unregistered.
+    # The refresh branch only: a REGISTRY missing any of the C§5 layer names passes
+    # the empty-registry guard above, so without this check a refresh would open real
+    # Copernicus and EMODnet sources, pull data over the wire, and only then die deep
+    # inside `compute_valid` or manifest validation because `valid`'s derivation names
+    # a layer that is not registered. Refusing here trades an expensive failure for a
+    # cheap one. `--probe` stays permissive: reporting on whichever sources are
+    # reachable is useful even if a layer were ever missing from the registry.
     missing = sorted(set(LAYER_NAMES) - set(REGISTRY))
     if missing:
         parser.error(
