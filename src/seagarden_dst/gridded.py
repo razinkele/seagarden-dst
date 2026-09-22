@@ -9,6 +9,7 @@ That is this module. `tests/test_gridded_isolation.py` asserts it.
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import re
@@ -272,8 +273,30 @@ def select_forcing(directory: Path | None = None) -> ForcingChoice:
     which is the more useful of its two problems.
     """
     directory = Path(directory) if directory is not None else artifact_directory()
-    if not (directory / "manifest.json").exists():
+    manifest_path = directory / "manifest.json"
+    if not manifest_path.exists():
         return placeholder_choice(f"no artifact at {directory}", directory)
+
+    # `Manifest`'s own validator (`_check_schema_version`) refuses a foreign
+    # `artifact_schema_version` before `GriddedForcing.from_directory` ever raises
+    # `UnrecognisedSchema` - so a manifest from a newer pipeline would otherwise fall
+    # into the catch-all below and report a multi-line pydantic dump instead of naming
+    # the version. Read the raw JSON first and short-circuit on that one field; anything
+    # that does not parse, or lacks the field, falls through to `from_directory` so the
+    # existing rows (missing file, torn pair, any other failure) handle it as before.
+    try:
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raw = None
+    if isinstance(raw, dict):
+        found = raw.get("artifact_schema_version")
+        if isinstance(found, int) and found != ARTIFACT_SCHEMA_VERSION:
+            return placeholder_choice(
+                f"artifact at {directory} has schema version {found}; this build reads "
+                f"{ARTIFACT_SCHEMA_VERSION}",
+                directory,
+            )
+
     try:
         reader = GriddedForcing.from_directory(directory)
     except ImportError:

@@ -112,6 +112,32 @@ def test_an_unrecognised_schema_falls_back_naming_both_versions(tmp_path, monkey
 
 
 @pytest.mark.spatial
+def test_a_newer_schema_in_a_real_manifest_is_named_before_the_model_refuses_it(tmp_path):
+    """A manifest from a newer pipeline carries an `artifact_schema_version` the
+    installed `Manifest` model itself rejects (`_check_schema_version`), before
+    `GriddedForcing.from_directory`'s own check ever runs - so without this guard the
+    real-file case falls into `select_forcing`'s catch-all and reports a multi-line
+    pydantic dump instead of naming the version, which is what the monkeypatch-based
+    `test_an_unrecognised_schema_falls_back_naming_both_versions` above cannot exercise."""
+    pytest.importorskip("xarray")
+    from seagarden_dst.artifact.manifest import ARTIFACT_SCHEMA_VERSION
+    from seagarden_dst.gridded import select_forcing
+
+    shutil.copytree(FIXTURE, tmp_path / "data")
+    manifest_path = tmp_path / "data" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifact_schema_version"] = 99
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    choice = select_forcing(tmp_path / "data")
+    assert choice.kind == "placeholder"
+    assert choice.reason == (
+        f"artifact at {tmp_path / 'data'} has schema version 99; this build reads "
+        f"{ARTIFACT_SCHEMA_VERSION}"
+    )
+
+
+@pytest.mark.spatial
 def test_any_other_failure_is_named_not_swallowed(tmp_path, monkeypatch):
     pytest.importorskip("xarray")
     from seagarden_dst import gridded
