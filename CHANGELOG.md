@@ -19,6 +19,31 @@ unreleased.
 
 ---
 
+## [0.9.0] — 2026-09-22
+
+**The refresh refuses a full disk before it starts.**
+
+474 tests (465 at 0.8.0): 375 in the default selection, 99 needing the `spatial` extra. CI on
+Python 3.11 and 3.13 across two install states.
+
+One change, released on its own because the first real refresh is about to run on the
+server and this is the guard that keeps it from failing at 80% of a 30 GB transfer.
+Nothing on screen changes; the app still runs on placeholder conditions and says so.
+
+### Fixed
+
+- **The refresh refuses to start on insufficient free disk** (C§6.1), closing 0.8.0's
+  known gap: less than 2 GB in the workdir or 200 MB in the target, summed when both sit
+  on one filesystem, exits 1 with one line naming the directory, the need and the have.
+  Nothing is downloaded first.
+
+### Known limits
+
+- Those of 0.8.0 stand, less the free-disk gap: no artifact is wired in, the grid check has
+  never met real Copernicus coordinates, and the map and placeholder caveats remain.
+
+---
+
 ## [0.8.0] — 2026-09-22
 
 **The refresh registry is complete, and the refresh has a runbook.**

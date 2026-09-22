@@ -32,9 +32,10 @@ source's catalogue metadata has drifted (a dataset id retired, a version bumped)
   this.
 - **No EMODnet credential is needed.** The WCS endpoint EMODnet bathymetry is fetched from
   is public.
-- Free disk: check by hand before starting — the CLI does not check this for you (§8).
-  Require **at least 2 GB** free in the workdir (the wave stream peaks around ~1 GB, plus
-  the ~530 MB EMODnet tile cache) and **at least 200 MB** free in the target directory:
+- Free disk: the CLI refuses to start when the workdir has less than **2 GB** free (the
+  wave stream peaks around ~1 GB, plus the ~530 MB EMODnet tile cache) or the target has
+  less than **200 MB**, and sums the two when both sit on one filesystem (§8). Check by
+  hand anyway before an unattended run, so the refusal never surprises you:
 
   ```bash
   df -h ~/seagarden-data
@@ -149,7 +150,7 @@ downstream should have to discover the sign or the datum by reading a bare numbe
 | Interrupted between 5 and 6 | The next time the app reads the artifact, it refuses with a sha mismatch and falls back to `PlaceholderForcing` with a banner. | Re-run the refresh; this repairs it. Do not hand-edit the manifest. |
 | `artifact_sha256` mismatch | The app refuses to load the artifact and says why, rather than serving numbers from a file that does not match its own manifest. | Re-run the refresh cleanly. Never patch the manifest's checksum to make it match. |
 | Unrecognised `artifact_schema_version` | The app refuses and falls back, same banner as above. | Usually means an old artifact against a newer app, or vice versa. Re-run the refresh with the current code. |
-| Insufficient free disk | The spec (C§6.1) asks the CLI to refuse before starting, naming the requirement. **That guard is not yet implemented** (recorded under Known gaps in `CHANGELOG.md`) — today the failure is a mid-transfer `OSError: No space left on device` in the log, partway through the 30.5 GB transfer, not a clean refusal. This is exactly why §2's manual `df -h` check matters. | Free the space named in §2 and re-run. The EMODnet tile cache resumes from where it stopped; the Copernicus streams restart from zero. |
+| Insufficient free disk | The CLI refuses **before** starting and exits 1 with one line on stderr beginning `refresh refused: insufficient free disk`, naming the directory, what it needs and what it has (C§6.1). Nothing is downloaded and nothing is created. The check runs against the filesystem the directories will land on, so it works before `mkdir`. If the disk fills *during* the run instead (another process wrote to it), the log ends in `OSError: No space left on device` partway through the 30.5 GB transfer. | Free the space the message names (§2's figures) and re-run. The EMODnet tile cache resumes from where it stopped; the Copernicus streams restart from zero. |
 | Layer built but not yet deposited | Every layer's manifest entry reads `archive.status: pending` with a `source_url`. This is not an error — it is the state of every layer immediately after a build, before §9's deposit step. | Proceed to §9. If it is still `pending` long after a deposit, the DOI was never recorded back — do that. |
 | A layer marked `forbidden` that is in fact redistributable | Not automatically detectable — the validator cannot tell a correctly `forbidden` layer from a mis-marked one. This is exactly why `pending` exists as a distinct state: mis-marking a layer `forbidden` is the path of least resistance to clear a check that would otherwise block you. | Check the layer's actual licence by hand before marking it anything other than `pending`. |
 | `TileFetchFailed` (EMODnet) | `emodnet_bathy` dies partway through the WCS tile loop. | Re-run the refresh: the tile cache in `workdir` resumes from where it left off rather than re-fetching completed tiles. If the failure recurs on the same tile, the cached file for it may be poisoned — delete `~/seagarden-data/work/emodnet/<lat0>_<lon0>.tif` (e.g. `~/seagarden-data/work/emodnet/55.0_20.0.tif`) and re-run. |
