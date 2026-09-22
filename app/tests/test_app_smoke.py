@@ -84,6 +84,17 @@ class _FakeState:
         self.bowtie_inference = _Value(None)
 
 
+def _artifact_choice():
+    from datetime import UTC, datetime
+
+    from seagarden_dst.forcing import DEFAULT_FORCING, ForcingChoice
+
+    return ForcingChoice(
+        source=DEFAULT_FORCING, kind="artifact", reason="", year=2025,
+        built_on=datetime(2026, 9, 22, tzinfo=UTC), directory=None,
+    )
+
+
 def test_run_assessment_without_a_site_clears_rather_than_raises():
     state = _FakeState(None)
     state.assessment.set("stale")
@@ -276,9 +287,48 @@ def test_the_banner_names_what_the_tool_is_running_on():
     """§7 row 1: fall back to PlaceholderForcing WITH A BANNER naming the source. A
     silent fallback is the failure — the user cannot tell measurements from inventions."""
     from app.modules._widgets import data_source_banner
+    from seagarden_dst.forcing import placeholder_choice
 
-    assert "placeholder" in data_source_banner(from_artifact=False).lower()
-    assert "placeholder" not in data_source_banner(from_artifact=True).lower()
+    placeholder = data_source_banner(placeholder_choice("no artifact at data/forcing"))
+    assert "placeholder" in placeholder.lower()
+    assert "(no artifact at data/forcing)" in placeholder
+    artifact = data_source_banner(_artifact_choice())
+    assert "placeholder" not in artifact.lower()
+    assert "conditions for 2025" in artifact and "built 2026-09-22" in artifact
+
+
+def test_the_banner_appends_a_sites_own_fallback_note():
+    from app.modules._widgets import data_source_banner
+    from seagarden_dst import SiteContext
+
+    context = SiteContext.from_region("LT-coastal", label="Melnrage")
+    context.source_note = "no confirmed position; conditions are the sub-region placeholder"
+    text = data_source_banner(_artifact_choice(), context)
+    assert text.endswith(
+        "This site: no confirmed position; conditions are the sub-region placeholder."
+    )
+
+
+def test_the_report_line_takes_the_choice_and_falls_back_to_the_context_without_one():
+    from app.modules.report import render_report
+    from seagarden_dst.forcing import placeholder_choice
+
+    state = _FakeState(SiteContext.from_region("LT-coastal", label="Melnrage"))
+    run_assessment(state)
+    with_choice = render_report(state.assessment.get(), placeholder_choice("no artifact at x"))
+    assert "Data source: placeholder conditions (no artifact at x)" in with_choice
+    without = render_report(state.assessment.get())
+    assert "Data source: placeholder conditions" in without
+
+
+def test_source_note_reaches_the_json_export():
+    state = _FakeState(SiteContext.from_region("LT-coastal", label="Melnrage"))
+    state.context.get().source_note = (
+        "no confirmed position; conditions are the sub-region placeholder"
+    )
+    run_assessment(state)
+    site = state.assessment.get().to_dict()["site"]
+    assert site["source_note"].startswith("no confirmed position")
 
 
 

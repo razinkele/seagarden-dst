@@ -27,6 +27,11 @@ from .forcing import (
     SiteReading,
 )
 
+#: E§3.5. Set on a context built through the reader whose region has no coordinate, so
+#: the session runs on the artifact while this one site stays on the placeholder - a
+#: fallback the banner and report must say, not one they infer from a boolean.
+SOURCE_NOTE_NO_POSITION = "no confirmed position; conditions are the sub-region placeholder"
+
 
 @dataclass
 class SiteContext:
@@ -57,6 +62,9 @@ class SiteContext:
     coverage: Coverage = Coverage.VALID
     nearest_valid_km: float | None = None
     from_artifact: bool = False
+    #: Why this site is on the placeholder while the session runs on the artifact;
+    #: empty otherwise (E§3.5).
+    source_note: str = ""
 
     @classmethod
     def from_region(
@@ -180,6 +188,7 @@ class SiteAssessment:
                 "confidence": self.context.confidence,
                 "geometry_wkt": self.context.geometry_wkt,
                 "from_artifact": self.context.from_artifact,
+                "source_note": self.context.source_note,
             },
             "ranked": [o.to_dict() for o in self.ranked],
             "best": None if self.best is None else self.best.to_dict(),

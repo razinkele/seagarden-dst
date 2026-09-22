@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from shiny import ui
 
-from seagarden_dst import SiteAssessment, Tier
+from seagarden_dst import SiteAssessment, SiteContext, Tier
 from seagarden_dst.calibration import Quantity, for_display
-from seagarden_dst.forcing import Coverage
+from seagarden_dst.forcing import Coverage, ForcingChoice
 
 # Colours live in app/www/seagarden.css under these class names, so the badge follows
 # the theme's tokens rather than carrying its own hex.
@@ -78,14 +78,22 @@ def _unassessable_reason(assessment: SiteAssessment) -> str:
     return "the data layer could not provide conditions."
 
 
-def data_source_banner(*, from_artifact: bool) -> str:
-    """Sentence naming whether the app is running on measurements or placeholders."""
-    if from_artifact:
-        return "Data source: gridded forcing artifact."
-    return (
-        "Data source: placeholder conditions — plausible order-of-magnitude values, "
-        "not measurements."
-    )
+def data_source_banner(choice: ForcingChoice, context: SiteContext | None = None) -> str:
+    """Sentence naming what the app is running on, and why if it is not the artifact."""
+    if choice.is_artifact:
+        built = choice.built_on.strftime("%Y-%m-%d") if choice.built_on else "unknown date"
+        text = (
+            f"Data source: gridded forcing artifact, conditions for {choice.year}, "
+            f"built {built}."
+        )
+    else:
+        text = (
+            "Data source: placeholder conditions — plausible order-of-magnitude values, "
+            f"not measurements ({choice.reason})."
+        )
+    if context is not None and context.source_note:
+        text += f" This site: {context.source_note}."
+    return text
 
 
 def calibration_legend() -> ui.Tag:

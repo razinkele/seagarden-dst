@@ -79,3 +79,14 @@ def test_from_region_defaults_to_the_placeholder_year():
     from seagarden_dst import SiteContext
 
     assert inspect.signature(SiteContext.from_region).parameters["year"].default == PLACEHOLDER_YEAR
+
+
+def test_a_context_carries_an_empty_source_note_by_default():
+    from seagarden_dst import SiteContext
+    from seagarden_dst.contracts import SOURCE_NOTE_NO_POSITION
+
+    context = SiteContext.from_region("LT-lagoon")
+    assert context.source_note == ""
+    assert SOURCE_NOTE_NO_POSITION == (
+        "no confirmed position; conditions are the sub-region placeholder"
+    )
