@@ -4,6 +4,8 @@ somebody abandons halfway."""
 
 from __future__ import annotations
 
+import importlib
+import re
 from pathlib import Path
 
 import pytest
@@ -29,6 +31,8 @@ def test_the_refresh_runbook_exists():
         "SEAGARDEN_DATA_DIR",         # where the service reads (C§13.6)
         "~/seagarden-data/forcing",   # outside the serving checkout (C§13.6)
         "--start-year",
+        "2016",                       # C§1 fixes the baseline at 2016-2025
+        "--end-year 2025",
         "--probe",
         "sha256",                     # how to verify
         "pending",                    # the committed vs deposited manifest sequence
@@ -64,3 +68,36 @@ def test_the_refresh_runbook_names_every_C6_1_failure_mode():
     text = _text()
     missing = [c for c in conditions if c not in text]
     assert not missing, f"runbook does not name these C§6.1 failure modes: {missing}"
+
+
+_FENCED_BLOCK = re.compile(r"```[^\n]*\n(.*?)```", re.S)
+_IMPORT_LINE = re.compile(r"from seagarden_dst\.(\w+) import ([\w, ]+)")
+
+
+def test_every_import_in_a_fenced_command_names_a_real_module_attribute():
+    """A runbook command that imports a name the module does not have is unrunnable.
+    This is what would have caught the old `GriddedForcing.open(...)` claim: `open`
+    is not an attribute of `GriddedForcing`, even though `GriddedForcing` itself is a
+    real import from `seagarden_dst.gridded`."""
+    text = _text()
+    checked_any = False
+    for block in _FENCED_BLOCK.findall(text):
+        for module_name, names in _IMPORT_LINE.findall(block):
+            module = importlib.import_module(f"seagarden_dst.{module_name}")
+            imported = [n.strip() for n in names.split(",") if n.strip()]
+            for name in imported:
+                checked_any = True
+                assert hasattr(module, name), (
+                    f"runbook imports `{name}` from seagarden_dst.{module_name}, "
+                    "which has no such attribute"
+                )
+                # Also check every `Name.attr` access in the same block, so a command
+                # that imports a real name but then calls a nonexistent method on it
+                # (e.g. `GriddedForcing.open(...)`) is caught too.
+                target = getattr(module, name)
+                for attr in re.findall(rf"\b{re.escape(name)}\.(\w+)", block):
+                    assert hasattr(target, attr), (
+                        f"runbook calls `{name}.{attr}`, but {name} has no such "
+                        "attribute"
+                    )
+    assert checked_any, "no `from seagarden_dst...` import found in any fenced block"

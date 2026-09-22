@@ -119,8 +119,9 @@ def test_a_refresh_with_a_layer_missing_refuses_before_the_download(monkeypatch,
 
 
 def test_probe_reports_whatever_is_registered_even_when_a_layer_is_missing(monkeypatch):
-    # --probe stays permissive while the registry is incomplete: reporting on four
-    # reachable sources is still useful even though a refresh would refuse.
+    # --probe stays permissive while the monkeypatched fake registry above is
+    # incomplete: reporting on four reachable sources is still useful even though a
+    # refresh would refuse. (Describes this test's fake registry, not the real one.)
     import scripts.refresh_layers as cli
 
     registry = {

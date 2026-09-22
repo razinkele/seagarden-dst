@@ -26,6 +26,11 @@ unreleased.
 - **The annual-refresh runbook**, `docs/runbooks/annual-refresh.md`, with volumes,
   runtimes, the institutional-credential rule, and where the artifact lives on laguna.
 
+### Known gaps
+
+- The CLI does not yet refuse to start on insufficient free disk (C§6.1); the runbook
+  tells the operator to check by hand.
+
 ---
 
 ## [0.7.0] — 2026-09-19

@@ -22,8 +22,9 @@ source's catalogue metadata has drifted (a dataset id retired, a version bumped)
 ## 2. Prerequisites
 
 - The `shiny` micromamba env on laguna, `/opt/micromamba/envs/shiny`, installed with the
-  `spatial` extra (`pip install -e ".[spatial]"`). Without it, `copernicusmarine` and the
-  EMODnet WCS client are not importable and the refresh CLI exits before doing anything.
+  `spatial` extra (`pip install -e ".[spatial]"`). Without it, `copernicusmarine` and
+  `rasterio` (used by the EMODnet fetch (`urllib` + `rasterio`)) are not importable and
+  the refresh CLI exits before doing anything.
 - The Copernicus Marine credential is **institutional, never personal** — it belongs to
   the project, not to whoever happens to run the refresh. It lives in
   `~/.copernicusmarine/.copernicusmarine-credentials` on laguna. Do not point a refresh at
@@ -51,9 +52,11 @@ source's catalogue metadata has drifted (a dataset id retired, a version bumped)
   runs (§4) and where the wave stream's working files land.
 - **How the service finds it:** the running app does not read `~/seagarden-dst/data/forcing`
   directly. It reads through the `SEAGARDEN_DATA_DIR` locator, wired into the service's
-  environment (§10) as `SEAGARDEN_DATA_DIR=/home/razinka/seagarden-data`. The committed
-  manifest — a copy, not the artifact — lives at `data/forcing/manifest.json` inside the
-  checkout (§9); the ~170 MB artifact itself never enters git.
+  environment (§10) as `SEAGARDEN_DATA_DIR=/home/razinka/seagarden-data/forcing` — the
+  directory that holds `forcing.nc` and `manifest.json` together, the same directory
+  `--target` writes to in §5. The committed manifest — a copy, not the artifact — lives
+  at `data/forcing/manifest.json` inside the checkout (§9); the ~170 MB artifact itself
+  never enters git.
 
 ## 4. Volumes and runtime
 
@@ -77,10 +80,14 @@ cd ~/seagarden-dst
 P=/opt/micromamba/envs/shiny/bin/python3
 $P scripts/refresh_layers.py --probe                       # every layer must report ok
 mkdir -p ~/seagarden-data/forcing ~/seagarden-data/work
-nohup $P scripts/refresh_layers.py --start-year 2023 --end-year 2025 \
+nohup $P scripts/refresh_layers.py --start-year 2016 --end-year 2025 \
    --target ~/seagarden-data/forcing --workdir ~/seagarden-data/work \
    > ~/seagarden-data/refresh-$(date +%F).log 2>&1 &
 ```
+
+C§1 fixes the baseline at the decade **2016–2025**; only the wave layer takes its own
+2023–2025 sub-window internally, so `--start-year`/`--end-year` here must span the whole
+decade, not the wave layer's narrower internal window.
 
 `--probe` first is not optional: it is a catalogue-only check (no bulk transfer) that
 catches a retired or renamed dataset before you commit hours and 30 GB to a run that dies
@@ -96,11 +103,24 @@ full refresh, and see §8.
 - The artifact loads:
 
   ```bash
-  $P -c "from seagarden_dst.gridded import GriddedForcing; GriddedForcing.open('~/seagarden-data/forcing/forcing.nc')"
+  SEAGARDEN_DATA_DIR=$HOME/seagarden-data/forcing $P -c "from seagarden_dst.gridded import GriddedForcing, artifact_directory; f = GriddedForcing.from_directory(artifact_directory()); print('loaded', artifact_directory())"
   ```
 
   A traceback here, especially an `artifact_schema_version` or checksum complaint, means
   something is wrong with the pair (§8) — do not deposit it.
+
+- The provenance test passes against the freshly built pair:
+
+  ```bash
+  cd ~/seagarden-dst
+  SEAGARDEN_DATA_DIR=$HOME/seagarden-data/forcing $P -m pytest tests/test_refresh_fixture.py -q -p no:cacheprovider
+  ```
+
+- The artifact's `year` coordinate carries ten values, the whole 2016–2025 decade:
+
+  ```bash
+  SEAGARDEN_DATA_DIR=$HOME/seagarden-data/forcing $P -c "import xarray as xr; print(len(xr.open_dataset('$HOME/seagarden-data/forcing/forcing.nc')['year']))"
+  ```
 
 ## 7. The convention to confirm on the first run
 
@@ -129,10 +149,10 @@ downstream should have to discover the sign or the datum by reading a bare numbe
 | Interrupted between 5 and 6 | The next time the app reads the artifact, it refuses with a sha mismatch and falls back to `PlaceholderForcing` with a banner. | Re-run the refresh; this repairs it. Do not hand-edit the manifest. |
 | `artifact_sha256` mismatch | The app refuses to load the artifact and says why, rather than serving numbers from a file that does not match its own manifest. | Re-run the refresh cleanly. Never patch the manifest's checksum to make it match. |
 | Unrecognised `artifact_schema_version` | The app refuses and falls back, same banner as above. | Usually means an old artifact against a newer app, or vice versa. Re-run the refresh with the current code. |
-| Insufficient free disk | The spec (C§6.1) asks the CLI to refuse before starting, naming the requirement. **That guard is not yet implemented** (a follow-up recorded in the C-d ledger) — today the failure is a mid-transfer `OSError: No space left on device` in the log, partway through the 26 GB transfer, not a clean refusal. This is exactly why §2's manual `df -h` check matters. | Free the space named in §2 and re-run. The EMODnet tile cache resumes from where it stopped; the Copernicus streams restart from zero. |
+| Insufficient free disk | The spec (C§6.1) asks the CLI to refuse before starting, naming the requirement. **That guard is not yet implemented** (recorded under Known gaps in `CHANGELOG.md`) — today the failure is a mid-transfer `OSError: No space left on device` in the log, partway through the 30.5 GB transfer, not a clean refusal. This is exactly why §2's manual `df -h` check matters. | Free the space named in §2 and re-run. The EMODnet tile cache resumes from where it stopped; the Copernicus streams restart from zero. |
 | Layer built but not yet deposited | Every layer's manifest entry reads `archive.status: pending` with a `source_url`. This is not an error — it is the state of every layer immediately after a build, before §9's deposit step. | Proceed to §9. If it is still `pending` long after a deposit, the DOI was never recorded back — do that. |
 | A layer marked `forbidden` that is in fact redistributable | Not automatically detectable — the validator cannot tell a correctly `forbidden` layer from a mis-marked one. This is exactly why `pending` exists as a distinct state: mis-marking a layer `forbidden` is the path of least resistance to clear a check that would otherwise block you. | Check the layer's actual licence by hand before marking it anything other than `pending`. |
-| `TileFetchFailed` (EMODnet) | `emodnet_bathy` dies partway through the WCS tile loop. | Re-run the refresh: the tile cache in `workdir` resumes from where it left off rather than re-fetching completed tiles. |
+| `TileFetchFailed` (EMODnet) | `emodnet_bathy` dies partway through the WCS tile loop. | Re-run the refresh: the tile cache in `workdir` resumes from where it left off rather than re-fetching completed tiles. If the failure recurs on the same tile, the cached file for it may be poisoned — delete `~/seagarden-data/work/emodnet/<lat0>_<lon0>.tif` (e.g. `~/seagarden-data/work/emodnet/55.0_20.0.tif`) and re-run. |
 
 ## 9. Deposit and record the DOI
 
@@ -166,7 +186,7 @@ If this is the first time `SEAGARDEN_DATA_DIR` has been set, or the target direc
 add to `seagarden-dst.service` in the `seagarden` repo's `deploy/`:
 
 ```
-Environment=SEAGARDEN_DATA_DIR=/home/razinka/seagarden-data
+Environment=SEAGARDEN_DATA_DIR=/home/razinka/seagarden-data/forcing
 ```
 
 Restart per `docs/runbooks/deploy.md` §4 and verify per its §5. Then confirm in the browser
