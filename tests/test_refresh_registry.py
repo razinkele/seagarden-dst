@@ -8,18 +8,13 @@ from seagarden_dst.refresh.layer import LAYER_NAMES, Layer
 from seagarden_dst.refresh.registry import REGISTRY, check_registered_names
 
 
-def test_the_four_copernicus_layers_are_registered():
-    assert set(REGISTRY) == {
-        "copernicus_phy",
-        "copernicus_bgc",
-        "copernicus_bgc_light",
-        "copernicus_wav",
-    }
+def test_all_five_C5_layers_are_registered():
+    assert set(REGISTRY) == set(LAYER_NAMES)
 
 
 def test_every_registered_name_is_one_C5_names():
-    """C-c2 tightens this to equality once emodnet_bathy lands."""
-    assert set(REGISTRY) <= set(LAYER_NAMES)
+    """Tightened to equality with emodnet_bathy (C§13.5)."""
+    assert set(REGISTRY) == set(LAYER_NAMES)
 
 
 def test_an_unnamed_layer_in_the_registry_is_refused():
@@ -29,8 +24,14 @@ def test_an_unnamed_layer_in_the_registry_is_refused():
     passes. This calls the same function with a registry C§5 does not name, which is
     the only way to see it fire — and the reason it is a function at all.
     """
-    with pytest.raises(RuntimeError, match="not named in LAYER_NAMES"):
+    with pytest.raises(RuntimeError, match="not named \\['not_a_layer_C5_names'\\]"):
         check_registered_names({"not_a_layer_C5_names": object()}, LAYER_NAMES)  # type: ignore[dict-item]
+
+
+def test_a_named_layer_missing_from_the_registry_is_refused():
+    partial = {k: v for k, v in REGISTRY.items() if k != "emodnet_bathy"}
+    with pytest.raises(RuntimeError, match="not registered \\['emodnet_bathy'\\]"):
+        check_registered_names(partial, LAYER_NAMES)
 
 
 def test_the_real_registry_passes_the_same_guard_the_import_runs():
@@ -58,6 +59,7 @@ C11_1_CATALOGUE: dict[str, tuple[str, str]] = {
     "copernicus_bgc": ("cmems_mod_bal_bgc_my_P1M-m", "202303"),
     "copernicus_bgc_light": ("cmems_mod_bal_bgc_my_P1D-m", "202303"),
     "copernicus_wav": ("cmems_mod_bal_wav_my_PT1H-i", "202411"),
+    "emodnet_bathy": ("emodnet__mean_2022", "2022"),  # C§13.1, checked 2026-09-19
 }
 
 

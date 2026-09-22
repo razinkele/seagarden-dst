@@ -97,11 +97,9 @@ def test_a_refresh_without_a_year_range_is_refused(capsys):
     assert "--start-year and --end-year are required" in capsys.readouterr().err
 
 
-def test_a_refresh_with_an_incomplete_registry_refuses_before_the_download(monkeypatch, capsys):
-    # Step 3b: four of the five C§5 layers are registered (emodnet_bathy is not yet
-    # implemented), so the empty-registry guard passes and, without this check, a
-    # refresh would open real Copernicus datasets over the wire before dying inside
-    # manifest validation.
+def test_a_refresh_with_a_layer_missing_refuses_before_the_download(monkeypatch, capsys):
+    """The guard stays: if a layer is ever unregistered again, a refresh must refuse
+    before opening a single Copernicus dataset over the wire."""
     import scripts.refresh_layers as cli
 
     monkeypatch.setattr(
@@ -120,9 +118,10 @@ def test_a_refresh_with_an_incomplete_registry_refuses_before_the_download(monke
     assert "emodnet_bathy" in capsys.readouterr().err
 
 
-def test_probe_still_reports_all_four_layers_with_an_incomplete_registry(monkeypatch):
-    # --probe stays permissive while the registry is incomplete: reporting on four
-    # reachable sources is still useful even though a refresh would refuse.
+def test_probe_reports_whatever_is_registered_even_when_a_layer_is_missing(monkeypatch):
+    # --probe stays permissive while the monkeypatched fake registry above is
+    # incomplete: reporting on four reachable sources is still useful even though a
+    # refresh would refuse. (Describes this test's fake registry, not the real one.)
     import scripts.refresh_layers as cli
 
     registry = {

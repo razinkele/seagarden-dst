@@ -19,6 +19,49 @@ unreleased.
 
 ---
 
+## [0.8.0] — 2026-09-22
+
+**The refresh registry is complete, and the refresh has a runbook.**
+
+465 tests (413 at 0.7.0): 366 in the default selection, 99 needing the `spatial` extra. CI on
+Python 3.11 and 3.13 across two install states.
+
+A data-layer release with nothing new on screen. The tool still runs on placeholder
+conditions and says so; what changes is that the refresh tooling can now build a complete
+artifact, and that somebody who is not its author can run it. No real artifact has been
+built yet: that is the first run the runbook describes, and it happens on the server, by
+hand, after this release is deployed.
+
+### Added
+
+- **The fifth layer, `emodnet_bathy`** (package C-d): EMODnet's 2022 DTM, fetched as 1°
+  tiles over WCS with a resumable cache, reduced onto the artifact grid as the mean and
+  shallowest wet depth per cell, referenced to LAT. A refresh now produces every variable
+  the manifest requires, and the registry guard is tightened to equality.
+- **The annual-refresh runbook**, `docs/runbooks/annual-refresh.md`, with volumes,
+  runtimes, the institutional-credential rule, and where the artifact lives on laguna.
+
+### Changed
+
+- Spec C§13 records a measured spike against the live EMODnet service and fixes the
+  layer's decisions: dated coverage, depth = −elevation referenced to LAT, wet =
+  elevation < 0, centre-binned mean and shallowest-wet min per cell, a resumable tile loop,
+  a `GetCapabilities` probe.
+- The reader's default data directory is `data/forcing`, matching the CLI's `--target`,
+  and `SEAGARDEN_DATA_DIR` names the directory that holds the pair.
+
+### Known limits
+
+- **No artifact is wired in.** The app constructs the placeholder source until the first
+  refresh has run and the service is pointed at it (runbook §10).
+- The CLI does not yet refuse to start on insufficient free disk (C§6.1); the runbook tells
+  the operator to check by hand.
+- The artifact grid check has never met real Copernicus coordinates. The runbook says what
+  to do if the first run fails there.
+- The map limits of 0.5.0 and the placeholder caveats of 0.6.0 stand.
+
+---
+
 ## [0.7.0] — 2026-09-19
 
 **The app wears the SeaGarden brand.**

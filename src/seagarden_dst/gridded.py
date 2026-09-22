@@ -32,10 +32,10 @@ from seagarden_dst.forcing import (
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import xarray as xr
 
-#: §6.3's locator. Nothing read this before package D-a; the refresh CLI writes to its
-#: own `--target`, defaulting to `data/forcing`.
+#: §6.3's locator. The env var and this default both name the directory that holds the
+#: artifact/manifest pair, matching the refresh CLI's own `--target` default.
 _DATA_DIR_ENV = "SEAGARDEN_DATA_DIR"
-_DEFAULT_DATA_DIR = Path("data")
+_DEFAULT_DATA_DIR = Path("data/forcing")
 
 _POINT = re.compile(r"POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)", re.IGNORECASE)
 _EARTH_RADIUS_KM = 6371.0

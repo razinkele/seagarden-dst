@@ -20,6 +20,7 @@ from seagarden_dst.artifact.manifest import (
     Manifest,
 )
 from seagarden_dst.refresh.driver import derivations
+from seagarden_dst.refresh.sources import emodnet
 from seagarden_dst.refresh.variables import ARTIFACT_VARIABLES
 
 _YEARS = list(range(2016, 2026))
@@ -166,14 +167,16 @@ def layers() -> list[LayerProvenance]:
               product_id="FIXTURE_PLACEHOLDER_WAV_PRODUCT_ID",
               variables=["significant_wave_m"]),
         layer(
-            name="emodnet_bathy", dataset_id="emodnet_bathymetry_2024",
-            source="EMODnet Bathymetry",
-            product_id="FIXTURE_PLACEHOLDER_EMODNET_BATHY_PRODUCT_ID",
-            licence="EMODnet Bathymetry licence",
-            source_url="https://emodnet.ec.europa.eu/en/bathymetry",
+            name="emodnet_bathy",
+            dataset_id=emodnet.COVERAGE_ID,
+            version=emodnet.VERSION,
+            source=emodnet.SOURCE,
+            product_id=emodnet.PRODUCT_ID,
+            licence=emodnet.LICENCE,
+            source_url=emodnet.SOURCE_URL,
             archive=Archive(
                 status="pending",
-                source_url="https://emodnet.ec.europa.eu/en/bathymetry",
+                source_url=emodnet.SOURCE_URL,
                 unblocked_by="the Zenodo deposit is outside package C (C1)",
             ),
             variables=["depth_mean_m", "depth_min_m"],
