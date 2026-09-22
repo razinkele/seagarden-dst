@@ -18,15 +18,17 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from seagarden_dst.artifact.manifest import ARTIFACT_SCHEMA_VERSION, Manifest
-from seagarden_dst.artifact.pair import load_pair
+from seagarden_dst.artifact.pair import TornPair, load_pair
 from seagarden_dst.forcing import (
     PLACEHOLDER_SURFACE_PAR,
     Aggregation,
     Coverage,
+    ForcingChoice,
     SiteConditions,
     SiteQuery,
     SiteReading,
     day_of_year,
+    placeholder_choice,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -44,6 +46,14 @@ _EARTH_RADIUS_KM = 6371.0
 def artifact_directory() -> Path:
     """Where the artifact/manifest pair lives (§6.3)."""
     return Path(os.environ.get(_DATA_DIR_ENV, _DEFAULT_DATA_DIR))
+
+
+class UnrecognisedSchema(ValueError):
+    """The artifact's schema version is not the one this build reads (§7)."""
+
+    def __init__(self, message: str, *, found: int) -> None:
+        super().__init__(message)
+        self.found = found
 
 
 class GriddedForcing:
@@ -68,13 +78,19 @@ class GriddedForcing:
         # There is deliberately no opt-out: that is C-a's atomicity guarantee.
         manifest, artifact = load_pair(Path(directory))
         if manifest.artifact_schema_version != ARTIFACT_SCHEMA_VERSION:
-            raise ValueError(
+            raise UnrecognisedSchema(
                 f"unrecognised artifact_schema_version "
                 f"{manifest.artifact_schema_version}: this build reads version "
                 f"{ARTIFACT_SCHEMA_VERSION}. Refusing rather than reading an artifact "
-                "whose shape is not known (§7)."
+                "whose shape is not known (§7).",
+                found=manifest.artifact_schema_version,
             )
         return cls(manifest, xr.open_dataset(artifact, engine="h5netcdf").load())
+
+    @property
+    def years(self) -> list[int]:
+        """The years the artifact carries, ascending."""
+        return sorted(self._years)
 
     def reading_at(self, query: SiteQuery) -> SiteReading:
         lat, lon = self._point_of(query)
@@ -245,6 +261,46 @@ class GriddedForcing:
             significant_wave_m=float(np.mean(wave)),
             light_attenuation_k=float(np.mean(attenuation)),
         )
+
+
+def select_forcing(directory: Path | None = None) -> ForcingChoice:
+    """Choose what the tool runs on this session (E§3.2). Never raises.
+
+    Every way of falling back yields the placeholder with a reason that names the
+    directory, so the banner can say why. The manifest's presence is checked before
+    the import so a pip-only install with no artifact reports the missing artifact,
+    which is the more useful of its two problems.
+    """
+    directory = Path(directory) if directory is not None else artifact_directory()
+    if not (directory / "manifest.json").exists():
+        return placeholder_choice(f"no artifact at {directory}", directory)
+    try:
+        reader = GriddedForcing.from_directory(directory)
+    except ImportError:
+        return placeholder_choice(
+            f"this install has no spatial extra (xarray/h5netcdf), so the artifact at "
+            f"{directory} cannot be read",
+            directory,
+        )
+    except TornPair:
+        return placeholder_choice(
+            f"artifact at {directory} failed its checksum; refusing to read it", directory
+        )
+    except UnrecognisedSchema as exc:
+        return placeholder_choice(
+            f"artifact at {directory} has schema version {exc.found}; this build reads "
+            f"{ARTIFACT_SCHEMA_VERSION}",
+            directory,
+        )
+    except Exception as exc:  # noqa: BLE001 - named in the reason, never swallowed
+        return placeholder_choice(
+            f"could not open the artifact at {directory}: {type(exc).__name__}: {exc}",
+            directory,
+        )
+    return ForcingChoice(
+        source=reader, kind="artifact", reason="", year=reader.years[-1],
+        built_on=reader._manifest.built_on, directory=directory,
+    )
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

@@ -53,6 +53,10 @@ def check_declaration(manifest: Manifest, actual: set[str]) -> None:
     )
 
 
+class TornPair(ValueError):
+    """The manifest does not describe the artifact beside it (C§6)."""
+
+
 def load_pair(target_dir: Path) -> tuple[Manifest, Path]:
     """Load the manifest and verify it describes the artifact beside it.
 
@@ -67,7 +71,7 @@ def load_pair(target_dir: Path) -> tuple[Manifest, Path]:
 
     actual = sha256_of(artifact)
     if actual != manifest.artifact_sha256:
-        raise ValueError(
+        raise TornPair(
             f"artifact_sha256 mismatch for {artifact}: the manifest says "
             f"{manifest.artifact_sha256}, the file is {actual}. Refusing to read the "
             "artifact under a manifest that does not describe it — re-run the refresh."
