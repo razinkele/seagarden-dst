@@ -11,11 +11,26 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
-Changes land here, not in the published sections below. When you cut the next
+Nothing yet. Changes land here, not in the published sections below. When you cut the next
 release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
 open a section for it — `tests/test_version.py` asserts the literals agree with each other
 and with a matching heading here, but it cannot tell you that a merged change went
 unreleased.
+
+---
+
+## [0.8.0] — 2026-09-22
+
+**The refresh registry is complete, and the refresh has a runbook.**
+
+465 tests (413 at 0.7.0): 366 in the default selection, 99 needing the `spatial` extra. CI on
+Python 3.11 and 3.13 across two install states.
+
+A data-layer release with nothing new on screen. The tool still runs on placeholder
+conditions and says so; what changes is that the refresh tooling can now build a complete
+artifact, and that somebody who is not its author can run it. No real artifact has been
+built yet: that is the first run the runbook describes, and it happens on the server, by
+hand, after this release is deployed.
 
 ### Added
 
@@ -26,10 +41,24 @@ unreleased.
 - **The annual-refresh runbook**, `docs/runbooks/annual-refresh.md`, with volumes,
   runtimes, the institutional-credential rule, and where the artifact lives on laguna.
 
-### Known gaps
+### Changed
 
-- The CLI does not yet refuse to start on insufficient free disk (C§6.1); the runbook
-  tells the operator to check by hand.
+- Spec C§13 records a measured spike against the live EMODnet service and fixes the
+  layer's decisions: dated coverage, depth = −elevation referenced to LAT, wet =
+  elevation < 0, centre-binned mean and shallowest-wet min per cell, a resumable tile loop,
+  a `GetCapabilities` probe.
+- The reader's default data directory is `data/forcing`, matching the CLI's `--target`,
+  and `SEAGARDEN_DATA_DIR` names the directory that holds the pair.
+
+### Known limits
+
+- **No artifact is wired in.** The app constructs the placeholder source until the first
+  refresh has run and the service is pointed at it (runbook §10).
+- The CLI does not yet refuse to start on insufficient free disk (C§6.1); the runbook tells
+  the operator to check by hand.
+- The artifact grid check has never met real Copernicus coordinates. The runbook says what
+  to do if the first run fails there.
+- The map limits of 0.5.0 and the placeholder caveats of 0.6.0 stand.
 
 ---
 
