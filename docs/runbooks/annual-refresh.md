@@ -31,9 +31,13 @@ source's catalogue metadata has drifted (a dataset id retired, a version bumped)
   this.
 - **No EMODnet credential is needed.** The WCS endpoint EMODnet bathymetry is fetched from
   is public.
-- Free disk: **~1 GB** in the workdir (the wave stream peaks around there) and **~200 MB**
-  in the target directory. The CLI refuses before starting if this is not met — see the
-  failure modes in §8.
+- Free disk: check by hand before starting — the CLI does not check this for you (§8).
+  Require **at least 2 GB** free in the workdir (the wave stream peaks around ~1 GB, plus
+  the ~530 MB EMODnet tile cache) and **at least 200 MB** free in the target directory:
+
+  ```bash
+  df -h ~/seagarden-data
+  ```
 - Wall-clock: **hours**, not minutes. Do not run this and walk away assuming it finished;
   see §5 for how to check on it without watching it.
 
@@ -125,7 +129,7 @@ downstream should have to discover the sign or the datum by reading a bare numbe
 | Interrupted between 5 and 6 | The next time the app reads the artifact, it refuses with a sha mismatch and falls back to `PlaceholderForcing` with a banner. | Re-run the refresh; this repairs it. Do not hand-edit the manifest. |
 | `artifact_sha256` mismatch | The app refuses to load the artifact and says why, rather than serving numbers from a file that does not match its own manifest. | Re-run the refresh cleanly. Never patch the manifest's checksum to make it match. |
 | Unrecognised `artifact_schema_version` | The app refuses and falls back, same banner as above. | Usually means an old artifact against a newer app, or vice versa. Re-run the refresh with the current code. |
-| Insufficient free disk | The CLI refuses **before** starting, naming the requirement (§2) — not partway through a 26 GB transfer. | Free the space it names (workdir or target), re-run. |
+| Insufficient free disk | The spec (C§6.1) asks the CLI to refuse before starting, naming the requirement. **That guard is not yet implemented** (a follow-up recorded in the C-d ledger) — today the failure is a mid-transfer `OSError: No space left on device` in the log, partway through the 26 GB transfer, not a clean refusal. This is exactly why §2's manual `df -h` check matters. | Free the space named in §2 and re-run. The EMODnet tile cache resumes from where it stopped; the Copernicus streams restart from zero. |
 | Layer built but not yet deposited | Every layer's manifest entry reads `archive.status: pending` with a `source_url`. This is not an error — it is the state of every layer immediately after a build, before §9's deposit step. | Proceed to §9. If it is still `pending` long after a deposit, the DOI was never recorded back — do that. |
 | A layer marked `forbidden` that is in fact redistributable | Not automatically detectable — the validator cannot tell a correctly `forbidden` layer from a mis-marked one. This is exactly why `pending` exists as a distinct state: mis-marking a layer `forbidden` is the path of least resistance to clear a check that would otherwise block you. | Check the layer's actual licence by hand before marking it anything other than `pending`. |
 | `TileFetchFailed` (EMODnet) | `emodnet_bathy` dies partway through the WCS tile loop. | Re-run the refresh: the tile cache in `workdir` resumes from where it left off rather than re-fetching completed tiles. |
@@ -172,5 +176,8 @@ you just built rather than falling back.
 
 ## 11. Who to contact
 
-The email in the app's About box (`app/shell.py`) — that is the address a user without
-shell access sees, and it should always resolve to whoever can run this runbook.
+The app's top bar carries a **Feedback** action; its modal renders the `CONTACT_EMAIL`
+constant defined in `app/shell.py`. That is the address a user without shell access sees,
+and it should always resolve to whoever can run this runbook. Both the About and Feedback
+modals also carry a link to the project's GitHub issues, for anyone who prefers to file a
+report there instead.
