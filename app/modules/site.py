@@ -119,7 +119,9 @@ def build_site_context(region: str, label: str, choice: ForcingChoice) -> SiteCo
         if choice.is_artifact:
             context.source_note = SOURCE_NOTE_NO_POSITION
         return context
-    context = SiteContext.from_reading(choice.source.reading_at(query), label=label)
+    context = SiteContext.from_reading(
+        choice.source.reading_at(query), label=label, geometry_wkt=query.geometry_wkt
+    )
     if context.region is None:
         context.region = region
     return context

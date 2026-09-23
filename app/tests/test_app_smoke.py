@@ -74,6 +74,24 @@ class _Value:
         self._value = value
 
 
+class _FakeSource:
+    """A source distinct from `DEFAULT_FORCING`, so `is` comparisons in the source-rule
+    tests can actually fail: if `forcing_for` returned `DEFAULT_FORCING` unconditionally,
+    a fixture built on `DEFAULT_FORCING` itself would not catch it. Delegates to
+    `DEFAULT_FORCING` so the numbers it produces stay the placeholder's numbers - only
+    object identity is different."""
+
+    def reading_at(self, query):
+        from seagarden_dst.forcing import DEFAULT_FORCING
+
+        return DEFAULT_FORCING.reading_at(query)
+
+    def daily_forcing(self, site, window, year):
+        from seagarden_dst.forcing import DEFAULT_FORCING
+
+        return DEFAULT_FORCING.daily_forcing(site, window, year)
+
+
 class _FakeState:
     def __init__(self, context):
         self.context = _Value(context)
@@ -83,16 +101,21 @@ class _FakeState:
         self.assessment = _Value(None)
         self.eutropy_scenario = _Value(None)
         self.bowtie_inference = _Value(None)
-        self.forcing = _Value(placeholder_choice("test: no artifact"))
+        # Not `placeholder_choice(...)`: its source is `DEFAULT_FORCING`, so a test
+        # asserting the chosen source made it through `run_assessment` would pass even
+        # if `forcing_for` ignored the choice entirely - the fallback and the chosen
+        # source would coincide. `_artifact_choice()` is built on `_FakeSource`, a
+        # distinct object, so that mutation is actually caught.
+        self.forcing = _Value(_artifact_choice())
 
 
 def _artifact_choice():
     from datetime import UTC, datetime
 
-    from seagarden_dst.forcing import DEFAULT_FORCING, ForcingChoice
+    from seagarden_dst.forcing import ForcingChoice
 
     return ForcingChoice(
-        source=DEFAULT_FORCING, kind="artifact", reason="", year=2025,
+        source=_FakeSource(), kind="artifact", reason="", year=2025,
         built_on=datetime(2026, 9, 22, tzinfo=UTC), directory=None,
     )
 
@@ -141,6 +164,7 @@ def test_a_region_with_a_coordinate_commits_through_the_readers_reading():
     assert seen[0].geometry_wkt.startswith("POINT (")
     assert context.from_artifact is True and context.source_note == ""
     assert context.label == "Curonian" and context.region == "LT-lagoon"
+    assert context.geometry_wkt == seen[0].geometry_wkt
 
 
 def test_a_region_without_a_coordinate_stays_on_the_placeholder_with_a_note():
