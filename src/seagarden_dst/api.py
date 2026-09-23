@@ -17,7 +17,7 @@ from .bowtie_adapter import BowtieUnavailable, eutrophication_pressure
 from .calibration import Tier
 from .contracts import SiteAssessment, SiteContext, SpeciesOption
 from .eutropy_adapter import EutropyUnavailable, apply_nutrient_scenario
-from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
+from .forcing import DEFAULT_FORCING, PLACEHOLDER_YEAR, ForcingSource, SiteConditions
 from .growth import contraindication, harvest_biomass
 from .nutrients import from_harvest
 from .params import MethodParams, ParameterSet, SpeciesParams, default_parameters
@@ -70,15 +70,18 @@ def _assess_one(
     method: MethodParams,
     area_m2: float,
     forcing: ForcingSource = DEFAULT_FORCING,
+    year: int = PLACEHOLDER_YEAR,
 ) -> SpeciesOption:
-    suitability = assess(context.conditions, species, method, forcing=forcing)
+    suitability = assess(context.conditions, species, method, forcing=forcing, year=year)
 
     if species.group == "shellfish":
         harvest = shellfish_harvest(
             species, context.conditions, area_ha=area_m2 / 10_000.0
         ).fresh_weight
     else:
-        harvest = harvest_biomass(species, context.conditions, area_m2, forcing=forcing)
+        harvest = harvest_biomass(
+            species, context.conditions, area_m2, forcing=forcing, year=year
+        )
 
     removal = from_harvest(species, harvest) if harvest.calibration.is_reportable else None
 
@@ -103,6 +106,7 @@ def assess_site(
     context: SiteContext,
     *,
     forcing: ForcingSource = DEFAULT_FORCING,
+    year: int = PLACEHOLDER_YEAR,
     params: ParameterSet | None = None,
     species: list[str] | None = None,
     methods: dict[str, str] | None = None,
@@ -121,6 +125,13 @@ def assess_site(
             scaffold's placeholder. Pass the same source used to build `context` so
             a result is never derived from real anchors and an invented season at
             once.
+        year: the query year, threaded to `simulate()` via `harvest_biomass()` and
+            `suitability.assess()`. Defaults to the scaffold's placeholder year,
+            which `PlaceholderForcing.daily_forcing` ignores. A species whose
+            cultivation window wraps the year boundary needs `year + 1` too
+            (`gridded.GriddedForcing.daily_forcing`); when the source raises
+            `ValueError` because it cannot cover that window, the species is
+            excluded with that message rather than the whole assessment failing.
         params: parameter set; defaults to the shipped one.
         species: species keys to consider; defaults to all.
         methods: optional species_key -> method_key overrides.
@@ -190,7 +201,16 @@ def assess_site(
             excluded[key] = contra.note or "Contraindicated at this site."
             continue
 
-        options.append(_assess_one(working, species_params, method, area_m2, forcing=forcing))
+        try:
+            options.append(
+                _assess_one(working, species_params, method, area_m2, forcing=forcing, year=year)
+            )
+        except ValueError as exc:
+            # The reader's own message (e.g. a wrapping window past a year the
+            # artifact does not carry) IS the reason - not a second summary of it.
+            # Only this species is excluded; the rest of the loop proceeds.
+            excluded[key] = str(exc)
+            continue
 
     ranked = sorted(options, key=lambda o: o.nitrogen_value, reverse=True)
     best = next((o for o in ranked if o.is_reportable and o.verdict != "unsuitable"), None)

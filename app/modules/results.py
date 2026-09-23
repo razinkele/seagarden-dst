@@ -41,6 +41,7 @@ def run_assessment(state) -> None:
             eutropy=state.eutropy_scenario.get(),
             bowtie=state.bowtie_inference.get(),
             forcing=forcing_for(context, state.forcing.get()),
+            year=state.forcing.get().year,
         )
     )
 

@@ -234,6 +234,7 @@ def test_run_assessment_passes_the_source_through(monkeypatch):
     with pytest.raises(RuntimeError, match="stop here"):
         results.run_assessment(state)
     assert captured["forcing"] is state.forcing.get().source
+    assert captured["year"] == state.forcing.get().year
 
 
 def test_run_assessment_without_a_site_clears_rather_than_raises():

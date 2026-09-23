@@ -25,6 +25,7 @@ from scipy.integrate import solve_ivp
 from .calibration import Calibration, Quantity, Tier
 from .forcing import (
     DEFAULT_FORCING,
+    PLACEHOLDER_YEAR,
     ForcingSource,
     SiteConditions,
     require_finite_series,
@@ -100,7 +101,7 @@ def simulate(
     site: SiteConditions,
     max_step_days: float = 1.0,
     forcing: ForcingSource = DEFAULT_FORCING,
-    year: int = 2024,
+    year: int = PLACEHOLDER_YEAR,
 ) -> GrowthTrajectory:
     """Integrate the seasonal growth trajectory with `scipy.integrate.solve_ivp`.
 
@@ -198,6 +199,7 @@ def harvest_biomass(
     site: SiteConditions,
     area_m2: float,
     forcing: ForcingSource = DEFAULT_FORCING,
+    year: int = PLACEHOLDER_YEAR,
 ) -> Quantity:
     """Harvested dry biomass over one cultivation cycle, in kg DW.
 
@@ -210,8 +212,8 @@ def harvest_biomass(
     cannot disagree. Enforcing it here rather than only in `api.assess_site` is
     deliberate: this is the function that produces the number.
 
-    `forcing` is threaded through to `simulate()` for the ODE branch below; the
-    salinity-indexed branch never integrates the ODE, so it never touches it.
+    `forcing` and `year` are threaded through to `simulate()` for the ODE branch below;
+    the salinity-indexed branch never integrates the ODE, so it never touches either.
     """
     contra = contraindication(species, site)
     if contra is not None:
@@ -224,9 +226,7 @@ def harvest_biomass(
         kg = fresh_t_per_ha * species.elemental.dry_matter * 1000.0 * (area_m2 / 10_000.0)
         return Quantity(value=kg, unit="kg DW", calibration=calibration)
 
-    # The public API does not yet carry an artifact year through SiteContext, so the
-    # model uses the default 2024 season until a real reader is explicitly threaded in.
-    trajectory = simulate(species, site, forcing=forcing)
+    trajectory = simulate(species, site, forcing=forcing, year=year)
     kg = trajectory.final_biomass * area_m2 / 1000.0
     return Quantity(value=kg, unit="kg DW", calibration=calibration)
 
