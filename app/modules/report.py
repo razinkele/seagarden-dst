@@ -13,10 +13,12 @@ from shiny import module, render, ui
 
 from seagarden_dst import __version__
 from seagarden_dst.calibration import for_display
-from seagarden_dst.forcing import Coverage
+from seagarden_dst.forcing import Coverage, ForcingChoice
+
+from ._widgets import artifact_source_text
 
 
-def render_report(assessment) -> str:
+def render_report(assessment, choice: ForcingChoice | None = None) -> str:
     if assessment is None:
         return "No assessment yet. Pick a site and click Assess."
 
@@ -36,7 +38,7 @@ def render_report(assessment) -> str:
         f"Sub-region:  {context.region}",
         conditions_line,
         f"Data confidence: {context.confidence}",
-        _data_source_line(context.from_artifact),
+        _data_source_line(choice, context),
         f"Generated:   {date.today().isoformat()} - core v{__version__}",
         "",
         "RANKED OPTIONS",
@@ -82,7 +84,7 @@ def render_report(assessment) -> str:
         "- Carbon is reported as carbon in harvested biomass only. Sequestration is "
         "not reported: calcification releases CO2, so a sequestration claim would "
         "depend on shell being removed from the water and kept out of it.",
-        _data_source_caveat(context.from_artifact),
+        _data_source_caveat(choice, context),
         "- Legal permissibility is unassessed until the regulatory records exist "
         "(A2.2, M12). An unknown legal status blocks the verdict rather than passing it.",
         "",
@@ -104,16 +106,35 @@ def _unassessed_reason(assessment) -> str:
     return "The data layer could not provide conditions."
 
 
-def _data_source_line(from_artifact: bool) -> str:
-    if from_artifact:
-        return "Data source: gridded forcing artifact"
-    return "Data source: placeholder conditions"
+def _data_source_line(choice: ForcingChoice | None, context) -> str:
+    if choice is not None:
+        if choice.is_artifact:
+            text = f"Data source: {artifact_source_text(choice)}"
+        else:
+            text = f"Data source: placeholder conditions ({choice.reason})"
+    elif context.from_artifact:
+        text = "Data source: gridded forcing artifact"
+    else:
+        text = "Data source: placeholder conditions"
+    if context.source_note:
+        text += f" — this site: {context.source_note}"
+    return text
 
 
-def _data_source_caveat(from_artifact: bool) -> str:
-    if from_artifact:
-        return "- Site conditions come from the gridded forcing artifact."
-    return "- Site conditions in this prototype are placeholders, not measurements."
+def _data_source_caveat(choice: ForcingChoice | None, context) -> str:
+    if choice is not None:
+        text = (
+            "- Site conditions come from the gridded forcing artifact."
+            if choice.is_artifact
+            else "- Site conditions in this prototype are placeholders, not measurements."
+        )
+    elif context.from_artifact:
+        text = "- Site conditions come from the gridded forcing artifact."
+    else:
+        text = "- Site conditions in this prototype are placeholders, not measurements."
+    if context.source_note:
+        text += f" This site: {context.source_note}."
+    return text
 
 
 @module.ui
@@ -133,11 +154,11 @@ def report_server(input, output, session, state) -> None:  # noqa: A002
     @output
     @render.code
     def report_text():
-        return render_report(state.assessment.get())
+        return render_report(state.assessment.get(), state.forcing.get())
 
     @render.download(filename=lambda: f"seagarden-dst-{date.today().isoformat()}.txt")
     def download_txt():
-        yield render_report(state.assessment.get())
+        yield render_report(state.assessment.get(), state.forcing.get())
 
     @render.download(filename=lambda: f"seagarden-dst-{date.today().isoformat()}.json")
     def download_json():

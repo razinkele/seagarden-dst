@@ -362,3 +362,45 @@ refresh. D-a needs no network, no credential and no real artifact.
   produces a polygon yet, and the map shipped at v0.5.0 produces points.
 - **No human-use or protection overlay** — packages C1 and F1.
 - **No re-parameterisation against real forcing** — package D1, which D-a unblocks.
+
+---
+
+## D§9 Amendment, 2026-09-22 — two D§2/D§4 claims the reader does not implement
+
+Found while orienting package E, and recorded here so they are owned rather than
+noticed:
+
+1. **D§4's multi-cell aggregation is not implemented.** `gridded.GriddedForcing._point_of`
+   reduces any `POLYGON` WKT to the mean of its vertex coordinates and every reading
+   reports `Aggregation.CONTAINING_CELL`; `Aggregation.UNWEIGHTED_MEAN` is defined and
+   never produced, and `tests/test_gridded.py` holds no polygon query. At farm scale the
+   centroid pick is the containing cell and the label is true; for a polygon genuinely
+   spanning cells the label is wrong. **Owner:** the D-a follow-up between packages E-a
+   and E-b (`docs/superpowers/specs/2026-09-22-package-e-a-forcing-selection-design.md`
+   E§1): point-in-polygon over cell centres, mean over the valid cells, the valid fraction
+   surfaced on the reading with no threshold (§6.2 leaves the threshold to D-b).
+2. **D§2's "an empty `geometry_wkt` means the region's coordinate" is not implemented.**
+   `_point_of` raises `ValueError` on an empty string. Package E-a resolves regions to
+   POINT queries in the app through `forcing.region_query`, and the reader keeps refusing
+   an empty geometry; the convention is withdrawn rather than implemented, because the
+   reader should not depend on the placeholder's coordinate table.
+3. **`GriddedForcing._site_cells` keys on `id(conditions)`, not on anything the
+   `SiteConditions` itself carries.** `reading_at` remembers which (row, col) produced
+   a given `SiteConditions` object by its Python id, so `daily_forcing` can look the
+   cell back up without re-deriving a coordinate from annual means. `eutropy_adapter`
+   builds a *replaced* `SiteConditions` (via `dataclasses.replace`, to apply a nutrient
+   scenario) that the reader has never seen and therefore holds no cell for, so the
+   eutropy path raises `_cell_for_site`'s "daily_forcing needs a SiteConditions object
+   produced by this GriddedForcing instance" through the reader - not a domain refusal
+   with a caveat, an exception. Found while applying the final whole-branch review to
+   package E-a (2026-09-23): `api.assess_site`'s new per-species exclusion (E§10 item 1
+   of the E-a design) happens to catch this `ValueError` too, so it now surfaces as
+   every ODE species being excluded with that message rather than crashing the
+   assessment - a containment, not a fix. **Owner:** the D-a follow-up already named in
+   item 1 above: carry the (row, col) on the reading itself, or on a wrapper around
+   `SiteConditions`, rather than keying a side table on object identity. This also
+   gates a per-process (rather than per-session) `GriddedForcing` cache: a shared
+   instance across sessions makes the id-collision risk (a garbage-collected
+   `SiteConditions` whose id is reused for an unrelated one) a real hazard rather
+   than a currently-unexercised one.
+

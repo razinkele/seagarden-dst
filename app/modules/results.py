@@ -10,8 +10,23 @@ from __future__ import annotations
 from shiny import module, render, ui
 
 from seagarden_dst import assess_site, removal_framing
+from seagarden_dst.forcing import DEFAULT_FORCING, ForcingChoice
 
 from ._widgets import calibration_legend, quantity, verdict_pill
+
+
+def forcing_for(context, choice: ForcingChoice):
+    """The source to assess with: the session's choice, unless this site fell back.
+
+    A context with a `source_note` was built on the placeholder because the reader has
+    nothing for it (no coordinate), so its daily series must come from the placeholder
+    too, or the growth model integrates one source's seasons over another's conditions.
+
+    `choice` is never `None` here: `server()` sets `state.forcing` once per session,
+    before any assessment can run, so `run_assessment` always calls this with a real
+    `ForcingChoice`.
+    """
+    return DEFAULT_FORCING if context.source_note else choice.source
 
 
 def run_assessment(state) -> None:
@@ -29,6 +44,8 @@ def run_assessment(state) -> None:
             scale=state.scale.get(),
             eutropy=state.eutropy_scenario.get(),
             bowtie=state.bowtie_inference.get(),
+            forcing=forcing_for(context, state.forcing.get()),
+            year=state.forcing.get().year,
         )
     )
 

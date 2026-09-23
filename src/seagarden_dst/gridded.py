@@ -9,6 +9,7 @@ That is this module. `tests/test_gridded_isolation.py` asserts it.
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import re
@@ -18,15 +19,18 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from seagarden_dst.artifact.manifest import ARTIFACT_SCHEMA_VERSION, Manifest
-from seagarden_dst.artifact.pair import load_pair
+from seagarden_dst.artifact.pair import TornPair, load_pair
 from seagarden_dst.forcing import (
     PLACEHOLDER_SURFACE_PAR,
     Aggregation,
     Coverage,
+    ForcingChoice,
+    ForcingUnavailable,
     SiteConditions,
     SiteQuery,
     SiteReading,
     day_of_year,
+    placeholder_choice,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -44,6 +48,14 @@ _EARTH_RADIUS_KM = 6371.0
 def artifact_directory() -> Path:
     """Where the artifact/manifest pair lives (§6.3)."""
     return Path(os.environ.get(_DATA_DIR_ENV, _DEFAULT_DATA_DIR))
+
+
+class UnrecognisedSchema(ValueError):
+    """The artifact's schema version is not the one this build reads (§7)."""
+
+    def __init__(self, message: str, *, found: int) -> None:
+        super().__init__(message)
+        self.found = found
 
 
 class GriddedForcing:
@@ -68,13 +80,26 @@ class GriddedForcing:
         # There is deliberately no opt-out: that is C-a's atomicity guarantee.
         manifest, artifact = load_pair(Path(directory))
         if manifest.artifact_schema_version != ARTIFACT_SCHEMA_VERSION:
-            raise ValueError(
+            raise UnrecognisedSchema(
                 f"unrecognised artifact_schema_version "
                 f"{manifest.artifact_schema_version}: this build reads version "
                 f"{ARTIFACT_SCHEMA_VERSION}. Refusing rather than reading an artifact "
-                "whose shape is not known (§7)."
+                "whose shape is not known (§7).",
+                found=manifest.artifact_schema_version,
             )
         return cls(manifest, xr.open_dataset(artifact, engine="h5netcdf").load())
+
+    @property
+    def years(self) -> list[int]:
+        """The years the artifact carries, ascending."""
+        return sorted(self._years)
+
+    @property
+    def built_on(self):
+        """When the artifact was built - `select_forcing` reads this, not `_manifest`,
+        so a reader's own build date is not an implementation detail its caller must
+        reach past a leading underscore for."""
+        return self._manifest.built_on
 
     def reading_at(self, query: SiteQuery) -> SiteReading:
         lat, lon = self._point_of(query)
@@ -124,14 +149,16 @@ class GriddedForcing:
         if wraps:
             next_year = year + 1
             if next_year not in self._years:
-                raise ValueError(
+                raise ForcingUnavailable(
                     f"wrapping window needs {year} and {next_year}, but the artifact "
                     f"carries {self._years}"
                 )
             last += 365
 
         if year not in self._years:
-            raise ValueError(f"artifact does not carry year {year}; available years {self._years}")
+            raise ForcingUnavailable(
+                f"artifact does not carry year {year}; available years {self._years}"
+            )
 
         days = np.arange(first, last + 1, dtype=float)
         month_years: list[tuple[int, int, int]] = []
@@ -245,6 +272,74 @@ class GriddedForcing:
             significant_wave_m=float(np.mean(wave)),
             light_attenuation_k=float(np.mean(attenuation)),
         )
+
+
+def select_forcing(directory: Path | None = None) -> ForcingChoice:
+    """Choose what the tool runs on this session (E§3.2). Never raises.
+
+    Every way of falling back yields the placeholder with a reason that names the
+    directory, so the banner can say why. The manifest's presence is checked before
+    the import so a pip-only install with no artifact reports the missing artifact,
+    which is the more useful of its two problems.
+    """
+    directory = Path(directory) if directory is not None else artifact_directory()
+    manifest_path = directory / "manifest.json"
+    if not manifest_path.exists():
+        return placeholder_choice(f"no artifact at {directory}", directory)
+
+    # `Manifest`'s own validator (`_check_schema_version`) refuses a foreign
+    # `artifact_schema_version` before `GriddedForcing.from_directory` ever raises
+    # `UnrecognisedSchema` - so a manifest from a newer pipeline would otherwise fall
+    # into the catch-all below and report a multi-line pydantic dump instead of naming
+    # the version. Read the raw JSON first and short-circuit on that one field; anything
+    # that does not parse, or lacks the field, falls through to `from_directory` so the
+    # existing rows (missing file, torn pair, any other failure) handle it as before.
+    try:
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raw = None
+    if isinstance(raw, dict):
+        found = raw.get("artifact_schema_version")
+        if isinstance(found, str) and found.isdigit():
+            found = int(found)
+        if isinstance(found, int) and found != ARTIFACT_SCHEMA_VERSION:
+            return placeholder_choice(
+                f"artifact at {directory} has schema version {found}; this build reads "
+                f"{ARTIFACT_SCHEMA_VERSION}",
+                directory,
+            )
+
+    try:
+        reader = GriddedForcing.from_directory(directory)
+    except ImportError:
+        return placeholder_choice(
+            f"this install has no spatial extra (xarray/h5netcdf), so the artifact at "
+            f"{directory} cannot be read",
+            directory,
+        )
+    except TornPair:
+        return placeholder_choice(
+            f"artifact at {directory} failed its checksum; refusing to read it", directory
+        )
+    except UnrecognisedSchema as exc:
+        return placeholder_choice(
+            f"artifact at {directory} has schema version {exc.found}; this build reads "
+            f"{ARTIFACT_SCHEMA_VERSION}",
+            directory,
+        )
+    except Exception as exc:  # noqa: BLE001 - named in the reason, never swallowed
+        # Only the first line: a multi-line exception message (a traceback-shaped
+        # str, or a pydantic ValidationError's own multi-line dump) would otherwise
+        # spill past the sentence the banner shows.
+        detail = str(exc).splitlines()[0] if str(exc) else ""
+        return placeholder_choice(
+            f"could not open the artifact at {directory}: {type(exc).__name__}: {detail}",
+            directory,
+        )
+    return ForcingChoice(
+        source=reader, kind="artifact", reason="", year=reader.years[-1],
+        built_on=reader.built_on, directory=directory,
+    )
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

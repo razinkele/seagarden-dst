@@ -19,6 +19,47 @@ unreleased.
 
 ---
 
+## [0.10.0] — 2026-09-23
+
+**The app reads the artifact when one is present, and says so.**
+
+513 tests (474 at 0.9.0): 406 in the default selection, 107 needing the `spatial` extra. CI
+on Python 3.11 and 3.13 across two install states.
+
+The release that makes the first real refresh matter: once an artifact sits where
+`SEAGARDEN_DATA_DIR` points, the tool runs on it and the banner names the source, the year
+and the build date. Until that refresh runs, the app is 0.9.0's app with a reason in the
+banner. Nothing about what the tool computes has changed on the placeholder.
+
+### Added
+
+- **The app reads the forcing artifact when one is present** (package E-a). The source is
+  chosen once per session in the core (`gridded.select_forcing`), never raises, and names
+  every way of falling back; the Site panel and the report say which source, which year
+  and which build date. Sites whose sub-region has no coordinate stay on the placeholder
+  with a note. Nothing about what the tool computes has changed; with no artifact the app
+  is today's app with a reason in the banner.
+
+### Changed
+
+- The query year now reaches the growth model. A species whose cultivation window needs a
+  year the artifact does not carry is excluded with the reader's own reason
+  (`ForcingUnavailable`), never a crash; a plain error from a source still fails loudly.
+
+### Known limits
+
+- Each session loads its own copy of the artifact (about 170 MB for the Baltic pair), and
+  a session's start blocks on its checksum verification and its `xarray` load. A
+  process-wide cache waits on the D-a follow-up recorded below (D§9 item 3).
+- The eutropy nutrient-scenario path is not yet usable together with the artifact: the
+  reader's cell lookup keys on the `SiteConditions` object's Python id, and the scenario
+  builds a replaced `SiteConditions` the reader has never seen, so the eutropy path raises
+  through the reader rather than returning a caveat (recorded in the D-a design, D§9).
+- Those of 0.9.0 stand: the grid check has never met real Copernicus coordinates, and the
+  map and placeholder caveats remain.
+
+---
+
 ## [0.9.0] — 2026-09-22
 
 **The refresh refuses a full disk before it starts.**
