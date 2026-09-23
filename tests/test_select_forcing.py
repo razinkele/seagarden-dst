@@ -138,6 +138,30 @@ def test_a_newer_schema_in_a_real_manifest_is_named_before_the_model_refuses_it(
 
 
 @pytest.mark.spatial
+def test_a_digit_string_schema_version_in_a_real_manifest_is_also_named(tmp_path):
+    """JSON does not distinguish `99` from `"99"` for a human editing the manifest by
+    hand, but Python does - `isinstance(found, int)` alone would fall through this
+    case into the catch-all's multi-line pydantic dump. `raw.get(...)` must accept a
+    digit string too."""
+    pytest.importorskip("xarray")
+    from seagarden_dst.artifact.manifest import ARTIFACT_SCHEMA_VERSION
+    from seagarden_dst.gridded import select_forcing
+
+    shutil.copytree(FIXTURE, tmp_path / "data")
+    manifest_path = tmp_path / "data" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifact_schema_version"] = "99"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    choice = select_forcing(tmp_path / "data")
+    assert choice.kind == "placeholder"
+    assert choice.reason == (
+        f"artifact at {tmp_path / 'data'} has schema version 99; this build reads "
+        f"{ARTIFACT_SCHEMA_VERSION}"
+    )
+
+
+@pytest.mark.spatial
 def test_any_other_failure_is_named_not_swallowed(tmp_path, monkeypatch):
     pytest.importorskip("xarray")
     from seagarden_dst import gridded
@@ -153,6 +177,25 @@ def test_any_other_failure_is_named_not_swallowed(tmp_path, monkeypatch):
     assert choice.reason == (
         f"could not open the artifact at {tmp_path / 'data'}: RuntimeError: disk on fire"
     )
+
+
+@pytest.mark.spatial
+def test_any_other_failures_reason_interpolates_only_the_first_line(tmp_path, monkeypatch):
+    """A multi-line exception message would otherwise spill a stack-trace-shaped
+    reason into the banner. Only `str(exc).splitlines()[0]` belongs there."""
+    pytest.importorskip("xarray")
+    from seagarden_dst import gridded
+
+    shutil.copytree(FIXTURE, tmp_path / "data")
+
+    def boom(cls, directory):
+        raise RuntimeError("line one\nline two")
+
+    monkeypatch.setattr(gridded.GriddedForcing, "from_directory", classmethod(boom))
+    choice = gridded.select_forcing(tmp_path / "data")
+    assert choice.kind == "placeholder"
+    assert choice.reason.endswith("RuntimeError: line one")
+    assert "line two" not in choice.reason
 
 
 @pytest.mark.spatial

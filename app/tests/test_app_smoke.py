@@ -460,7 +460,16 @@ def test_the_report_line_takes_the_choice_and_falls_back_to_the_context_without_
     with_choice = render_report(state.assessment.get(), placeholder_choice("no artifact at x"))
     assert "Data source: placeholder conditions (no artifact at x)" in with_choice
     without = render_report(state.assessment.get())
-    assert "Data source: placeholder conditions" in without
+    # Discriminating: without a choice, the fallback line names no reason at all - a
+    # bare `in` check would also pass for "placeholder conditions (something)".
+    assert "Data source: placeholder conditions" in without.splitlines()
+
+
+def test_the_report_line_names_the_artifact_year_and_build_date():
+    state = _FakeState(SiteContext.from_region("LT-coastal", label="Melnrage"))
+    run_assessment(state)
+    text = render_report(state.assessment.get(), _artifact_choice())
+    assert "Data source: gridded forcing artifact, conditions for 2025, built 2026-09-22" in text
 
 
 def test_source_note_reaches_the_json_export():

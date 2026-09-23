@@ -78,14 +78,26 @@ def _unassessable_reason(assessment: SiteAssessment) -> str:
     return "the data layer could not provide conditions."
 
 
+def artifact_source_text(choice: ForcingChoice) -> str:
+    """The artifact data-source sentence, minus its trailing period.
+
+    Shared by `data_source_banner` here and `report._data_source_line`, so the
+    banner and the downloadable report cannot drift on the wording that names the
+    query year and the artifact's build date - they differed only by that period
+    before this existed.
+    """
+    built = choice.built_on.strftime("%Y-%m-%d") if choice.built_on else "unknown date"
+    return f"gridded forcing artifact, conditions for {choice.year}, built {built}"
+
+
 def data_source_banner(choice: ForcingChoice, context: SiteContext | None = None) -> str:
-    """Sentence naming what the app is running on, and why if it is not the artifact."""
+    """Sentence naming what the app is running on, and why if it is not the artifact.
+
+    `choice` is never `None` in practice: `server()` sets `state.forcing` before any
+    render can run, so this parameter is never actually optional at a real call site.
+    """
     if choice.is_artifact:
-        built = choice.built_on.strftime("%Y-%m-%d") if choice.built_on else "unknown date"
-        text = (
-            f"Data source: gridded forcing artifact, conditions for {choice.year}, "
-            f"built {built}."
-        )
+        text = f"Data source: {artifact_source_text(choice)}."
     else:
         text = (
             "Data source: placeholder conditions — plausible order-of-magnitude values, "

@@ -93,6 +93,13 @@ class GriddedForcing:
         """The years the artifact carries, ascending."""
         return sorted(self._years)
 
+    @property
+    def built_on(self):
+        """When the artifact was built - `select_forcing` reads this, not `_manifest`,
+        so a reader's own build date is not an implementation detail its caller must
+        reach past a leading underscore for."""
+        return self._manifest.built_on
+
     def reading_at(self, query: SiteQuery) -> SiteReading:
         lat, lon = self._point_of(query)
         row, col = self._nearest_index(lat, lon)
@@ -290,6 +297,8 @@ def select_forcing(directory: Path | None = None) -> ForcingChoice:
         raw = None
     if isinstance(raw, dict):
         found = raw.get("artifact_schema_version")
+        if isinstance(found, str) and found.isdigit():
+            found = int(found)
         if isinstance(found, int) and found != ARTIFACT_SCHEMA_VERSION:
             return placeholder_choice(
                 f"artifact at {directory} has schema version {found}; this build reads "
@@ -316,13 +325,17 @@ def select_forcing(directory: Path | None = None) -> ForcingChoice:
             directory,
         )
     except Exception as exc:  # noqa: BLE001 - named in the reason, never swallowed
+        # Only the first line: a multi-line exception message (a traceback-shaped
+        # str, or a pydantic ValidationError's own multi-line dump) would otherwise
+        # spill past the sentence the banner shows.
+        detail = str(exc).splitlines()[0] if str(exc) else ""
         return placeholder_choice(
-            f"could not open the artifact at {directory}: {type(exc).__name__}: {exc}",
+            f"could not open the artifact at {directory}: {type(exc).__name__}: {detail}",
             directory,
         )
     return ForcingChoice(
         source=reader, kind="artifact", reason="", year=reader.years[-1],
-        built_on=reader._manifest.built_on, directory=directory,
+        built_on=reader.built_on, directory=directory,
     )
 
 

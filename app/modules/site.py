@@ -112,6 +112,10 @@ def build_site_context(region: str, label: str, choice: ForcingChoice) -> SiteCo
     coordinate; otherwise through the placeholder as before, with a note when that is
     a fallback rather than the session's normal state. A blocked reading keeps the
     region it was asked for: the cell may be unknown, the sub-region is not.
+
+    `choice` is never `None` here: `server()` sets `state.forcing` before any render
+    or click handler can run, so every caller of this function already holds a
+    real `ForcingChoice`.
     """
     query = region_query(region, choice.year) if choice.is_artifact else None
     if query is None:

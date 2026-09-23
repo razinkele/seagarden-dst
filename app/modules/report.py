@@ -15,6 +15,8 @@ from seagarden_dst import __version__
 from seagarden_dst.calibration import for_display
 from seagarden_dst.forcing import Coverage, ForcingChoice
 
+from ._widgets import artifact_source_text
+
 
 def render_report(assessment, choice: ForcingChoice | None = None) -> str:
     if assessment is None:
@@ -107,11 +109,7 @@ def _unassessed_reason(assessment) -> str:
 def _data_source_line(choice: ForcingChoice | None, context) -> str:
     if choice is not None:
         if choice.is_artifact:
-            built = choice.built_on.strftime("%Y-%m-%d") if choice.built_on else "unknown date"
-            text = (
-                f"Data source: gridded forcing artifact, conditions for {choice.year}, "
-                f"built {built}"
-            )
+            text = f"Data source: {artifact_source_text(choice)}"
         else:
             text = f"Data source: placeholder conditions ({choice.reason})"
     elif context.from_artifact:
