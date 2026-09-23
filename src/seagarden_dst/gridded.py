@@ -25,6 +25,7 @@ from seagarden_dst.forcing import (
     Aggregation,
     Coverage,
     ForcingChoice,
+    ForcingUnavailable,
     SiteConditions,
     SiteQuery,
     SiteReading,
@@ -148,14 +149,16 @@ class GriddedForcing:
         if wraps:
             next_year = year + 1
             if next_year not in self._years:
-                raise ValueError(
+                raise ForcingUnavailable(
                     f"wrapping window needs {year} and {next_year}, but the artifact "
                     f"carries {self._years}"
                 )
             last += 365
 
         if year not in self._years:
-            raise ValueError(f"artifact does not carry year {year}; available years {self._years}")
+            raise ForcingUnavailable(
+                f"artifact does not carry year {year}; available years {self._years}"
+            )
 
         days = np.arange(first, last + 1, dtype=float)
         month_years: list[tuple[int, int, int]] = []

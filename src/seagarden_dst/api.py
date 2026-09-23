@@ -17,7 +17,13 @@ from .bowtie_adapter import BowtieUnavailable, eutrophication_pressure
 from .calibration import Tier
 from .contracts import SiteAssessment, SiteContext, SpeciesOption
 from .eutropy_adapter import EutropyUnavailable, apply_nutrient_scenario
-from .forcing import DEFAULT_FORCING, PLACEHOLDER_YEAR, ForcingSource, SiteConditions
+from .forcing import (
+    DEFAULT_FORCING,
+    PLACEHOLDER_YEAR,
+    ForcingSource,
+    ForcingUnavailable,
+    SiteConditions,
+)
 from .growth import contraindication, harvest_biomass
 from .nutrients import from_harvest
 from .params import MethodParams, ParameterSet, SpeciesParams, default_parameters
@@ -205,10 +211,12 @@ def assess_site(
             options.append(
                 _assess_one(working, species_params, method, area_m2, forcing=forcing, year=year)
             )
-        except ValueError as exc:
-            # The reader's own message (e.g. a wrapping window past a year the
-            # artifact does not carry) IS the reason - not a second summary of it.
-            # Only this species is excluded; the rest of the loop proceeds.
+        except ForcingUnavailable as exc:
+            # The reader's own message (a window past a year the artifact does not
+            # carry) IS the reason - not a second summary of it. Only this species is
+            # excluded; the rest of the loop proceeds. Deliberately NOT a bare
+            # ValueError: a missing growth parameter or a bug in a source is a defect
+            # that must fail loudly, not appear as a quietly excluded species.
             excluded[key] = str(exc)
             continue
 

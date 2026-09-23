@@ -217,7 +217,8 @@ shipped change), assess, screenshot the banner.
    `run_assessment` passes `year=state.forcing.get().year`. A species whose
    cultivation window needs a year the artifact lacks - the wrapping-window case,
    where `gridded.GriddedForcing.daily_forcing` needs `year + 1` and raises
-   `ValueError` when the artifact's latest year has no successor - is excluded with
+   `forcing.ForcingUnavailable` (a `ValueError` subclass) when the artifact's latest
+   year has no successor - is excluded with
    that reader message, via the same `excluded: dict[str, str]` mechanism
    `contraindication` uses. Other species proceed; nothing propagates to the UI as a
    crash. In practice the shipped wrapping window (`saccharina_latissima`, `[10,

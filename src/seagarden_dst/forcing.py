@@ -610,6 +610,17 @@ def require_finite_series(
     )
 
 
+class ForcingUnavailable(ValueError):
+    """The source cannot provide a daily series for this site and window.
+
+    Raised by a reader when the artifact lacks the year a window needs. It is the one
+    forcing failure `api.assess_site` treats as an *exclusion* of that species, with
+    this message as the reason. It subclasses ValueError so tests written against the
+    reader's earlier plain ValueError still hold; but a plain ValueError from a source
+    is a defect (a broken species file, a bug) and is NOT caught as an exclusion.
+    """
+
+
 @runtime_checkable
 class ForcingSource(Protocol):
     """Where site conditions and seasonal forcing come from.
