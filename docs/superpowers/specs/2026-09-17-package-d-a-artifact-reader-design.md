@@ -384,4 +384,23 @@ noticed:
    POINT queries in the app through `forcing.region_query`, and the reader keeps refusing
    an empty geometry; the convention is withdrawn rather than implemented, because the
    reader should not depend on the placeholder's coordinate table.
+3. **`GriddedForcing._site_cells` keys on `id(conditions)`, not on anything the
+   `SiteConditions` itself carries.** `reading_at` remembers which (row, col) produced
+   a given `SiteConditions` object by its Python id, so `daily_forcing` can look the
+   cell back up without re-deriving a coordinate from annual means. `eutropy_adapter`
+   builds a *replaced* `SiteConditions` (via `dataclasses.replace`, to apply a nutrient
+   scenario) that the reader has never seen and therefore holds no cell for, so the
+   eutropy path raises `_cell_for_site`'s "daily_forcing needs a SiteConditions object
+   produced by this GriddedForcing instance" through the reader - not a domain refusal
+   with a caveat, an exception. Found while applying the final whole-branch review to
+   package E-a (2026-09-23): `api.assess_site`'s new per-species exclusion (E§10 item 1
+   of the E-a design) happens to catch this `ValueError` too, so it now surfaces as
+   every ODE species being excluded with that message rather than crashing the
+   assessment - a containment, not a fix. **Owner:** the D-a follow-up already named in
+   item 1 above: carry the (row, col) on the reading itself, or on a wrapper around
+   `SiteConditions`, rather than keying a side table on object identity. This also
+   gates a per-process (rather than per-session) `GriddedForcing` cache: a shared
+   instance across sessions makes the id-collision risk (a garbage-collected
+   `SiteConditions` whose id is reused for an unrelated one) a real hazard rather
+   than a currently-unexercised one.
 

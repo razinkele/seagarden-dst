@@ -204,3 +204,54 @@ shipped change), assess, screenshot the banner.
   (added 2026-09-22 alongside this document).
 - **Data-layer design §8**: E's row splits into E-a, the D-a follow-up, and E-b, with
   E-a's done-when as E§8 above.
+
+## E§10 Amendments, 2026-09-23 (final review)
+
+1. **The daily series' year is the query year, not the scaffold's 2024 default.**
+   E§2 threaded the year onto `SiteReading`/`SiteContext`'s annual-mean fields only;
+   `growth.simulate` still integrated against its own hard-coded `year=2024` default,
+   so the banner's "conditions for 2025" named a year the growth model never actually
+   consumed. `assess_site(context, *, forcing, year=PLACEHOLDER_YEAR, ...)` now
+   threads `year` through `_assess_one` to `suitability.assess` ->
+   `assess_growth` -> `growth.harvest_biomass` -> `growth.simulate`, and
+   `run_assessment` passes `year=state.forcing.get().year`. A species whose
+   cultivation window needs a year the artifact lacks - the wrapping-window case,
+   where `gridded.GriddedForcing.daily_forcing` needs `year + 1` and raises
+   `ValueError` when the artifact's latest year has no successor - is excluded with
+   that reader message, via the same `excluded: dict[str, str]` mechanism
+   `contraindication` uses. Other species proceed; nothing propagates to the UI as a
+   crash. In practice the shipped wrapping window (`saccharina_latissima`, `[10,
+   6]`) never reaches `daily_forcing` at all today: its `yield_model:
+   salinity_indexed` returns before `simulate` is called, so this exclusion path
+   currently guards a future ODE species with a wrapping window (or Saccharina, were
+   its yield model ever switched back), not today's shipped catalogue - pinned by a
+   dedicated test (`tests/test_assess_with_artifact.py`) rather than asserted as an
+   present-day risk.
+
+2. **`_DEFAULTS["forcing"] = None` is an unset sentinel, not a default choice.**
+   E§3.5 said "`_DEFAULTS` gains nothing" for the forcing key beyond the entry
+   itself; this amends that to say what the entry means. `None` marks the field as
+   not yet chosen for this session - `server()` sets a real `ForcingChoice` before
+   any render or assessment can run (see the invariant comments now on
+   `data_source_banner`, `build_site_context` and `forcing_for`) - and the stale
+   -assessment invalidation that resets `context`, `assessment` and related fields
+   on a new site pick never resets `forcing`: the chosen source is a session-level
+   fact, not a per-site one.
+
+3. **The reader is held per session on purpose, and stays that way until D-a's
+   `id()`-keyed cell map is fixed.** `GriddedForcing._site_cells` keys on
+   `id(conditions)` (see D§9 item 3 below), so a process-wide, shared `GriddedForcing`
+   instance could hand back the wrong cell once Python garbage-collects an older
+   `SiteConditions` and reuses its id for an unrelated one. Per-process caching of the
+   reader therefore waits on that fix. Until then, each session holds its own loaded
+   artifact - about 170 MB for the Baltic pair - and a session's start blocks on its
+   checksum verification (`load_pair`'s sha256 check) and its `xarray.open_dataset(...
+   ).load()` call. Recorded in the CHANGELOG as a known limit.
+
+4. **`GriddedForcing.from_directory` imports xarray before calling `load_pair`.**
+   A pip-only install (no `spatial` extra) hitting a torn artifact/manifest pair
+   would otherwise see `load_pair`'s `TornPair` before ever discovering that xarray
+   is absent - the wrong problem to report first, since installing the `spatial`
+   extra is the actionable next step and a torn pair on an install that cannot read
+   the artifact anyway is moot. Importing xarray first means `select_forcing` reports
+   the missing extra, the more useful of the two failures, on such an install.

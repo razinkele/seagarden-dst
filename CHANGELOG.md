@@ -26,6 +26,16 @@ unreleased.
   with a note. Nothing about what the tool computes has changed; with no artifact the app
   is today's app with a reason in the banner.
 
+### Known limits
+
+- Each session loads its own copy of the artifact (about 170 MB for the Baltic pair), and
+  a session's start blocks on its checksum verification and its `xarray` load. A
+  process-wide cache waits on the D-a follow-up recorded below (D§9 item 3).
+- The eutropy nutrient-scenario path is not yet usable together with the artifact: the
+  reader's cell lookup keys on the `SiteConditions` object's Python id, and the scenario
+  builds a replaced `SiteConditions` the reader has never seen, so the eutropy path raises
+  through the reader rather than returning a caveat (recorded in the D-a design, D§9).
+
 ---
 
 ## [0.9.0] — 2026-09-22
