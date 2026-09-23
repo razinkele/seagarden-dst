@@ -11,11 +11,20 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
-Nothing yet. Changes land here, not in the published sections below. When you cut the next
+Changes land here, not in the published sections below. When you cut the next
 release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
 open a section for it — `tests/test_version.py` asserts the literals agree with each other
 and with a matching heading here, but it cannot tell you that a merged change went
 unreleased.
+
+### Added
+
+- **The app reads the forcing artifact when one is present** (package E-a). The source is
+  chosen once per session in the core (`gridded.select_forcing`), never raises, and names
+  every way of falling back; the Site panel and the report say which source, which year
+  and which build date. Sites whose sub-region has no coordinate stay on the placeholder
+  with a note. Nothing about what the tool computes has changed; with no artifact the app
+  is today's app with a reason in the banner.
 
 ---
 
