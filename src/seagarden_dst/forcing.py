@@ -244,6 +244,11 @@ class SiteReading:
     from_artifact: bool = False
     #: Age of the artifact in months, for §7's 18-month staleness note.
     stale_months: int | None = None
+    #: On a POLYGON read with two or more cell coordinates inside it: valid cells ÷
+    #: cells inside, whatever `aggregation` says and whether or not coverage blocked.
+    #: None on a POINT read, or on a POLYGON with fewer than two inside. Surfaced with
+    #: no threshold; §6.2 (3) leaves the threshold to package D-b.
+    valid_fraction: float | None = None
 
     @property
     def is_assessable(self) -> bool:

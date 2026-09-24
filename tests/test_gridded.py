@@ -193,3 +193,39 @@ def test_a_wrapping_window_blocks_when_the_following_year_is_absent(reader):
     site = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2025)).conditions
     with pytest.raises(ValueError, match="wrapping window needs"):
         reader.daily_forcing(site, (11, 2), 2025)
+
+
+def _open_fixture_dataset():
+    import xarray as xr
+
+    ds = xr.open_dataset(f"{FIXTURE}/forcing.nc", engine="h5netcdf").load()
+    ds.close()
+    return ds
+
+
+def test_a_point_read_equals_the_direct_single_cell_computation(reader):
+    """Spec §3.4: for one cell the cell-mean is the identity and the month reduction is
+    today's call, so every field is EXACTLY what a direct float64 computation gives."""
+    ds = _open_fixture_dataset()
+    lats, lons = reader.latitudes, reader.longitudes
+    reading = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2024))
+    c = reading.conditions
+    assert reading.aggregation is Aggregation.CONTAINING_CELL
+    assert reading.valid_fraction is None
+    assert c.cells == ((1, 1),) and c.year == 2024
+
+    yi = list(int(y) for y in ds["year"].values).index(2024)
+
+    def monthly(name):
+        return np.asarray(ds[name].values[yi, :, 1, 1], dtype=float)
+
+    assert c.salinity_psu == float(np.mean(monthly("salinity_psu")))
+    assert c.mean_temp_c == float(np.mean(monthly("temp_c")))
+    assert c.summer_temp_c == float(np.max(monthly("temp_c")))
+    assert c.winter_temp_c == float(np.min(monthly("temp_c")))
+    assert c.din_umol_l == float(np.mean(monthly("din_umol_l")))
+    assert c.dip_umol_l == float(np.mean(monthly("dip_umol_l")))
+    assert c.light_attenuation_k == float(np.mean(monthly("light_attenuation_k")))
+    wave = np.asarray(ds["significant_wave_m"].values[:, 1, 1], dtype=float)
+    assert c.significant_wave_m == float(np.mean(wave))
+    assert c.depth_m == float(ds["depth_mean_m"].values[1, 1])

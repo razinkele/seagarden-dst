@@ -158,7 +158,6 @@ class GriddedForcing:
         self, site: SiteConditions, window: tuple[int, int], year: int
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         cells = self._cell_for_site(site, year)
-        row, col = cells[0]
         start, end = window
         first = day_of_year(start, 1)
         last = day_of_year(end, 28)
@@ -187,8 +186,8 @@ class GriddedForcing:
         else:
             month_years.extend((month, year, day_of_year(month)) for month in range(start, end + 1))
 
-        temp = self._interpolated_monthly("temp_c", row, col, month_years, days)
-        din = self._interpolated_monthly("din_umol_l", row, col, month_years, days)
+        temp = self._interpolated_monthly("temp_c", cells, month_years, days)
+        din = self._interpolated_monthly("din_umol_l", cells, month_years, days)
 
         # The artifact carries no PAR (C§3.3), so only the seasonal shape matches the
         # placeholder; the magnitude remains the site's invented placeholder value.
@@ -255,39 +254,54 @@ class GriddedForcing:
             )
         return site.cells
 
+    def _cell_mean_monthly(
+        self, name: str, year: int, cells: tuple[tuple[int, int], ...]
+    ) -> np.ndarray:
+        """The 12 monthly values of a per-year field, averaged over `cells`, float64.
+
+        The ONLY reader of the per-year monthly fields (spec §3.4). Cast to float64
+        before any reduction, then `np.mean` over the cell axis: for one cell that is
+        the identity on a float64 vector, so single-cell readings are bit-identical to
+        a direct computation; and because `_conditions_at` and `daily_forcing` both
+        come here, the §3.6 ratio is exactly 1.0 for an unmodified site.
+        """
+        rows = [r for r, _ in cells]
+        cols = [c for _, c in cells]
+        year_index = self._years.index(year)
+        block = np.asarray(self._ds[name].values[year_index][:, rows, cols], dtype=float)
+        return np.mean(block, axis=1)
+
     def _interpolated_monthly(
         self,
         name: str,
-        row: int,
-        col: int,
+        cells: tuple[tuple[int, int], ...],
         month_years: list[tuple[int, int, int]],
         days: np.ndarray,
+        scale: float = 1.0,
     ) -> np.ndarray:
+        by_year = {
+            year: self._cell_mean_monthly(name, year, cells)
+            for year in {year for _, year, _ in month_years}
+        }
         x = np.asarray([day for _, _, day in month_years], dtype=float)
-        values = np.asarray(
-            [
-                self._ds[name].values[self._years.index(year), month - 1, row, col]
-                for month, year, _ in month_years
-            ],
-            dtype=float,
-        )
-        return np.interp(days, x, values)
+        values = np.asarray([by_year[year][month - 1] for month, year, _ in month_years])
+        return np.interp(days, x, values * scale)
 
     def _conditions_at(
         self, cells: tuple[tuple[int, int], ...], year: int, region: str | None
     ) -> GriddedConditions:
-        row, col = cells[0]
-        year_index = self._years.index(year)
-
-        def monthly(name: str) -> np.ndarray:
-            return np.asarray(self._ds[name].values[year_index, :, row, col], dtype=float)
-
-        temp = monthly("temp_c")
-        salinity = monthly("salinity_psu")
-        din = monthly("din_umol_l")
-        dip = monthly("dip_umol_l")
-        attenuation = monthly("light_attenuation_k")
-        wave = np.asarray(self._ds["significant_wave_m"].values[:, row, col], dtype=float)
+        """Annual statistics over `cells`, field-mean-first (spec §3.4)."""
+        temp = self._cell_mean_monthly("temp_c", year, cells)
+        salinity = self._cell_mean_monthly("salinity_psu", year, cells)
+        din = self._cell_mean_monthly("din_umol_l", year, cells)
+        dip = self._cell_mean_monthly("dip_umol_l", year, cells)
+        attenuation = self._cell_mean_monthly("light_attenuation_k", year, cells)
+        rows = [r for r, _ in cells]
+        cols = [c for _, c in cells]
+        wave = np.mean(
+            np.asarray(self._ds["significant_wave_m"].values[:, rows, cols], dtype=float), axis=1
+        )
+        depth = np.mean(np.asarray(self._ds["depth_mean_m"].values[rows, cols], dtype=float))
 
         return GriddedConditions(
             region=region,
@@ -300,7 +314,7 @@ class GriddedForcing:
             surface_par=PLACEHOLDER_SURFACE_PAR,
             din_umol_l=float(np.mean(din)),
             dip_umol_l=float(np.mean(dip)),
-            depth_m=float(self._ds["depth_mean_m"].values[row, col]),
+            depth_m=float(depth),
             significant_wave_m=float(np.mean(wave)),
             light_attenuation_k=float(np.mean(attenuation)),
             cells=cells,
