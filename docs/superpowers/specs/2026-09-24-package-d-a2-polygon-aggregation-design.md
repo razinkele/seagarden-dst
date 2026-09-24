@@ -50,20 +50,24 @@ Four decisions taken with the user on 2026-09-24:
 `gridded.py`.** It adds one field:
 
 ```python
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class GriddedConditions(SiteConditions):
     #: The (row, col) artifact cells these conditions were averaged over, as plain
     #: Python ints, row-major. Exactly one cell under CONTAINING_CELL; two or more
     #: under UNWEIGHTED_MEAN (§3.2 labels by the number of VALID cells). A
     #: reader-specific index, which is why it is not on the core type.
-    cells: tuple[tuple[int, int], ...] = ()
+    cells: tuple[tuple[int, int], ...]
     #: The artifact year these annual means were taken for. `daily_forcing` refuses a
     #: `year` that differs (§3.6): the §3.6 ratio is only exactly 1.0 against the year
     #: the site was read for, and rescaling another year's field to this year's mean
-    #: would be the silent substitution §6.2 forbids. Defaulted only because a
-    #: dataclass field after defaulted fields must be; the reader always sets it.
-    year: int | None = None
+    #: would be the silent substitution §6.2 forbids.
+    year: int
 ```
+
+`kw_only=True` lets both fields be required after the parent's defaulted ones (Python
+3.11 and 3.13, the versions CI runs), so there is no `None` state the reader never
+produces. Nothing constructs a `SiteConditions` positionally or via `**asdict`
+(verified across `src/`, `app/`, `tests/`, `scripts/`), so keyword-only costs nothing.
 
 Why a subclass, and why here:
 
@@ -104,8 +108,10 @@ it among the imports only this file may make. Nothing outside `gridded.py` impor
 selection on an install with no spatial extra. shapely follows the same rule: imported
 inside `from_directory` beside xarray, so a missing shapely surfaces through
 `select_forcing`'s existing `ImportError` row — whose reason text is widened from
-"(xarray/h5netcdf)" to "(xarray/h5netcdf/shapely)" — and imported function-locally
-wherever WKT is parsed. A module-level `import shapely` turns the `[app,dev]` CI job red
+"(xarray/h5netcdf)" to "(xarray/h5netcdf/shapely)" — **before `load_pair`, in the same
+import block as xarray**, so that E§10 item 4 still holds: a bare install with a torn
+pair reports the missing extra, not `TornPair`. Wherever WKT is parsed it is imported
+function-locally. A module-level `import shapely` turns the `[app,dev]` CI job red
 at collection, the failure D§2 recounts from 2026-09-17. `tests/test_select_forcing.py`
 gains a default-selection sibling of its existing "without the spatial stack" test that
 blanks `sys.modules["shapely"]` alone, since shapely is installed in every environment
@@ -122,9 +128,12 @@ ValueError(...) from exc`, and rejects `geom.is_empty` and any geometry type oth
 
 ### 3.2 Cell selection
 
-Two sets are computed for a polygon: **inside**, the cells whose centres
-`shapely.contains_xy` places in the polygon; and the **anchor**, the cell nearest the
-polygon's centroid (`_nearest_index`, the same per-axis argmin a POINT uses). The anchor
+Two sets are computed for a polygon: **inside**, the cells whose coordinate values
+(`self.latitudes[row]`, `self.longitudes[col]` — the location the reader already
+assigns each cell; `GridSpec` documents these as the lower cell edge, and the reader
+does **not** add half a step to them) `shapely.contains_xy` places in the polygon; and
+the **anchor**, the cell nearest the polygon's area centroid (`shapely`'s `.centroid`,
+then `_nearest_index`, the same per-axis argmin a POINT uses). The anchor
 decides coverage (§3.3). The label is decided by the number of **valid** cells that will
 be averaged, never by the number of cells inside — so a one-tuple never carries the
 `UNWEIGHTED_MEAN` label.
@@ -286,11 +295,16 @@ before interpolation. Temperature is not scaled; nothing else in the series chan
 
 ## 5 Testing
 
-All new tests carry the `spatial` mark and live in `tests/test_gridded.py`, because
-CI's `[app,dev]` job has no xarray and `tests/test_assess_with_artifact.py` is, by its
-own docstring, a default-selection file that never opens the fixture. The committed
-3×3 fixture — latitudes 54.000/54.0167/54.0333, longitudes 20.000/20.0278/20.0556, years
-2024–2025, only `[0,0]` invalid — supports every test but 8 without modification. **Its data
+All new tests except §3.1's default-selection sibling in `tests/test_select_forcing.py`
+carry the `spatial` mark and live in `tests/test_gridded.py`, because CI's `[app,dev]`
+job has no xarray and `tests/test_assess_with_artifact.py` is, by its own docstring, a
+default-selection file that never opens the fixture. The committed 3×3 fixture —
+latitudes 54.000/54.0167/54.0333, longitudes 20.000/20.0278/20.0556, years 2024–2025,
+only `[0,0]` invalid — supports every test but 8 without modification. "Inside" below
+means the cell's coordinate value lies in the polygon (§3.2), and no coordinate lies on
+any polygon boundary; the closest call is test 4, whose `[0,1]` sits inside the
+hypotenuse by about 22 m, so if a regenerated fixture ever moves the grid, that is the
+test to look at first. **Its data
 fields are `rng.random` in [0, 1)**, salinity included, so every shipped species is
 contraindicated on it (`tolerance_floor_psu` is 2.5 psu or more) and nothing reaches
 `daily_forcing` through `assess_site`; test 8 therefore builds a copy.
@@ -304,14 +318,14 @@ not new ones.
    din_umol_l=…, dip_umol_l=…)` then `daily_forcing` returns a finite series. Fails today
    with "produced by this GriddedForcing instance". A plain `SiteConditions` with the same
    numbers raises `ValueError` matching "needs a GriddedConditions".
-2. A POINT read at centre `[1,1]` is unchanged: `CONTAINING_CELL`, `valid_fraction is
+2. A POINT read at `[1,1]`'s coordinate is unchanged: `CONTAINING_CELL`, `valid_fraction is
    None`, `conditions.cells == ((1, 1),)`, and every field equals the value computed
    directly from the dataset the way today's `_conditions_at` computes it.
 3. `POLYGON ((19.99 53.99, 20.07 53.99, 20.07 54.05, 19.99 54.05, 19.99 53.99))`
-   encloses all nine centres; centroid (20.03, 54.02) → anchor `[1,1]`:
+   encloses all nine cells; centroid (20.03, 54.02) → anchor `[1,1]`:
    `UNWEIGHTED_MEAN`, `valid_fraction == 8/9`, `cells` has eight entries without
-   `(0, 0)`, `salinity_psu` equals the mean over those eight cells computed directly from
-   the dataset in float64.
+   `(0, 0)`, `salinity_psu` is `np.allclose` (rtol 1e-12) to the mean over those eight
+   cells computed directly from the dataset in float64.
 4. `POLYGON ((19.995 53.995, 20.035 53.995, 19.995 54.025, 19.995 53.995))` encloses
    exactly `[0,0]`, `[0,1]`, `[1,0]`; centroid (20.008, 54.005) → anchor `[0,0]`:
    `CELL_INVALID`, `nearest_valid_km > 0`, `valid_fraction == 2/3`,
@@ -348,7 +362,12 @@ not new ones.
     centres inside, centroid (20.030, 54.017) → anchor `[1,1]`, valid and **not**
     inside: `UNWEIGHTED_MEAN`, `valid_fraction == 6/7`, and `cells` is exactly
     `((0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 2))`. The one case that exercises the
-    anchor rule, the label rule and the anchor's exclusion from `cells` at once.
+    anchor rule, the label rule and the anchor's exclusion from `cells` at once. Note:
+    on this fixture the area centroid (lat 54.0168) and today's vertex mean (lat
+    54.0245) both anchor `[1,1]`, and on tests 3–6 the two coincide, so **no test pins
+    the centroid method**; a plan that kept the vertex mean would pass all twelve. That
+    is accepted: at native resolution the two agree for any convex farm-scale polygon,
+    and the values are recorded here so the next reviewer does not re-derive them.
 11. **§3.6, pinned.** From a POINT read at `[1,1]` for 2024, `replace(conditions,
     din_umol_l=2.0 * conditions.din_umol_l)`; the `din` series from `daily_forcing`
     over `(4, 9)` is `np.allclose` to twice the unmodified series (`rtol=1e-12`), and
@@ -401,6 +420,10 @@ spatial extra), and every test in `test_gridded.py` today.
 - **`forcing.py`**: `SiteQuery` docstring; `SiteReading.valid_fraction`.
 - **`eutropy_adapter.py`**: module and `apply_nutrient_scenario` docstrings state that
   `din_umol_l`/`dip_umol_l` are annual means on the artifact path and that the
-  summer-month ensemble tables need converting first (§3.6). No behaviour change.
+  summer-month ensemble tables need converting first (§3.6). No behaviour change. The
+  adapter's note for a site with `region=None` reads "this site is None, an open-coast
+  sub-region" (a pre-existing f-string on a `None` region, visible in test 8's output);
+  it is left alone here and recorded as a wording defect for whoever next touches the
+  adapter's behaviour, so this package's diff to that file stays docstring-only.
 - **`api.py`**: `assess_site`'s docstring sentence about a plain `ValueError` excluding a
   species is corrected to name `ForcingUnavailable` only. No behaviour change.
