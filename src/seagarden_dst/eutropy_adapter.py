@@ -7,6 +7,15 @@ named boxes. This adapter lets the DST run its growth and nutrient-removal model
 those scenario concentrations instead of the placeholder climatology, so a user can
 ask "what would this farm remove if Nemunas loading were BSAP-compliant?"
 
+WHAT THE NUMBERS MEAN. A scenario's ``din_umol_l`` and ``dip_umol_l`` are taken as
+ANNUAL MEANS. On the artifact path (`gridded.GriddedForcing`) the site's
+``din_umol_l`` is the 12-month mean of the monthly field, and `daily_forcing` scales
+that field so its 12-month mean equals the scenario's value (D-a2 design §3.6). The
+ensemble tables `scenario_from_ensemble` reads are SUMMER-MONTH concentrations and
+must be converted to an annual mean before they are passed in; this module does not
+do that conversion. The placeholder's series peaks at ``din_umol_l`` instead (its
+annual mean is about 0.725 x the value), a known asymmetry owned by package D1.
+
 DOMAIN CAVEAT, and it is not a small one: EUTROPY is a *lagoon* model. SeaGarden's
 Lithuanian pilot is on the open coast, not in the Curonian Lagoon, and the two differ
 in salinity, residence time and nutrient regime. The adapter therefore attaches an
@@ -50,7 +59,8 @@ def apply_nutrient_scenario(
 
     Args:
         context: the site.
-        scenario: at minimum ``{"din_umol_l": float, "dip_umol_l": float}``. Optional
+        scenario: at minimum ``{"din_umol_l": float, "dip_umol_l": float}``, both
+            annual means (see the module docstring). Optional
             keys ``label``, ``region``, ``box``, ``fN``, ``fP`` are carried into the
             note so the reader knows which run they are looking at.
 

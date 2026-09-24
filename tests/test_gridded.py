@@ -358,3 +358,37 @@ def test_the_daily_din_scales_with_the_sites_annual_value_and_is_untouched_other
         [ds["din_umol_l"].values[yi, m - 1, 1, 1] for m in range(4, 10)], dtype=float
     )
     assert np.array_equal(din, np.interp(days, x, values))
+
+
+def test_a_nutrient_scenario_on_an_artifact_session_returns_rather_than_raising(tmp_path):
+    """Spec test 8 - D§9 item 3 at the level a user meets it. The committed fixture's
+    salinity is random in [0, 1) psu and contraindicates every species before any
+    growth model runs, so this builds a +7 psu copy. Saccharina (floor 16 psu) stays
+    excluded on it BY DESIGN - do not 'fix' that. The defect is the crash."""
+    import shutil
+
+    import xarray as xr
+
+    from seagarden_dst.api import assess_site
+    from seagarden_dst.contracts import SiteContext
+
+    shutil.copytree(FIXTURE, tmp_path / "data")
+    artifact = tmp_path / "data" / "forcing.nc"
+    ds = xr.open_dataset(artifact, engine="h5netcdf").load()
+    ds.close()
+    ds["salinity_psu"].values[...] += np.float32(7.0)
+    ds.to_netcdf(artifact, engine="h5netcdf", mode="w")
+    _restamp(tmp_path / "data")
+
+    reader = GriddedForcing.from_directory(tmp_path / "data")
+    lats, lons = reader.latitudes, reader.longitudes
+    query = SiteQuery(_point(lats[1], lons[1]), year=2024)
+    context = SiteContext.from_reading(
+        reader.reading_at(query), label="fixture", geometry_wkt=query.geometry_wkt
+    )
+    assessment = assess_site(
+        context, forcing=reader, year=2024, eutropy={"din_umol_l": 5.0, "dip_umol_l": 0.5}
+    )
+    assert not any("GriddedForcing" in why for why in assessment.excluded.values())
+    assert "saccharina_latissima" in assessment.excluded
+    assert "psu" in assessment.excluded["saccharina_latissima"]
