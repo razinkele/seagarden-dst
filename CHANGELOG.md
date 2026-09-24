@@ -11,6 +11,26 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
+Nothing yet. Changes land here, not in the published sections below. When you cut the next
+release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
+open a section for it — `tests/test_version.py` asserts the literals agree with each other
+and with a matching heading here, but it cannot tell you that a merged change went
+unreleased.
+
+---
+
+## [0.11.1] — 2026-09-24
+
+**The refresh can read a real Copernicus grid.**
+
+534 tests (531 at 0.11.0): 407 in the default selection, 127 needing the `spatial` extra.
+CI on Python 3.11 and 3.13 across two install states.
+
+A patch cut the same afternoon as 0.11.0, because the first real annual refresh — the
+step every release since 0.4.0 has been building toward — failed four minutes in on a
+coordinate convention nobody had observed against real data. Nothing the app computes
+changes; the refresh tooling is the only code touched.
+
 ### Fixed
 
 - **The first real refresh died at the merge; Copernicus labels cells by centre.** The
@@ -23,12 +43,6 @@ tool whose caveats live only in conversation is one whose caveats get lost.
   convention, then relabels with the GridSpec's coordinates — the same cells, the
   artifact's documented convention. A wrong size or a whole-step offset raises
   `GridMismatch` naming the axis. Runbook §7 records the observation.
-
-Changes land here, not in the published sections below. When you cut the next
-release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
-open a section for it — `tests/test_version.py` asserts the literals agree with each other
-and with a matching heading here, but it cannot tell you that a merged change went
-unreleased.
 
 ---
 
