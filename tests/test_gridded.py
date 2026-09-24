@@ -134,12 +134,48 @@ def test_daily_forcing_comes_from_the_monthly_fields_not_a_sinusoid(reader):
 
 def test_two_years_give_different_series(reader):
     """The whole reason `daily_forcing` takes a year: collapsing years into one
-    climatology costs -57% to +179% in final biomass (§6.2)."""
+    climatology costs -57% to +179% in final biomass (§6.2). One site per year, because
+    a site carries the year it was read for (spec §3.6)."""
+    lats, lons = reader.latitudes, reader.longitudes
+    site_2024 = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2024)).conditions
+    site_2025 = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2025)).conditions
+    _, _, temp_2024, _ = reader.daily_forcing(site_2024, (4, 9), 2024)
+    _, _, temp_2025, _ = reader.daily_forcing(site_2025, (4, 9), 2025)
+    assert not np.allclose(temp_2024, temp_2025)
+
+
+def test_a_replaced_conditions_object_still_finds_its_cell(reader):
+    """Spec §2 / D§9 item 3. `eutropy_adapter` builds a *replaced* SiteConditions; the
+    id()-keyed side table has never seen it and raises. Cells on the object survive
+    `dataclasses.replace`."""
+    from dataclasses import replace
+
     lats, lons = reader.latitudes, reader.longitudes
     site = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2024)).conditions
-    _, _, temp_2024, _ = reader.daily_forcing(site, (4, 9), 2024)
-    _, _, temp_2025, _ = reader.daily_forcing(site, (4, 9), 2025)
-    assert not np.allclose(temp_2024, temp_2025)
+    forced = replace(site, din_umol_l=5.0, dip_umol_l=0.5)
+    days, par, temp, din = reader.daily_forcing(forced, (4, 9), 2024)
+    assert np.isfinite(din).all() and len(din) == len(days)
+
+
+def test_a_plain_site_conditions_is_refused_by_daily_forcing(reader):
+    """The refusal names what is needed, not an instance identity (spec §2)."""
+    from dataclasses import fields
+
+    from seagarden_dst.forcing import SiteConditions
+
+    lats, lons = reader.latitudes, reader.longitudes
+    site = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2024)).conditions
+    plain = SiteConditions(**{f.name: getattr(site, f.name) for f in fields(SiteConditions)})
+    with pytest.raises(ValueError, match="needs a GriddedConditions"):
+        reader.daily_forcing(plain, (4, 9), 2024)
+
+
+def test_a_site_read_for_one_year_refuses_a_series_for_another(reader):
+    """Spec §3.6: rescaling 2025's field to 2024's annual mean would substitute a year."""
+    lats, lons = reader.latitudes, reader.longitudes
+    site = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2024)).conditions
+    with pytest.raises(ValueError, match="same year"):
+        reader.daily_forcing(site, (4, 9), 2025)
 
 
 def test_a_wrapping_window_takes_january_from_the_following_year(reader):

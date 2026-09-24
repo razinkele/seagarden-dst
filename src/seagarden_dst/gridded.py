@@ -13,6 +13,7 @@ import json
 import math
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -58,6 +59,26 @@ class UnrecognisedSchema(ValueError):
         self.found = found
 
 
+@dataclass(frozen=True, kw_only=True)
+class GriddedConditions(SiteConditions):
+    """`SiteConditions` that remember which artifact cells they were averaged over.
+
+    A reader-specific index, which is why it is a subclass here and not a field on the
+    core type. `dataclasses.replace` returns this subclass with both fields intact, so a
+    nutrient scenario's replaced conditions still find their cells (D§9 item 3).
+    """
+
+    #: The (row, col) artifact cells these conditions were averaged over, as plain
+    #: Python ints, row-major. Exactly one cell under CONTAINING_CELL; two or more
+    #: under UNWEIGHTED_MEAN (spec §3.2 labels by the number of VALID cells).
+    cells: tuple[tuple[int, int], ...]
+    #: The artifact year these annual means were taken for. `daily_forcing` refuses a
+    #: `year` that differs (spec §3.6): the DIN ratio is only exactly 1.0 against the
+    #: year the site was read for, and rescaling another year's field to this year's
+    #: mean would be the silent substitution §6.2 forbids.
+    year: int
+
+
 class GriddedForcing:
     """Site conditions read from the artifact, for a polygon and a year."""
 
@@ -67,10 +88,6 @@ class GriddedForcing:
         self.latitudes = np.asarray(dataset["latitude"].values, dtype=float)
         self.longitudes = np.asarray(dataset["longitude"].values, dtype=float)
         self._years = [int(y) for y in np.asarray(dataset["year"].values)]
-        # `SiteConditions` deliberately carries no position. Remember the object this
-        # reader produced so the daily series uses the same cell rather than trying to
-        # reverse-engineer a location from annual means.
-        self._site_cells: dict[int, tuple[int, int]] = {}
 
     @classmethod
     def from_directory(cls, directory) -> GriddedForcing:
@@ -128,8 +145,7 @@ class GriddedForcing:
                 from_artifact=True,
             )
 
-        conditions = self._conditions_at(row, col, query.year, query.region)
-        self._site_cells[id(conditions)] = (row, col)
+        conditions = self._conditions_at(((row, col),), query.year, query.region)
         return SiteReading(
             conditions=conditions,
             coverage=Coverage.VALID,
@@ -141,7 +157,8 @@ class GriddedForcing:
     def daily_forcing(
         self, site: SiteConditions, window: tuple[int, int], year: int
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        row, col = self._cell_for_site(site)
+        cells = self._cell_for_site(site, year)
+        row, col = cells[0]
         start, end = window
         first = day_of_year(start, 1)
         last = day_of_year(end, 28)
@@ -217,14 +234,26 @@ class GriddedForcing:
         ]
         return float(min(distances))
 
-    def _cell_for_site(self, site: SiteConditions) -> tuple[int, int]:
-        try:
-            return self._site_cells[id(site)]
-        except KeyError as exc:
+    def _cell_for_site(self, site: SiteConditions, year: int) -> tuple[tuple[int, int], ...]:
+        """The cells a reader-produced site was averaged over, for the same year.
+
+        A handle from a different reader over a same-shape grid is accepted by design
+        (tests hold the fixture reader and a tmp copy; the app holds one reader per
+        session), so the check is on shape and year, not identity.
+        """
+        n_lat, n_lon = self.latitudes.size, self.longitudes.size
+        usable = (
+            isinstance(site, GriddedConditions)
+            and len(site.cells) > 0
+            and all(0 <= r < n_lat and 0 <= c < n_lon for r, c in site.cells)
+            and site.year == year
+        )
+        if not usable:
             raise ValueError(
-                "daily_forcing needs a SiteConditions object produced by this "
-                "GriddedForcing instance"
-            ) from exc
+                "daily_forcing needs a GriddedConditions produced by a GriddedForcing "
+                "over this grid, for the same year"
+            )
+        return site.cells
 
     def _interpolated_monthly(
         self,
@@ -244,7 +273,10 @@ class GriddedForcing:
         )
         return np.interp(days, x, values)
 
-    def _conditions_at(self, row: int, col: int, year: int, region: str | None) -> SiteConditions:
+    def _conditions_at(
+        self, cells: tuple[tuple[int, int], ...], year: int, region: str | None
+    ) -> GriddedConditions:
+        row, col = cells[0]
         year_index = self._years.index(year)
 
         def monthly(name: str) -> np.ndarray:
@@ -257,7 +289,7 @@ class GriddedForcing:
         attenuation = monthly("light_attenuation_k")
         wave = np.asarray(self._ds["significant_wave_m"].values[:, row, col], dtype=float)
 
-        return SiteConditions(
+        return GriddedConditions(
             region=region,
             salinity_psu=float(np.mean(salinity)),
             mean_temp_c=float(np.mean(temp)),
@@ -271,6 +303,8 @@ class GriddedForcing:
             depth_m=float(self._ds["depth_mean_m"].values[row, col]),
             significant_wave_m=float(np.mean(wave)),
             light_attenuation_k=float(np.mean(attenuation)),
+            cells=cells,
+            year=year,
         )
 
 
