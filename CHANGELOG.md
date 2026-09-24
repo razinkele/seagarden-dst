@@ -11,6 +11,25 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
+Nothing yet. Changes land here, not in the published sections below. When you cut the next
+release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
+open a section for it — `tests/test_version.py` asserts the literals agree with each other
+and with a matching heading here, but it cannot tell you that a merged change went
+unreleased.
+
+---
+
+## [0.11.2] — 2026-09-24
+
+**The refresh fits in memory on the serving host.**
+
+536 tests (534 at 0.11.1): 407 in the default selection, 129 needing the `spatial` extra.
+CI on Python 3.11 and 3.13 across two install states.
+
+The second patch of the afternoon. 0.11.1 got the first real refresh past the merge; run 2
+then died on memory, on the host that also serves the app. Nothing the app computes
+changes; the refresh tooling is again the only code touched.
+
 ### Fixed
 
 - **The refresh no longer needs the whole hourly wave window in memory.** Run 2 of the
@@ -21,12 +40,6 @@ tool whose caveats live only in conversation is one whose caveats get lost.
   four worker threads (`driver.REFRESH_WORKERS`) so no layer fans out across the host's
   28 cores. One month measured on laguna: 5 seconds, 2.3 GB peak. The runbook gains an
   OOM row and a memory paragraph.
-
-Changes land here, not in the published sections below. When you cut the next
-release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
-open a section for it — `tests/test_version.py` asserts the literals agree with each other
-and with a matching heading here, but it cannot tell you that a merged change went
-unreleased.
 
 ---
 
