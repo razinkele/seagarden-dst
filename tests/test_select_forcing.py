@@ -40,6 +40,19 @@ def test_without_the_spatial_stack_the_reason_names_the_extra(tmp_path, monkeypa
     assert str(tmp_path / "data") in choice.reason
 
 
+def test_without_shapely_alone_the_reason_still_names_the_extra(tmp_path, monkeypatch):
+    """shapely is imported inside `from_directory` beside xarray, before `load_pair`
+    (spec D-a2 §3.1); a missing shapely is the same 'no spatial extra' row."""
+    from seagarden_dst.gridded import select_forcing
+
+    shutil.copytree(FIXTURE, tmp_path / "data")
+    monkeypatch.setitem(sys.modules, "shapely", None)
+    choice = select_forcing(tmp_path / "data")
+    assert choice.kind == "placeholder"
+    assert choice.reason.startswith("this install has no spatial extra (xarray/h5netcdf/shapely)")
+    assert str(tmp_path / "data") in choice.reason
+
+
 def test_select_forcing_defaults_to_the_locator(monkeypatch, tmp_path):
     from seagarden_dst.gridded import select_forcing
 

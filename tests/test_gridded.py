@@ -229,3 +229,15 @@ def test_a_point_read_equals_the_direct_single_cell_computation(reader):
     wave = np.asarray(ds["significant_wave_m"].values[:, 1, 1], dtype=float)
     assert c.significant_wave_m == float(np.mean(wave))
     assert c.depth_m == float(ds["depth_mean_m"].values[1, 1])
+
+
+@pytest.mark.parametrize(
+    "wkt",
+    ["", "garbage", "POLYGON EMPTY", "MULTIPOLYGON (((20 54, 20.1 54, 20.1 54.1, 20 54)))"],
+)
+def test_unusable_geometry_raises_a_value_error_naming_the_wkt(reader, wkt):
+    """Regression guard, not a discriminator: today's regex already raises. With
+    shapely underneath, GEOSException is NOT a ValueError and POLYGON EMPTY parses,
+    so this is what forces the wrapping (spec §3.1)."""
+    with pytest.raises(ValueError, match="could not parse site geometry WKT"):
+        reader.reading_at(SiteQuery(wkt, year=2024))

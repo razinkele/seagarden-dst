@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -42,7 +41,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 _DATA_DIR_ENV = "SEAGARDEN_DATA_DIR"
 _DEFAULT_DATA_DIR = Path("data/forcing")
 
-_POINT = re.compile(r"POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)", re.IGNORECASE)
 _EARTH_RADIUS_KM = 6371.0
 
 
@@ -91,6 +89,7 @@ class GriddedForcing:
 
     @classmethod
     def from_directory(cls, directory) -> GriddedForcing:
+        import shapely  # noqa: F401 - imported here so a missing extra is reported first
         import xarray as xr
 
         # `load_pair` refuses a torn pair on the sha256 linking artifact to manifest.
@@ -119,7 +118,9 @@ class GriddedForcing:
         return self._manifest.built_on
 
     def reading_at(self, query: SiteQuery) -> SiteReading:
-        lat, lon = self._point_of(query)
+        geom = self._geometry_of(query.geometry_wkt)
+        point = geom if geom.geom_type == "Point" else geom.centroid
+        lat, lon = point.y, point.x
         row, col = self._nearest_index(lat, lon)
 
         if query.year not in self._years:
@@ -195,24 +196,23 @@ class GriddedForcing:
         par = site.par_at_depth() * (0.25 + 0.75 * season)
         return days, par, temp, din
 
-    def _point_of(self, query: SiteQuery) -> tuple[float, float]:
-        match = _POINT.fullmatch(query.geometry_wkt.strip())
-        if match:
-            lon, lat = (float(match.group(1)), float(match.group(2)))
-            return lat, lon
+    def _geometry_of(self, wkt: str):
+        """A non-empty shapely Point or Polygon, or ValueError naming the WKT.
 
-        text = query.geometry_wkt.strip()
-        if text.upper().startswith("POLYGON"):
-            numbers = [float(v) for v in re.findall(r"-?\d+(?:\.\d+)?", text)]
-            if len(numbers) >= 6 and len(numbers) % 2 == 0:
-                points = list(zip(numbers[0::2], numbers[1::2], strict=True))
-                if points[0] == points[-1]:
-                    points = points[:-1]
-                lon = sum(p[0] for p in points) / len(points)
-                lat = sum(p[1] for p in points) / len(points)
-                return lat, lon
+        shapely's own failures are not ValueErrors (`GEOSException` is a
+        `ShapelyError`), and `POLYGON EMPTY` parses to an empty geometry with no
+        centroid, so both are wrapped here (spec §3.1).
+        """
+        import shapely
+        from shapely.errors import ShapelyError
 
-        raise ValueError(f"could not parse site geometry WKT {query.geometry_wkt!r}")
+        try:
+            geom = shapely.from_wkt(wkt)
+        except ShapelyError as exc:
+            raise ValueError(f"could not parse site geometry WKT {wkt!r}") from exc
+        if geom is None or geom.is_empty or geom.geom_type not in ("Point", "Polygon"):
+            raise ValueError(f"could not parse site geometry WKT {wkt!r}")
+        return geom
 
     def _nearest_index(self, lat: float, lon: float) -> tuple[int, int]:
         row = int(np.abs(self.latitudes - lat).argmin())
@@ -361,8 +361,8 @@ def select_forcing(directory: Path | None = None) -> ForcingChoice:
         reader = GriddedForcing.from_directory(directory)
     except ImportError:
         return placeholder_choice(
-            f"this install has no spatial extra (xarray/h5netcdf), so the artifact at "
-            f"{directory} cannot be read",
+            f"this install has no spatial extra (xarray/h5netcdf/shapely), so the artifact "
+            f"at {directory} cannot be read",
             directory,
         )
     except TornPair:
