@@ -57,6 +57,12 @@ class GriddedConditions(SiteConditions):
     #: under UNWEIGHTED_MEAN (§3.2 labels by the number of VALID cells). A
     #: reader-specific index, which is why it is not on the core type.
     cells: tuple[tuple[int, int], ...] = ()
+    #: The artifact year these annual means were taken for. `daily_forcing` refuses a
+    #: `year` that differs (§3.6): the §3.6 ratio is only exactly 1.0 against the year
+    #: the site was read for, and rescaling another year's field to this year's mean
+    #: would be the silent substitution §6.2 forbids. Defaulted only because a
+    #: dataclass field after defaulted fields must be; the reader always sets it.
+    year: int | None = None
 ```
 
 Why a subclass, and why here:
@@ -74,10 +80,15 @@ Why a subclass, and why here:
   a type the whole model shares. A protocol change (passing the reading to
   `daily_forcing`) was the third option and touches five modules for no extra benefit.
 
-`_cell_for_site(site)` becomes: `isinstance(site, GriddedConditions)` and `site.cells`
-non-empty and every `(row, col)` inside this reader's grid shape; otherwise the same
-`ValueError("daily_forcing needs a SiteConditions object produced by this GriddedForcing
-instance")` as today. `_site_cells` and the constructor comment about it are deleted.
+`_cell_for_site(site, year)` becomes: `isinstance(site, GriddedConditions)`, `site.cells`
+non-empty, every `(row, col)` inside this reader's grid shape, and `site.year == year`;
+otherwise `ValueError("daily_forcing needs a GriddedConditions produced by a
+GriddedForcing over this grid, for the same year")`. The message changes because the
+check changed: a handle from a *different* reader over a same-shape grid is accepted by
+design (tests routinely hold the fixture reader and a `tmp_path` copy; the app holds one
+reader per session), so "this instance" would describe a check that is not made. Test 1
+matches on "needs a GriddedConditions". `_site_cells` and the constructor comment about
+it are deleted.
 
 ## 3 Aggregation
 
@@ -174,11 +185,11 @@ Two consequences, stated so they are not rediscovered:
   therefore checks `temp` and `din` (where `np.interp` is linear in its values) and
   not `par`.
 - **Cast to float64 before any reduction, through one helper, by construction.** The
-  artifact stores float32; today `_conditions_at` casts with `np.asarray(...,
-  dtype=float)` while `_interpolated_monthly` reads float32 scalars into a list — two
-  routes, and a denominator taken by the second route gives a ratio of
-  0.9999999547944994, not 1.0 (§3.6). So the new code has exactly one reader of the
-  per-year monthly fields:
+  artifact stores float32; today `_conditions_at` and `_interpolated_monthly` each cast
+  to float64 by their own route, and both happen to agree, but nothing enforces it: a
+  denominator accumulated in float32 (`values.mean()` on the raw slice, or a Python
+  `sum` of `np.float32` scalars) gives a ratio of 0.9999999547944994, not 1.0 (§3.6).
+  So the new code has exactly one reader of the per-year monthly fields:
 
       _cell_mean_monthly(name, year, cells) -> np.ndarray   # shape (12,), float64
 
@@ -220,13 +231,24 @@ by one ratio
 before interpolation. Temperature is not scaled; nothing else in the series changes.
 
 - **For an unmodified site the ratio is exactly 1.0**, because `site.din_umol_l` and
-  the denominator are both `np.mean` of the same `_cell_mean_monthly` output (§3.4),
-  and `x / x == 1.0` in IEEE arithmetic for finite non-zero `x`. Multiplying by 1.0 is
-  the identity, so every existing series is bit-identical and test 2's exact equality
-  still holds. There is no `isinstance`/"was it replaced" branch: the contract is that
-  the 12-month mean of the scaled monthly field for year Y equals `site.din_umol_l`.
-  (The *series* mean over a window is not that number — `np.interp` between mid-month
-  knots over a partial year does not preserve it — and is not claimed.)
+  the denominator are both `np.mean` of the same `_cell_mean_monthly` output for the
+  same year (§3.4), and `x / x == 1.0` in IEEE arithmetic for finite non-zero `x`.
+  Multiplying by 1.0 is the identity, so every existing same-year series is
+  bit-identical and test 2's exact equality still holds. There is no
+  `isinstance`/"was it replaced" branch: the contract is that the 12-month mean of the
+  scaled monthly field for year Y equals `site.din_umol_l`. (The *series* mean over a
+  window is not that number — `np.interp` between mid-month knots over a partial year
+  does not preserve it — and is not claimed.)
+- **`year` must equal the year the site was read for.** Today `daily_forcing(site,
+  window, year)` accepts any year the artifact carries, and
+  `tests/test_gridded.py::test_two_years_give_different_series` reads a site for 2024
+  and asks for 2025's series. Under the ratio that call would rescale 2025's field to
+  2024's annual mean (a factor of 1.064 on the fixture) — a year silently substituted
+  for another, which §6.2 forbids. So `GriddedConditions` carries `year`, and
+  `_cell_for_site` refuses a mismatch with the `ValueError` of §2. The app never mixes
+  them (E§10 item 1 passes `state.forcing.get().year` to both). That existing test is
+  rewritten to read one site per year, which is what it meant; its assertion is
+  unchanged. Test 12 pins the refusal.
 - **The denominator is Y's annual mean, not the window's**, because on the artifact
   path `din_umol_l` *is* the 12-month mean (§1, decision 4) and a scenario value is
   taken as one. The `eutropy_adapter` module and `apply_nutrient_scenario` docstrings
@@ -268,7 +290,7 @@ All new tests carry the `spatial` mark and live in `tests/test_gridded.py`, beca
 CI's `[app,dev]` job has no xarray and `tests/test_assess_with_artifact.py` is, by its
 own docstring, a default-selection file that never opens the fixture. The committed
 3×3 fixture — latitudes 54.000/54.0167/54.0333, longitudes 20.000/20.0278/20.0556, years
-2024–2025, only `[0,0]` invalid — supports tests 1–7 without modification. **Its data
+2024–2025, only `[0,0]` invalid — supports every test but 8 without modification. **Its data
 fields are `rng.random` in [0, 1)**, salinity included, so every shipped species is
 contraindicated on it (`tolerance_floor_psu` is 2.5 psu or more) and nothing reaches
 `daily_forcing` through `assess_site`; test 8 therefore builds a copy.
@@ -281,7 +303,7 @@ not new ones.
 1. **The discriminating test, written first.** `replace(reading.conditions,
    din_umol_l=…, dip_umol_l=…)` then `daily_forcing` returns a finite series. Fails today
    with "produced by this GriddedForcing instance". A plain `SiteConditions` with the same
-   numbers still raises that message.
+   numbers raises `ValueError` matching "needs a GriddedConditions".
 2. A POINT read at centre `[1,1]` is unchanged: `CONTAINING_CELL`, `valid_fraction is
    None`, `conditions.cells == ((1, 1),)`, and every field equals the value computed
    directly from the dataset the way today's `_conditions_at` computes it.
@@ -303,9 +325,9 @@ not new ones.
    encloses `[0,0]` and `[0,1]`; centroid (20.015, 53.999) → anchor `[0,1]`, valid: one
    valid cell inside → `CONTAINING_CELL`, `cells == ((0, 1),)`, `valid_fraction == 0.5`.
    Pins §3.2 row 3, the case where the label follows the valid count.
-7. `daily_forcing` for test 3's polygon: `temp` and `din` equal the elementwise mean of
-   the eight single-cell series (field-mean-first, pinned); `par` is not compared
-   (§3.4).
+7. `daily_forcing` for test 3's polygon, all reads and series for 2024: `temp` and
+   `din` equal the elementwise mean of the eight single-cell series (field-mean-first,
+   pinned); `par` is not compared (§3.4).
 8. **The D§9 item 3 symptom at the level a user meets it.** Copy the fixture to
    `tmp_path`, add 7.0 to `salinity_psu`, `_restamp` it (as
    `test_a_land_cell_with_nan_blocks_rather_than_raising` does), build a `SiteContext`
@@ -333,6 +355,10 @@ not new ones.
     the `temp` series is unchanged. A second assertion on the *unmodified* site: its
     `din` series is `array_equal` to the one today's code returns (computed in the
     test the way today's `_interpolated_monthly` does), pinning the ratio's exact 1.0.
+12. A site read for 2024 passed to `daily_forcing(site, (4, 9), 2025)` raises
+    `ValueError` matching "same year" (§3.6). `test_two_years_give_different_series` is
+    rewritten to read one site per year; its assertion that the two `temp` series
+    differ is unchanged.
 
 Existing guards that must pass unchanged: `test_gridded_isolation.py`, the app's
 module-scope import tests, `tests/test_select_forcing.py` in the default selection (no
@@ -340,7 +366,7 @@ spatial extra), and every test in `test_gridded.py` today.
 
 ## 6 Done-when
 
-1. Tests 1–11 above pass under `pytest -m spatial tests/`; the default selection (which
+1. Tests 1–12 above pass under `pytest -m spatial tests/`; the default selection (which
    must still import `gridded` without shapely or xarray, and now tests the shapely
    half of that) and ruff are clean.
 2. `Aggregation.UNWEIGHTED_MEAN` is produced by `reading_at` (test 3), not merely defined.
@@ -361,6 +387,10 @@ spatial extra), and every test in `test_gridded.py` today.
    id() hazard 0.10.0's known-limit paragraph cites is gone while the per-process cache
    stays out pending its own design — so that paragraph no longer reads as still
    blocked.
+8. `eutropy_adapter.py`'s module and `apply_nutrient_scenario` docstrings state the
+   annual-mean meaning and the summer-table conversion (§3.6), and `api.assess_site`'s
+   docstring no longer says a plain `ValueError` from a source excludes a species (it
+   has said so, falsely, since `d3ed04b`).
 
 ## 7 Amendments this design requires
 
@@ -372,3 +402,5 @@ spatial extra), and every test in `test_gridded.py` today.
 - **`eutropy_adapter.py`**: module and `apply_nutrient_scenario` docstrings state that
   `din_umol_l`/`dip_umol_l` are annual means on the artifact path and that the
   summer-month ensemble tables need converting first (§3.6). No behaviour change.
+- **`api.py`**: `assess_site`'s docstring sentence about a plain `ValueError` excluding a
+  species is corrected to name `ForcingUnavailable` only. No behaviour change.
