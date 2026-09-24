@@ -216,8 +216,11 @@ class SiteQuery:
     """Where and when to read.
 
     `geometry_wkt` is a WKT string, not a `shapely` geometry: shapely lives in the
-    `spatial` extra and this type is read by the model core. An empty string means
-    "use the region's coordinate", which is the placeholder path.
+    `spatial` extra and this type is read by the model core. A non-empty POINT or
+    POLYGON; the reader refuses anything else. (An earlier draft let an empty string
+    mean "the region's coordinate"; D§9 item 2 withdrew that - the app resolves a
+    region to a POINT through `region_query` and the reader never consults the
+    placeholder's coordinate table.)
     """
 
     geometry_wkt: str

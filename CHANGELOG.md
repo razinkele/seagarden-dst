@@ -11,7 +11,49 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
-Nothing yet. Changes land here, not in the published sections below. When you cut the next
+### Added
+
+- **A polygon is read as the unweighted mean over its valid cells** (package D-a2,
+  `docs/superpowers/specs/2026-09-24-package-d-a2-polygon-aggregation-design.md`). The
+  reader parses WKT with shapely (function-locally, so a pip-only install still imports
+  it), takes the cells whose coordinate values lie inside the polygon, lets the cell
+  under the polygon's centroid decide coverage, and labels the reading
+  `UNWEIGHTED_MEAN` only when two or more valid cells were averaged. The valid fraction
+  rides on the reading with no threshold; the threshold and the salinity-weighted port
+  remain package D-b's. Nothing in the app can draw a polygon until E-b, so no user-
+  visible number changes.
+
+### Fixed
+
+- **A nutrient scenario on an artifact-backed session crashed the assessment.** The
+  reader remembered a site's cell by the Python id of its `SiteConditions`, and the
+  eutropy adapter's replaced copy was a stranger to it; since 0.10.0 narrowed exclusion
+  to `ForcingUnavailable`, that raised out of `assess_site`. The cells and year now
+  travel on a `GriddedConditions` subclass that survives `dataclasses.replace`.
+- **The scenario now reaches the growth model on the artifact path.** The daily DIN
+  series is the artifact's monthly field scaled so its 12-month mean equals the site's
+  annual value — exactly 1.0 for an unmodified site, so no existing series moves.
+
+### Changed
+
+- A site read for one year refuses to produce another year's daily series; the app never
+  asked for that, and the tests that did now read one site per year.
+- An artifact year whose DIN averages exactly zero over a site's cells is refused as a
+  data defect rather than grown on as a nitrogen-free sea.
+
+### Known limits
+
+- **`din_umol_l` means two things.** On the artifact path it is the 12-month mean; the
+  placeholder's series *peaks* at it (annual mean about 0.725 × the value), so the same
+  scenario dict means somewhat different water on the two sources. The EUTROPY adapter
+  documents that scenario values are annual means and that its summer-month ensemble
+  tables need converting first. Owner: D1, where the placeholder's nutrient shape is
+  re-fitted against real forcing.
+- The per-session artifact load of 0.10.0 stands. The id() hazard that blocked a
+  process-wide cache is gone; the cache stays out pending its own design (thread safety,
+  and a refresh replacing the pair under a running server).
+
+Changes land here, not in the published sections below. When you cut the next
 release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
 open a section for it — `tests/test_version.py` asserts the literals agree with each other
 and with a matching heading here, but it cannot tell you that a merged change went
@@ -50,11 +92,13 @@ banner. Nothing about what the tool computes has changed on the placeholder.
 
 - Each session loads its own copy of the artifact (about 170 MB for the Baltic pair), and
   a session's start blocks on its checksum verification and its `xarray` load. A
-  process-wide cache waits on the D-a follow-up recorded below (D§9 item 3).
-- The eutropy nutrient-scenario path is not yet usable together with the artifact: the
-  reader's cell lookup keys on the `SiteConditions` object's Python id, and the scenario
-  builds a replaced `SiteConditions` the reader has never seen, so the eutropy path raises
-  through the reader rather than returning a caveat (recorded in the D-a design, D§9).
+  process-wide cache waited on the D-a follow-up (D§9 item 3); the follow-up landed as
+  D-a2 (see Unreleased), and the cache remains a separate design.
+- The eutropy nutrient-scenario path was not usable together with the artifact in this
+  release (fixed by D-a2, see Unreleased): the reader's cell lookup keyed on the
+  `SiteConditions` object's Python id, and the scenario builds a replaced
+  `SiteConditions` the reader has never seen, so the eutropy path raises through the
+  reader rather than returning a caveat (recorded in the D-a design, D§9).
 - Those of 0.9.0 stand: the grid check has never met real Copernicus coordinates, and the
   map and placeholder caveats remain.
 

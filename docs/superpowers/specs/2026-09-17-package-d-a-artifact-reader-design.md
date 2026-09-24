@@ -404,3 +404,20 @@ noticed:
    `SiteConditions` whose id is reused for an unrelated one) a real hazard rather
    than a currently-unexercised one.
 
+### D§9 resolution, 2026-09-24 — package D-a2
+
+All three items above are closed by
+`docs/superpowers/specs/2026-09-24-package-d-a2-polygon-aggregation-design.md`:
+
+1. **Aggregation** — a polygon is read as the unweighted mean over the valid cells
+   whose coordinate values it contains, labelled `UNWEIGHTED_MEAN`, with
+   `SiteReading.valid_fraction` surfaced and no threshold (D-a2 §3.2–§3.5).
+2. **The empty-geometry convention** — withdrawn as recorded; the `SiteQuery`
+   docstring no longer promises it.
+3. **The id()-keyed cell map** — replaced by `gridded.GriddedConditions`, a frozen
+   subclass carrying `cells` and `year`, which survives `dataclasses.replace`. One
+   correction to item 3's stated symptom: since `d3ed04b` (before D-a2) only
+   `ForcingUnavailable` excluded a species, so the eutropy path did not surface as an
+   exclusion but **crashed `assess_site`** with the reader's `ValueError`. The
+   per-process cache this item gated stays out of D-a2 by decision (D-a2 §1).
+
