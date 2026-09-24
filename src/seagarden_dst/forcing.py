@@ -207,7 +207,7 @@ class Aggregation(StrEnum):
     """
 
     CONTAINING_CELL = "containing_cell"      # farm scale - the normal case (§6.2)
-    UNWEIGHTED_MEAN = "unweighted_mean"      # provisional, multi-cell - package D-a
+    UNWEIGHTED_MEAN = "unweighted_mean"      # provisional, multi-cell - package D-a2
     SALINITY_WEIGHTED = "salinity_weighted"  # the Maar et al. port - package D-b
 
 
@@ -217,7 +217,9 @@ class SiteQuery:
 
     `geometry_wkt` is a WKT string, not a `shapely` geometry: shapely lives in the
     `spatial` extra and this type is read by the model core. A non-empty POINT or
-    POLYGON; the reader refuses anything else. (An earlier draft let an empty string
+    POLYGON for the gridded reader, which refuses anything else; the placeholder
+    ignores geometry, so `SiteContext.from_region` still passes an empty string on
+    that path. (An earlier draft let an empty string
     mean "the region's coordinate"; D§9 item 2 withdrew that - the app resolves a
     region to a POINT through `region_query` and the reader never consults the
     placeholder's coordinate table.)

@@ -215,6 +215,9 @@ class GriddedForcing:
                 )
             last += 365
 
+        # Nearly unreachable via `site`: `_cell_for_site` already requires
+        # `site.year == year`. It survives for a cross-reader handle — a `GriddedConditions`
+        # from a reader with the same grid shape but a different year set (permitted by design).
         if year not in self._years:
             raise ForcingUnavailable(
                 f"artifact does not carry year {year}; available years {self._years}"

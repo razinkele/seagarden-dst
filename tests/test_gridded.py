@@ -316,6 +316,16 @@ def test_a_concave_polygon_anchors_outside_its_own_inside_set(reader):
     assert reading.conditions.cells == ((0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 2))
 
 
+def test_a_year_the_artifact_lacks_still_reports_the_polygon_fraction(reader):
+    """Spec §3.3: `valid` has no year axis, so the fraction is computable under a
+    YEAR_ABSENT block too, and one rule serves every outcome."""
+    reading = reader.reading_at(SiteQuery(NINE_CELLS, year=2099))
+    assert reading.coverage is Coverage.YEAR_ABSENT
+    assert reading.conditions is None
+    assert reading.aggregation is Aggregation.CONTAINING_CELL
+    assert reading.valid_fraction == pytest.approx(8 / 9)
+
+
 def test_a_multi_cell_daily_series_is_the_mean_of_the_single_cell_series(reader):
     """Spec test 7, field-mean-first: temp and din over the polygon equal the elementwise
     mean of the eight single-cell series. par is derived from the averaged k and is
