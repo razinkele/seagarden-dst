@@ -9,7 +9,8 @@ E§10 item 3). This is the "D-a follow-up between E-a and E-b" that E§1 names.
 ## 1 What this package is, and what it is not
 
 D§9 recorded two claims the artifact reader made and did not implement, and one defect
-found on the way out of E-a. This package closes all three, and nothing else:
+found on the way out of E-a. This package closes all three, plus the one gap (§3.6)
+that closing the third exposes, and nothing else:
 
 1. **D§4's multi-cell aggregation.** `gridded.GriddedForcing._point_of` reduces a
    `POLYGON` to the mean of its vertices and labels every reading `CONTAINING_CELL`.
@@ -34,13 +35,14 @@ gridded daily series read DIN from the artifact's monthly field and never from t
 site, so a nutrient scenario would have reached the annual fields and the report's
 caveat but not the term that drives macroalgal growth.
 
-Three decisions taken with the user on 2026-09-24:
+Four decisions taken with the user on 2026-09-24:
 
 | Question | Decision | Why |
 |---|---|---|
 | A multi-cell polygon with some valid cells but an invalid cell under its centroid: block or assess? | **Block**, `CELL_INVALID` with the distance, the fraction still reported. | §6.2 rule (1) — the containing cell decides coverage — and §7 row 2 key off it. D-b sets the fraction threshold; relaxing "is there data here" to "is there data somewhere in here" before any threshold exists would be the unmarked fallback §7 forbids. |
 | A per-process reader cache, now that the id() hazard is gone? | **Out.** | E§10 item 3 says the fix *gates* a cache, not that this package includes one. A shared reader raises thread-safety and invalidation questions (a refresh replacing the pair under a running server) that deserve their own design. |
-| How does a nutrient scenario reach the gridded daily series? | **Scale the cell-mean monthly DIN by `site.din_umol_l` ÷ the cell-mean annual DIN** (§3.6). | The exact analogue of the placeholder, which scales a seasonal shape by the site's annual value (`forcing.py`, `din = site.din_umol_l * (1.0 - 0.55 * season)`). Keeps the seasonal drawdown the artifact exists to carry; a flat replacement would discard it, and leaving it out would make the report's "nutrients were overridden by a scenario" false for the growth model. |
+| How does a nutrient scenario reach the gridded daily series? | **Scale the cell-mean monthly DIN by `site.din_umol_l` ÷ the cell-mean annual DIN** (§3.6). | The same *shape* of mechanism as the placeholder, which multiplies a seasonal factor by the site value (`forcing.py`, `din = site.din_umol_l * (1.0 - 0.55 * season)`). Keeps the seasonal drawdown the artifact exists to carry; a flat replacement would discard it, and leaving it out would make the report's "nutrients were overridden by a scenario" false for the growth model. |
+| What does `din_umol_l` *mean* on the artifact path? Today it carries three meanings: the placeholder's series peaks at the site value (its annual mean is ≈ 0.725 × `din_umol_l`), `_conditions_at` sets it to the 12-month mean, and the EUTROPY adapter says its Nemunas tables are **summer-month** DIN. | **The 12-month mean, documented.** The adapter's docstring is amended to say a scenario's `din_umol_l` is taken as an annual mean and that the MARBEFES summer-month tables need converting before use. The placeholder's peak semantics is recorded as a known asymmetry, owner **D1** (re-parameterisation against real forcing). | Smallest honest change: nothing about the placeholder moves, the ratio stays 1.0 for an unmodified site with no branch, and the number the growth model integrates has a stated meaning. Scaling to a summer mean instead would need a "was it replaced" flag; deferring would leave the meaning unstated while the model integrates it. |
 
 ## 2 The cell handle
 
@@ -171,17 +173,26 @@ Two consequences, stated so they are not rediscovered:
   about 0.35 %. This is field-mean-first applied consistently, not a defect, and test 6
   therefore checks `temp` and `din` (where `np.interp` is linear in its values) and
   not `par`.
-- **Cast to float64 before any reduction, and reduce with one pinned call sequence.**
-  The artifact stores float32; today's `_conditions_at` casts each slice to float64
-  before `np.mean`. The new code, for every field: take the `(12, n_cells)` float64
-  block, `np.mean(block, axis=1)` for the cell-mean per month, then `np.mean` (or
-  `np.max`/`np.min`) over the 12 months. For one cell the first reduction is the
-  identity on a float64 vector and the second is the same call today's code makes, so
-  `CONTAINING_CELL` readings are bit-identical to today's and test 2 may assert exact
-  equality. Multi-cell values depend on numpy's summation order, so tests 3, 7 and 10
-  assert with `np.allclose` at `rtol=1e-12`, not `==`. Cell indices are cast to plain
-  `int` for hashing and serialisation hygiene (a numpy scalar compares equal but is not
-  a Python int).
+- **Cast to float64 before any reduction, through one helper, by construction.** The
+  artifact stores float32; today `_conditions_at` casts with `np.asarray(...,
+  dtype=float)` while `_interpolated_monthly` reads float32 scalars into a list — two
+  routes, and a denominator taken by the second route gives a ratio of
+  0.9999999547944994, not 1.0 (§3.6). So the new code has exactly one reader of the
+  per-year monthly fields:
+
+      _cell_mean_monthly(name, year, cells) -> np.ndarray   # shape (12,), float64
+
+  which takes the `(12, n_cells)` block, casts to float64, and returns
+  `np.mean(block, axis=1)`. `_conditions_at` derives every annual statistic from its
+  output (`np.mean`, `np.max`, `np.min` over the 12 values); `daily_forcing` takes both
+  its series values and its §3.6 denominator from it; the wave and depth fields use
+  the same cast-then-`np.mean(axis=…)` shape. For one cell the cell-mean is the
+  identity on a float64 vector and the month reduction is the call today's code makes,
+  so `CONTAINING_CELL` readings are bit-identical to today's and test 2 may assert
+  exact equality. Multi-cell values depend on numpy's summation order, so tests 3, 7
+  and 10 assert with `np.allclose` at `rtol=1e-12`, not `==`. Cell indices are cast to
+  plain `int` for hashing and serialisation hygiene (a numpy scalar compares equal but
+  is not a Python int).
 
 `surface_par` remains `PLACEHOLDER_SURFACE_PAR` (C§3.3). `region` is the query's.
 
@@ -208,19 +219,33 @@ by one ratio
 
 before interpolation. Temperature is not scaled; nothing else in the series changes.
 
-- **For an unmodified site the ratio is exactly 1.0**, because `site.din_umol_l` was
-  computed by `_conditions_at` from the same float64 block with the same calls (§3.4),
+- **For an unmodified site the ratio is exactly 1.0**, because `site.din_umol_l` and
+  the denominator are both `np.mean` of the same `_cell_mean_monthly` output (§3.4),
   and `x / x == 1.0` in IEEE arithmetic for finite non-zero `x`. Multiplying by 1.0 is
   the identity, so every existing series is bit-identical and test 2's exact equality
-  still holds. There is no `isinstance`/"was it replaced" branch: the contract is simply
-  that the daily series' annual mean is the site's annual mean.
-- **The denominator is Y's annual mean, not the window's**, so that a scenario's
-  `din_umol_l` — an annual figure, as `apply_nutrient_scenario` documents — is honoured
-  as one. The Y+1 months of a wrapping window are scaled by the same ratio.
-- **A zero or non-finite annual mean in the artifact is a data defect**, not a domain
-  refusal: raise `ValueError` naming the cells. Not `ForcingUnavailable`, because that
-  would quietly exclude the species (`d3ed04b`'s rule). The committed fixture's DIN is
-  strictly positive, so this branch is stated, not tested.
+  still holds. There is no `isinstance`/"was it replaced" branch: the contract is that
+  the 12-month mean of the scaled monthly field for year Y equals `site.din_umol_l`.
+  (The *series* mean over a window is not that number — `np.interp` between mid-month
+  knots over a partial year does not preserve it — and is not claimed.)
+- **The denominator is Y's annual mean, not the window's**, because on the artifact
+  path `din_umol_l` *is* the 12-month mean (§1, decision 4) and a scenario value is
+  taken as one. The `eutropy_adapter` module and `apply_nutrient_scenario` docstrings
+  are amended in this package to say so, and to say that the MARBEFES ensemble's
+  summer-month tables (`scenario_from_ensemble`) must be converted to an annual mean
+  before they are passed in — a conversion this package does not perform. The
+  placeholder's series still *peaks* at `din_umol_l` (its annual mean is about 0.725 ×
+  the value), so the same scenario dict means somewhat different water on the two
+  sources; recorded in the CHANGELOG as a known asymmetry owned by D1, which is where
+  the placeholder's nutrient shape is re-fitted against real forcing. The Y+1 months of
+  a wrapping window are scaled by the same ratio.
+- **A zero annual mean in the artifact is a data defect**, not a domain refusal: raise
+  `ValueError` naming the cells. Not `ForcingUnavailable`, because that would quietly
+  exclude the species (`d3ed04b`'s rule). This is a deliberate change from today, where
+  an all-zero DIN year returns a finite zero series and grows nothing; a cell reporting
+  no nitrogen for twelve months is a masking or unit defect, not a measurement. A
+  non-finite mean needs no guard: `SiteConditions.__post_init__` already refuses it at
+  construction from the same block. The committed fixture's DIN minimum is 0.0073, so
+  the zero branch is stated, not tested.
 - The report's existing caveat ("Nutrient concentrations were overridden by a
   scenario; other conditions are unchanged", `api.py`) becomes true on an artifact
   session without a wording change.
@@ -248,9 +273,10 @@ fields are `rng.random` in [0, 1)**, salinity included, so every shipped species
 contraindicated on it (`tolerance_floor_psu` is 2.5 psu or more) and nothing reaches
 `daily_forcing` through `assess_site`; test 8 therefore builds a copy.
 
-Polygons are given as WKT `(lon lat)` pairs. The reviewer of this design verified each
-one's inside set and anchor against the fixture; the plan uses these coordinates, not
-new ones.
+Polygons are given as WKT `(lon lat)` pairs. Three review cycles verified each one's
+inside set, centroid and anchor against the fixture by script (`shapely.contains_xy`
+over the centres, per-axis argmin for the anchor); the plan uses these coordinates,
+not new ones.
 
 1. **The discriminating test, written first.** `replace(reading.conditions,
    din_umol_l=…, dip_umol_l=…)` then `daily_forcing` returns a finite series. Fails today
@@ -295,11 +321,12 @@ new ones.
    message names the WKT. With shapely underneath, this is what forces the wrapping in
    §3.1.
 10. `POLYGON ((19.99 53.99, 20.07 53.99, 20.07 54.05, 20.045 54.05, 20.045 54.008,
-    20.015 54.008, 20.015 54.05, 19.99 54.05, 19.99 53.99))`, a U shape: seven centres
-    inside (all but `[1,1]`), centroid (20.030, 54.017) → anchor `[1,1]`, valid and
-    **not** inside: `UNWEIGHTED_MEAN`, `valid_fraction == 6/7`, `cells` has six entries
-    containing neither `(0, 0)` nor `(1, 1)`. The one case that exercises the anchor
-    rule, the label rule and the anchor's exclusion from `cells` at once.
+    20.015 54.008, 20.015 54.05, 19.99 54.05, 19.99 53.99))`, a U shape whose notch
+    (lon 20.015–20.045, lat 54.008–54.05) excludes both `[1,1]` and `[2,1]`: seven
+    centres inside, centroid (20.030, 54.017) → anchor `[1,1]`, valid and **not**
+    inside: `UNWEIGHTED_MEAN`, `valid_fraction == 6/7`, and `cells` is exactly
+    `((0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 2))`. The one case that exercises the
+    anchor rule, the label rule and the anchor's exclusion from `cells` at once.
 11. **§3.6, pinned.** From a POINT read at `[1,1]` for 2024, `replace(conditions,
     din_umol_l=2.0 * conditions.din_umol_l)`; the `din` series from `daily_forcing`
     over `(4, 9)` is `np.allclose` to twice the unmodified series (`rtol=1e-12`), and
@@ -325,9 +352,12 @@ spatial extra), and every test in `test_gridded.py` today.
    path crashed `assess_site` rather than excluding species.
 6. The data-layer design §8 carries the row split E§9 asked for and this package did not
    find: E-a (done, E§8), D-a2 (this section), E-b (E§1's third bullet), each with its
-   done-when or a pointer to it.
+   done-when or a pointer to it; E-b's row also carries the out-of-grid guard of §4 as
+   an owned item.
 7. CHANGELOG `[Unreleased]` names the change, the crash it closes and the §3.6 DIN
-   scaling (a scenario now reaches the artifact-backed growth model), and says the
+   scaling (a scenario now reaches the artifact-backed growth model), records the
+   placeholder-peak versus artifact-mean asymmetry of `din_umol_l` as a known limit
+   owned by D1, and says the
    id() hazard 0.10.0's known-limit paragraph cites is gone while the per-process cache
    stays out pending its own design — so that paragraph no longer reads as still
    blocked.
@@ -337,5 +367,8 @@ spatial extra), and every test in `test_gridded.py` today.
 - **D-a design** (`2026-09-17-package-d-a-artifact-reader-design.md`): a dated resolution
   note under D§9.
 - **Data-layer design §8**: the row split. Not a new obligation — E§9 recorded it on
-  2026-09-22 and it was never applied.
+  2026-09-22 and it was never applied. E-b's row gains the out-of-grid guard (§4).
 - **`forcing.py`**: `SiteQuery` docstring; `SiteReading.valid_fraction`.
+- **`eutropy_adapter.py`**: module and `apply_nutrient_scenario` docstrings state that
+  `din_umol_l`/`dip_umol_l` are annual means on the artifact path and that the
+  summer-month ensemble tables need converting first (§3.6). No behaviour change.
