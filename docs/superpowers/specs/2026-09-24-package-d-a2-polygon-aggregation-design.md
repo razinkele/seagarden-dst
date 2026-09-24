@@ -29,12 +29,18 @@ found on the way out of E-a. This package closes all three, and nothing else:
    `SiteQuery` docstring. The docstring is corrected; the reader's behaviour (raise) is
    unchanged.
 
-Two decisions taken with the user on 2026-09-24:
+Closing the crash exposes a second gap, which this package also owns (§3.6): the
+gridded daily series read DIN from the artifact's monthly field and never from the
+site, so a nutrient scenario would have reached the annual fields and the report's
+caveat but not the term that drives macroalgal growth.
+
+Three decisions taken with the user on 2026-09-24:
 
 | Question | Decision | Why |
 |---|---|---|
 | A multi-cell polygon with some valid cells but an invalid cell under its centroid: block or assess? | **Block**, `CELL_INVALID` with the distance, the fraction still reported. | §6.2 rule (1) — the containing cell decides coverage — and §7 row 2 key off it. D-b sets the fraction threshold; relaxing "is there data here" to "is there data somewhere in here" before any threshold exists would be the unmarked fallback §7 forbids. |
 | A per-process reader cache, now that the id() hazard is gone? | **Out.** | E§10 item 3 says the fix *gates* a cache, not that this package includes one. A shared reader raises thread-safety and invalidation questions (a refresh replacing the pair under a running server) that deserve their own design. |
+| How does a nutrient scenario reach the gridded daily series? | **Scale the cell-mean monthly DIN by `site.din_umol_l` ÷ the cell-mean annual DIN** (§3.6). | The exact analogue of the placeholder, which scales a seasonal shape by the site's annual value (`forcing.py`, `din = site.din_umol_l * (1.0 - 0.55 * season)`). Keeps the seasonal drawdown the artifact exists to carry; a flat replacement would discard it, and leaving it out would make the report's "nutrients were overridden by a scenario" false for the growth model. |
 
 ## 2 The cell handle
 
@@ -84,9 +90,13 @@ it among the imports only this file may make. Nothing outside `gridded.py` impor
 `select_forcing` at module scope and `tests/test_select_forcing.py` runs in the default
 selection on an install with no spatial extra. shapely follows the same rule: imported
 inside `from_directory` beside xarray, so a missing shapely surfaces through
-`select_forcing`'s existing `ImportError` row, and imported function-locally wherever
-WKT is parsed. A module-level `import shapely` turns the `[app,dev]` CI job red at
-collection, the failure D§2 recounts from 2026-09-17.
+`select_forcing`'s existing `ImportError` row — whose reason text is widened from
+"(xarray/h5netcdf)" to "(xarray/h5netcdf/shapely)" — and imported function-locally
+wherever WKT is parsed. A module-level `import shapely` turns the `[app,dev]` CI job red
+at collection, the failure D§2 recounts from 2026-09-17. `tests/test_select_forcing.py`
+gains a default-selection sibling of its existing "without the spatial stack" test that
+blanks `sys.modules["shapely"]` alone, since shapely is installed in every environment
+this project runs tests in and a grep (done-when 3) is not a test.
 
 Accepted geometries: a non-empty `POINT` or `POLYGON`. Anything else raises
 `ValueError(f"could not parse site geometry WKT {wkt!r}")`, as today. That guarantee does
@@ -113,13 +123,13 @@ be averaged, never by the number of cells inside — so a one-tuple never carrie
 | POLYGON | ≥ 2 | 0 or 1 | `CONTAINING_CELL` | `(anchor,)` | valid inside ÷ inside |
 | POLYGON | ≥ 2 | ≥ 2 | `UNWEIGHTED_MEAN` | the valid cells among those inside, row-major | valid inside ÷ inside |
 
-Rows 3 and 4 apply only once the anchor has passed §3.3; a blocked reading carries
-`aggregation=CONTAINING_CELL` (the anchor decided it), `conditions=None`, and, when
-inside ≥ 2, the fraction. A concave polygon whose centroid-nearest cell is not itself
-inside still uses that cell as the anchor for coverage; if the anchor is valid and ≥ 2
-inside cells are valid, the average is over the inside cells only (the anchor is not
-added). This case is stated so the plan does not guess it; it is not tested, because
-the 3×3 fixture cannot express a concave polygon that spans it.
+Rows 3 and 4 apply only once the anchor has passed §3.3; a blocked reading — either
+`YEAR_ABSENT` or `CELL_INVALID` — carries `aggregation=CONTAINING_CELL` (the anchor
+decided it), `conditions=None`, and, when inside ≥ 2, the fraction (`valid` has no year
+axis, so it is computable under both blocks and one rule serves). A concave polygon
+whose centroid-nearest cell is not itself inside still uses that cell as the anchor for
+coverage; if the anchor is valid and ≥ 2 inside cells are valid, the average is over
+the inside cells only (the anchor is not added). Test 10 pins this on a U-shaped polygon.
 
 A farm-scale polygon at native resolution is 59× narrower than a cell (§6.2), so it
 usually contains no centre at all; the anchor is then the containing cell and the label
@@ -129,9 +139,9 @@ is true.
 
 1. `query.year` not in the artifact → `YEAR_ABSENT`, `conditions=None`. Unchanged.
 2. The anchor cell's `valid` is false → `CELL_INVALID`, `conditions=None`,
-   `nearest_valid_km` from the anchor. On the multi-cell path `valid_fraction` is still
-   set, so a caller can see how much of the polygon had data. Read from `valid` by
-   value, never inferred from NaN, as today.
+   `nearest_valid_km` from the anchor. Read from `valid` by value, never inferred from
+   NaN, as today. Under both blocks, when inside ≥ 2, `valid_fraction` is still set so a
+   caller can see how much of the polygon had data.
 3. Otherwise `VALID`, with `conditions` a `GriddedConditions` over `cells`.
 
 ### 3.4 The order of averaging, fixed here
@@ -161,26 +171,59 @@ Two consequences, stated so they are not rediscovered:
   about 0.35 %. This is field-mean-first applied consistently, not a defect, and test 6
   therefore checks `temp` and `din` (where `np.interp` is linear in its values) and
   not `par`.
-- **Cast to float64 before any reduction.** The artifact stores float32; today's
-  `_conditions_at` casts each slice to float64 before `np.mean`. A month-mean taken in
-  float32 over cells would not be exact, so the new code casts first, and for a single
-  cell the two orders then coincide: `CONTAINING_CELL` readings are byte-identical to
-  today's. Cell indices are cast to plain `int` so `cells == ((1, 1),)` holds by value
-  and no numpy scalar type leaks into the field.
+- **Cast to float64 before any reduction, and reduce with one pinned call sequence.**
+  The artifact stores float32; today's `_conditions_at` casts each slice to float64
+  before `np.mean`. The new code, for every field: take the `(12, n_cells)` float64
+  block, `np.mean(block, axis=1)` for the cell-mean per month, then `np.mean` (or
+  `np.max`/`np.min`) over the 12 months. For one cell the first reduction is the
+  identity on a float64 vector and the second is the same call today's code makes, so
+  `CONTAINING_CELL` readings are bit-identical to today's and test 2 may assert exact
+  equality. Multi-cell values depend on numpy's summation order, so tests 3, 7 and 10
+  assert with `np.allclose` at `rtol=1e-12`, not `==`. Cell indices are cast to plain
+  `int` for hashing and serialisation hygiene (a numpy scalar compares equal but is not
+  a Python int).
 
 `surface_par` remains `PLACEHOLDER_SURFACE_PAR` (C§3.3). `region` is the query's.
 
 ### 3.5 `SiteReading.valid_fraction`
 
 ```python
-#: On a polygon read over two or more cells: valid cells ÷ cells whose centres lie
-#: inside the polygon. None on a point or single-cell read. Surfaced with no threshold;
-#: §6.2 (3) leaves the threshold to package D-b.
+#: On a POLYGON read with two or more cell centres inside it: valid cells ÷ cells
+#: inside, whatever `aggregation` says and whether or not coverage blocked. None on a
+#: POINT read, or on a POLYGON with fewer than two centres inside. Surfaced with no
+#: threshold; §6.2 (3) leaves the threshold to package D-b.
 valid_fraction: float | None = None
 ```
 
 Not threaded to `SiteContext` or the UI. Until E-b draws, nothing in the app can produce
 a polygon, and a field nobody can populate is a field nobody can test.
+
+### 3.6 The daily DIN honours the site's annual value
+
+`daily_forcing` builds its DIN series as: the cell-mean monthly `din_umol_l` for the
+months the window needs (Y, and Y+1 for a wrapping window, exactly as today), multiplied
+by one ratio
+
+    ratio = site.din_umol_l / mean over the 12 months of year Y of the cell-mean din_umol_l
+
+before interpolation. Temperature is not scaled; nothing else in the series changes.
+
+- **For an unmodified site the ratio is exactly 1.0**, because `site.din_umol_l` was
+  computed by `_conditions_at` from the same float64 block with the same calls (§3.4),
+  and `x / x == 1.0` in IEEE arithmetic for finite non-zero `x`. Multiplying by 1.0 is
+  the identity, so every existing series is bit-identical and test 2's exact equality
+  still holds. There is no `isinstance`/"was it replaced" branch: the contract is simply
+  that the daily series' annual mean is the site's annual mean.
+- **The denominator is Y's annual mean, not the window's**, so that a scenario's
+  `din_umol_l` — an annual figure, as `apply_nutrient_scenario` documents — is honoured
+  as one. The Y+1 months of a wrapping window are scaled by the same ratio.
+- **A zero or non-finite annual mean in the artifact is a data defect**, not a domain
+  refusal: raise `ValueError` naming the cells. Not `ForcingUnavailable`, because that
+  would quietly exclude the species (`d3ed04b`'s rule). The committed fixture's DIN is
+  strictly positive, so this branch is stated, not tested.
+- The report's existing caveat ("Nutrient concentrations were overridden by a
+  scenario; other conditions are unchanged", `api.py`) becomes true on an artifact
+  session without a wording change.
 
 ## 4 What D-a2 does not do
 
@@ -190,8 +233,9 @@ a polygon, and a field nobody can populate is a field nobody can test.
 - **No guard against a query far outside the grid.** `_nearest_index` returns the nearest
   edge cell for a point 500 km away, with no complaint. Today only `SITE_COORDINATES`'
   five points reach the reader, all inside the Baltic domain, so the hazard is
-  unreachable; E-b's drawn geometry makes it reachable. **Owner: E-b**, recorded there
-  when its design is written.
+  unreachable; E-b's drawn geometry makes it reachable. **Owner: E-b**, written into
+  E-b's row of the data-layer design §8 by this package (done-when 6), not left for a
+  document that does not yet exist.
 
 ## 5 Testing
 
@@ -242,12 +286,26 @@ new ones.
    from a POINT read at `[1,1]`, and call `assess_site(context, forcing=reader,
    year=2024, eutropy={"din_umol_l": 5.0, "dip_umol_l": 0.5})`. It **returns** — today
    it raises `ValueError` out of the reader — and `excluded` holds no entry containing
-   "GriddedForcing". Whether any species is *reportable* on random forcing is not
-   asserted; the defect is the crash.
+   "GriddedForcing". One contraindication entry **is** expected: at 7–8 psu
+   *Saccharina* (floor 16 psu) stays excluded with its floor note, and the plan must not
+   "fix" that. Whether any species is *reportable* on random forcing is not asserted;
+   the defect is the crash.
 9. Regression guard, not a discriminator (today's regex already raises): `""`,
    `"garbage"`, `"POLYGON EMPTY"` and a `MULTIPOLYGON` each raise `ValueError` whose
    message names the WKT. With shapely underneath, this is what forces the wrapping in
    §3.1.
+10. `POLYGON ((19.99 53.99, 20.07 53.99, 20.07 54.05, 20.045 54.05, 20.045 54.008,
+    20.015 54.008, 20.015 54.05, 19.99 54.05, 19.99 53.99))`, a U shape: seven centres
+    inside (all but `[1,1]`), centroid (20.030, 54.017) → anchor `[1,1]`, valid and
+    **not** inside: `UNWEIGHTED_MEAN`, `valid_fraction == 6/7`, `cells` has six entries
+    containing neither `(0, 0)` nor `(1, 1)`. The one case that exercises the anchor
+    rule, the label rule and the anchor's exclusion from `cells` at once.
+11. **§3.6, pinned.** From a POINT read at `[1,1]` for 2024, `replace(conditions,
+    din_umol_l=2.0 * conditions.din_umol_l)`; the `din` series from `daily_forcing`
+    over `(4, 9)` is `np.allclose` to twice the unmodified series (`rtol=1e-12`), and
+    the `temp` series is unchanged. A second assertion on the *unmodified* site: its
+    `din` series is `array_equal` to the one today's code returns (computed in the
+    test the way today's `_interpolated_monthly` does), pinning the ratio's exact 1.0.
 
 Existing guards that must pass unchanged: `test_gridded_isolation.py`, the app's
 module-scope import tests, `tests/test_select_forcing.py` in the default selection (no
@@ -255,8 +313,9 @@ spatial extra), and every test in `test_gridded.py` today.
 
 ## 6 Done-when
 
-1. Tests 1–9 above pass under `pytest -m spatial tests/`; the default selection (which
-   must still import `gridded` without shapely or xarray) and ruff are clean.
+1. Tests 1–11 above pass under `pytest -m spatial tests/`; the default selection (which
+   must still import `gridded` without shapely or xarray, and now tests the shapely
+   half of that) and ruff are clean.
 2. `Aggregation.UNWEIGHTED_MEAN` is produced by `reading_at` (test 3), not merely defined.
 3. `grep -n _site_cells src/` returns nothing, and `grep -n "^import shapely\|^from
    shapely" src/seagarden_dst/gridded.py` returns nothing.
@@ -267,7 +326,11 @@ spatial extra), and every test in `test_gridded.py` today.
 6. The data-layer design §8 carries the row split E§9 asked for and this package did not
    find: E-a (done, E§8), D-a2 (this section), E-b (E§1's third bullet), each with its
    done-when or a pointer to it.
-7. CHANGELOG `[Unreleased]` names the change and the eutropy defect it closes.
+7. CHANGELOG `[Unreleased]` names the change, the crash it closes and the §3.6 DIN
+   scaling (a scenario now reaches the artifact-backed growth model), and says the
+   id() hazard 0.10.0's known-limit paragraph cites is gone while the per-process cache
+   stays out pending its own design — so that paragraph no longer reads as still
+   blocked.
 
 ## 7 Amendments this design requires
 
