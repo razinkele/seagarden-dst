@@ -143,7 +143,63 @@ def open_window(
     if surface:
         request["minimum_depth"] = SURFACE_MIN_DEPTH
         request["maximum_depth"] = SURFACE_MAX_DEPTH
-    return open_dataset(**request)
+    return snap_to_grid(open_dataset(**request), grid)
+
+
+class GridMismatch(ValueError):
+    """The window Copernicus returned is not the set of cells the GridSpec declares."""
+
+
+#: How far a source coordinate may sit from the convention it is matched against,
+#: as a fraction of the grid step. A quarter step separates "the same cells, labelled
+#: by centre instead of edge" (offset exactly half a step, plus the ~2e-5 degree
+#: product-to-product wobble seen on 2026-09-24) from "different cells" (offset of a
+#: whole step), with margin on both sides.
+_SNAP_TOLERANCE_STEPS: float = 0.25
+
+
+def snap_to_grid(data: xr.Dataset, grid: GridSpec) -> xr.Dataset:
+    """Relabel a Copernicus window with the GridSpec's own coordinates (R7 of C-c1,
+    confirmed on the first real refresh, 2026-09-24).
+
+    Copernicus labels a cell by its CENTRE; `GridSpec.lats()`/`lons()` are LOWER EDGES.
+    Both name the same cell - the centre at 53.50829 is the middle of the cell whose
+    southern edge is 53.5 - so `xr.merge(join="exact")` between a Copernicus layer and
+    EMODnet (which is built on the edges) failed on labels, not on data. Worse, the
+    physics and wave products differ from each other in the fifth decimal, so even the
+    four Copernicus layers would not exact-join among themselves.
+
+    This function is the shared snapping step the refresh runbook §7 called for:
+    every Copernicus layer passes through `open_window`, so every one is relabelled the
+    same way, and no layer patches its own coordinates. It refuses anything that is
+    not the same cells - a wrong size, or an offset that is neither ~0 (already on the
+    edges, as every driver fixture is) nor ~half a step (centres) - because relabelling
+    a *different* window would attest an extent the artifact does not have.
+    """
+    import numpy as np
+
+    expected = {
+        "latitude": (grid.lats(), grid.lat_step),
+        "longitude": (grid.lons(), grid.lon_step),
+    }
+    for dim, (edges, step) in expected.items():
+        size = data.sizes.get(dim)
+        if size != len(edges):
+            raise GridMismatch(
+                f"'{dim}' has {size} points from the source but the GridSpec declares "
+                f"{len(edges)}; the window is not the grid, so it is not relabelled"
+            )
+        native = np.asarray(data[dim].values, dtype="float64")
+        tolerance = _SNAP_TOLERANCE_STEPS * step
+        on_edges = np.abs(native - edges).max() <= tolerance
+        on_centres = np.abs(native - (edges + step / 2.0)).max() <= tolerance
+        if not (on_edges or on_centres):
+            raise GridMismatch(
+                f"'{dim}' coordinates from the source sit neither on the GridSpec's "
+                f"cell edges nor on its cell centres (first value {native[0]!r} against "
+                f"edge {edges[0]!r}); refusing to relabel a different set of cells"
+            )
+    return data.assign_coords(latitude=grid.lats(), longitude=grid.lons())
 
 
 def to_yearly(data: xr.DataArray) -> xr.DataArray:

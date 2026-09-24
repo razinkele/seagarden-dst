@@ -160,3 +160,74 @@ def test_drop_depth_still_removes_a_single_level_axis():
 
     assert "depth" not in dropped.dims
     assert "depth" not in dropped.coords
+
+
+# --- the coordinate convention, confirmed against real data on 2026-09-24 ---------------
+
+
+def _centre_labelled_dataset(years: list[int], jitter: float = 0.0):
+    """What Copernicus actually returns: cell CENTRES, half a step above GridSpec's
+    lower edges, and (between products) not bit-identical - the wave grid differs
+    from the physics grid in the fifth decimal."""
+    grid = _tiny_grid()
+    data = _monthly_dataset(years)
+    return data.assign_coords(
+        latitude=grid.lats() + grid.lat_step / 2 + jitter,
+        longitude=grid.lons() + grid.lon_step / 2 - jitter,
+    )
+
+
+def test_open_window_snaps_centre_labelled_coordinates_onto_the_grid():
+    """The first real refresh (2026-09-24) died in `xr.merge(join="exact")`: every
+    Copernicus layer came back labelled by cell centre (53.50829 for the cell GridSpec
+    labels 53.5), and the physics and wave grids differed from each other by ~2e-5
+    degrees. Same cells, different labels. `open_window` relabels with the GridSpec's
+    own coordinates so the layers exact-join with each other and with EMODnet."""
+    import numpy as np
+
+    from seagarden_dst.refresh.sources import cmems
+
+    grid = _tiny_grid()
+    opened = cmems.open_window(
+        "ds-id", ["so"], grid, YearRange(start=2024, end=2024),
+        opener=lambda **kwargs: _centre_labelled_dataset([2024], jitter=2e-5),
+    )
+    assert np.array_equal(opened["latitude"].values, grid.lats())
+    assert np.array_equal(opened["longitude"].values, grid.lons())
+
+
+def test_open_window_leaves_edge_labelled_coordinates_bit_identical():
+    """Fixtures built straight from GridSpec (every driver test) still pass through
+    unchanged - the snap is a relabel of the same cells, not a shift."""
+    import numpy as np
+
+    from seagarden_dst.refresh.sources import cmems
+
+    grid = _tiny_grid()
+    opened = cmems.open_window(
+        "ds-id", ["so"], grid, YearRange(start=2024, end=2024),
+        opener=lambda **kwargs: _monthly_dataset([2024]),
+    )
+    assert np.array_equal(opened["latitude"].values, grid.lats())
+    assert np.array_equal(opened["longitude"].values, grid.lons())
+
+
+def test_open_window_refuses_a_window_that_is_not_the_grid():
+    """A whole-step offset is a different set of cells, never relabelled; a wrong
+    size likewise. Both name the axis so the log says which product moved."""
+    from seagarden_dst.refresh.sources import cmems
+
+    grid = _tiny_grid()
+    shifted = _monthly_dataset([2024]).assign_coords(latitude=grid.lats() + grid.lat_step)
+    with pytest.raises(cmems.GridMismatch, match="latitude"):
+        cmems.open_window(
+            "ds-id", ["so"], grid, YearRange(start=2024, end=2024),
+            opener=lambda **kwargs: shifted,
+        )
+
+    short = _monthly_dataset([2024]).isel(longitude=slice(0, 2))
+    with pytest.raises(cmems.GridMismatch, match="longitude"):
+        cmems.open_window(
+            "ds-id", ["so"], grid, YearRange(start=2024, end=2024),
+            opener=lambda **kwargs: short,
+        )

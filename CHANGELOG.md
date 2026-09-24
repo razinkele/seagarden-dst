@@ -19,6 +19,33 @@ unreleased.
 
 ---
 
+## [0.11.1] — 2026-09-24
+
+**The refresh can read a real Copernicus grid.**
+
+534 tests (531 at 0.11.0): 407 in the default selection, 127 needing the `spatial` extra.
+CI on Python 3.11 and 3.13 across two install states.
+
+A patch cut the same afternoon as 0.11.0, because the first real annual refresh — the
+step every release since 0.4.0 has been building toward — failed four minutes in on a
+coordinate convention nobody had observed against real data. Nothing the app computes
+changes; the refresh tooling is the only code touched.
+
+### Fixed
+
+- **The first real refresh died at the merge; Copernicus labels cells by centre.** The
+  refresh runbook §7 predicted this and it happened one step earlier than predicted:
+  every Copernicus product returned the artifact grid's shape and steps but labelled by
+  cell centre (53.50829 for the cell the GridSpec labels 53.5), and the physics and wave
+  grids differed from each other in the fifth decimal, so `xr.merge(join="exact")`
+  refused. `cmems.open_window` now passes every window through `snap_to_grid`, which
+  checks the shape and that the coordinates sit within a quarter step of either
+  convention, then relabels with the GridSpec's coordinates — the same cells, the
+  artifact's documented convention. A wrong size or a whole-step offset raises
+  `GridMismatch` naming the axis. Runbook §7 records the observation.
+
+---
+
 ## [0.11.0] — 2026-09-24
 
 **The reader aggregates a polygon, and a nutrient scenario survives the artifact.**
