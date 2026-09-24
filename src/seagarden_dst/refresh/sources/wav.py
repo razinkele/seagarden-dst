@@ -58,6 +58,13 @@ VERSION = "202411"
 WAVE_BASELINE_YEARS: list[int] = [2023, 2024, 2025]
 P95 = 0.95
 
+#: Rows of latitude per dask chunk when the source is lazy. Run 2 of the first real
+#: refresh (2026-09-24) was OOM-killed at 30.7 GB resident because the layer rechunked
+#: the 25.9 GB hourly source to ONE chunk before the quantile. One calendar month over
+#: three years is ~2.15 GB at full extent; 39-row bands (of 390) make that ~215 MB a
+#: chunk, and with the driver's four workers the whole layer stays under a few GB.
+LATITUDE_BAND_ROWS = 39
+
 
 class CopernicusWav:
     """One layer, one dataset (C§5). The only layer with a window of its own."""
@@ -88,16 +95,27 @@ class CopernicusWav:
         )
         hourly = source["VHM0"]
 
-        # quantile needs the reduced axis in one chunk; on a lazy dask-backed array
-        # that is a rechunk, not a load, so the hours still never land on disk.
-        if hourly.chunks is not None:
-            hourly = hourly.chunk({"time": -1})
-
-        p95 = hourly.groupby("time.month").quantile(P95, dim="time")
-        # groupby().quantile() attaches a scalar `quantile` coord. check_shapes looks
-        # at dims, so it would pass — and the coord would ship in the artifact as an
-        # unexplained 0.95 that no manifest field accounts for.
-        p95 = p95.drop_vars("quantile", errors="ignore")
+        # Month by month, never the whole window at once. quantile needs the reduced
+        # axis in one chunk, and an earlier version rechunked the ENTIRE hourly array
+        # to one chunk - 25.9 GB - which the kernel OOM-killed on the first real run.
+        # One calendar month's hours (all three years) in latitude bands is the same
+        # arithmetic per cell with a bounded footprint, and on a lazy source it is
+        # still a rechunk, not a load: the hours never land on disk (R2).
+        months = sorted({int(m) for m in hourly["time"].dt.month.values})
+        per_month = []
+        for month in months:
+            hours = hourly.sel(time=hourly["time"].dt.month == month)
+            if hours.chunks is not None:
+                hours = hours.chunk(
+                    {"time": -1, "latitude": LATITUDE_BAND_ROWS, "longitude": -1}
+                )
+            # quantile() attaches a scalar `quantile` coord. check_shapes looks at
+            # dims, so it would pass - and the coord would ship in the artifact as an
+            # unexplained 0.95 that no manifest field accounts for.
+            per_month.append(
+                hours.quantile(P95, dim="time").drop_vars("quantile", errors="ignore")
+            )
+        p95 = xr.concat(per_month, dim=xr.DataArray(months, dims="month", name="month"))
 
         return xr.Dataset(
             {"significant_wave_m": p95.transpose("month", "latitude", "longitude")}

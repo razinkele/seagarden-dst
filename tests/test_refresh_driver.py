@@ -462,3 +462,24 @@ def test_the_cli_takes_its_extent_from_the_baltic_grid_alone(
     )
     assert code == 1
     assert called, "the refresh branch never asked for the Baltic grid"
+
+
+def test_run_refresh_bounds_dask_to_a_few_workers(tmp_path, small_grid, nine_variable_layers):
+    """Run 2 of the first real refresh (2026-09-24) was OOM-killed on the serving host.
+    dask's default threaded scheduler runs one chunk per core - 28 on laguna - so a
+    refresh must bound its own concurrency rather than trust the host's core count."""
+    import dask
+
+    from seagarden_dst.refresh import driver
+
+    with dask.config.set(num_workers=99):
+        run_refresh(
+            nine_variable_layers,
+            grid=small_grid,
+            years=YearRange(start=2024, end=2025),
+            target_dir=tmp_path / "out",
+            workdir=tmp_path / "work",
+        )
+        assert dask.config.get("num_workers") == driver.REFRESH_WORKERS
+        assert dask.config.get("scheduler") == "threads"
+    assert driver.REFRESH_WORKERS <= 4

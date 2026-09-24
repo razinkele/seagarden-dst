@@ -11,7 +11,18 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
-Nothing yet. Changes land here, not in the published sections below. When you cut the next
+### Fixed
+
+- **The refresh no longer needs the whole hourly wave window in memory.** Run 2 of the
+  first real refresh was OOM-killed at 30.7 GB on the 32 GB host that also serves the
+  app: the wave layer rechunked the 25.9 GB hourly source into one array before its
+  monthly 95th percentile. It now reduces month by month in 39-row latitude bands
+  (`wav.LATITUDE_BAND_ROWS`), the same arithmetic per cell, and the driver pins dask to
+  four worker threads (`driver.REFRESH_WORKERS`) so no layer fans out across the host's
+  28 cores. One month measured on laguna: 5 seconds, 2.3 GB peak. The runbook gains an
+  OOM row and a memory paragraph.
+
+Changes land here, not in the published sections below. When you cut the next
 release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
 open a section for it — `tests/test_version.py` asserts the literals agree with each other
 and with a matching heading here, but it cannot tell you that a merged change went
