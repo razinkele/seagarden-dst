@@ -11,6 +11,27 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
+Nothing yet. Changes land here, not in the published sections below. When you cut the next
+release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
+open a section for it — `tests/test_version.py` asserts the literals agree with each other
+and with a matching heading here, but it cannot tell you that a merged change went
+unreleased.
+
+---
+
+## [0.11.0] — 2026-09-24
+
+**The reader aggregates a polygon, and a nutrient scenario survives the artifact.**
+
+531 tests (513 at 0.10.0): 407 in the default selection, 124 needing the `spatial` extra.
+CI on Python 3.11 and 3.13 across two install states.
+
+Package D-a2, the follow-up the D-a design owed. Two of its three items are internal
+plumbing that no user can reach until E-b draws polygons; the third closes a crash that
+any artifact-backed session with a EUTROPY scenario would have hit. On the placeholder,
+nothing the tool computes has changed; on the artifact, every single-cell reading is
+bit-identical to 0.10.0's.
+
 ### Added
 
 - **A polygon is read as the unweighted mean over its valid cells** (package D-a2,
@@ -52,12 +73,14 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 - The per-session artifact load of 0.10.0 stands. The id() hazard that blocked a
   process-wide cache is gone; the cache stays out pending its own design (thread safety,
   and a refresh replacing the pair under a running server).
-
-Changes land here, not in the published sections below. When you cut the next
-release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
-open a section for it — `tests/test_version.py` asserts the literals agree with each other
-and with a matching heading here, but it cannot tell you that a merged change went
-unreleased.
+- **A polygon whose inside cells are all invalid can still assess.** Coverage is decided
+  by the cell under the polygon's centroid, so a polygon spanning invalid cells around a
+  valid centroid cell reads that one cell, labelled `CONTAINING_CELL`, with
+  `valid_fraction` of 0.0 — and for a concave shape that cell may lie outside the
+  polygon. This is the input package D-b's fraction threshold exists to act on; until
+  then the fraction is shown and nothing is refused. Unreachable until E-b draws.
+- Those of 0.10.0 stand: each session loads its own artifact; the grid check has never met
+  real Copernicus coordinates; the map and placeholder caveats remain.
 
 ---
 
