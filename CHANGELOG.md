@@ -19,6 +19,71 @@ unreleased.
 
 ---
 
+## [0.11.0] — 2026-09-24
+
+**The reader aggregates a polygon, and a nutrient scenario survives the artifact.**
+
+531 tests (513 at 0.10.0): 407 in the default selection, 124 needing the `spatial` extra.
+CI on Python 3.11 and 3.13 across two install states.
+
+Package D-a2, the follow-up the D-a design owed. Two of its three items are internal
+plumbing that no user can reach until E-b draws polygons; the third closes a crash that
+any artifact-backed session with a EUTROPY scenario would have hit. On the placeholder,
+nothing the tool computes has changed; on the artifact, every single-cell reading is
+bit-identical to 0.10.0's.
+
+### Added
+
+- **A polygon is read as the unweighted mean over its valid cells** (package D-a2,
+  `docs/superpowers/specs/2026-09-24-package-d-a2-polygon-aggregation-design.md`). The
+  reader parses WKT with shapely (function-locally, so a pip-only install still imports
+  it), takes the cells whose coordinate values lie inside the polygon, lets the cell
+  under the polygon's centroid decide coverage, and labels the reading
+  `UNWEIGHTED_MEAN` only when two or more valid cells were averaged. The valid fraction
+  rides on the reading with no threshold; the threshold and the salinity-weighted port
+  remain package D-b's. Nothing in the app can draw a polygon until E-b, so no user-
+  visible number changes.
+
+### Fixed
+
+- **A nutrient scenario on an artifact-backed session crashed the assessment.** The
+  reader remembered a site's cell by the Python id of its `SiteConditions`, and the
+  eutropy adapter's replaced copy was a stranger to it; since 0.10.0 narrowed exclusion
+  to `ForcingUnavailable`, that raised out of `assess_site`. The cells and year now
+  travel on a `GriddedConditions` subclass that survives `dataclasses.replace`.
+- **The scenario now reaches the growth model on the artifact path.** The daily DIN
+  series is the artifact's monthly field scaled so its 12-month mean equals the site's
+  annual value — exactly 1.0 for an unmodified site, so no existing series moves.
+
+### Changed
+
+- A site read for one year refuses to produce another year's daily series; the app never
+  asked for that, and the tests that did now read one site per year.
+- An artifact year whose DIN averages exactly zero over a site's cells is refused as a
+  data defect rather than grown on as a nitrogen-free sea.
+
+### Known limits
+
+- **`din_umol_l` means two things.** On the artifact path it is the 12-month mean; the
+  placeholder's series *peaks* at it (annual mean about 0.725 × the value), so the same
+  scenario dict means somewhat different water on the two sources. The EUTROPY adapter
+  documents that scenario values are annual means and that its summer-month ensemble
+  tables need converting first. Owner: D1, where the placeholder's nutrient shape is
+  re-fitted against real forcing.
+- The per-session artifact load of 0.10.0 stands. The id() hazard that blocked a
+  process-wide cache is gone; the cache stays out pending its own design (thread safety,
+  and a refresh replacing the pair under a running server).
+- **A polygon whose inside cells are all invalid can still assess.** Coverage is decided
+  by the cell under the polygon's centroid, so a polygon spanning invalid cells around a
+  valid centroid cell reads that one cell, labelled `CONTAINING_CELL`, with
+  `valid_fraction` of 0.0 — and for a concave shape that cell may lie outside the
+  polygon. This is the input package D-b's fraction threshold exists to act on; until
+  then the fraction is shown and nothing is refused. Unreachable until E-b draws.
+- Those of 0.10.0 stand: each session loads its own artifact; the grid check has never met
+  real Copernicus coordinates; the map and placeholder caveats remain.
+
+---
+
 ## [0.10.0] — 2026-09-23
 
 **The app reads the artifact when one is present, and says so.**
@@ -50,11 +115,13 @@ banner. Nothing about what the tool computes has changed on the placeholder.
 
 - Each session loads its own copy of the artifact (about 170 MB for the Baltic pair), and
   a session's start blocks on its checksum verification and its `xarray` load. A
-  process-wide cache waits on the D-a follow-up recorded below (D§9 item 3).
-- The eutropy nutrient-scenario path is not yet usable together with the artifact: the
-  reader's cell lookup keys on the `SiteConditions` object's Python id, and the scenario
-  builds a replaced `SiteConditions` the reader has never seen, so the eutropy path raises
-  through the reader rather than returning a caveat (recorded in the D-a design, D§9).
+  process-wide cache waited on the D-a follow-up (D§9 item 3); the follow-up landed as
+  D-a2 (see Unreleased), and the cache remains a separate design.
+- The eutropy nutrient-scenario path was not usable together with the artifact in this
+  release (fixed by D-a2, see Unreleased): the reader's cell lookup keyed on the
+  `SiteConditions` object's Python id, and the scenario builds a replaced
+  `SiteConditions` the reader has never seen, so the eutropy path raises through the
+  reader rather than returning a caveat (recorded in the D-a design, D§9).
 - Those of 0.9.0 stand: the grid check has never met real Copernicus coordinates, and the
   map and placeholder caveats remain.
 

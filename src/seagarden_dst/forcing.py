@@ -207,7 +207,7 @@ class Aggregation(StrEnum):
     """
 
     CONTAINING_CELL = "containing_cell"      # farm scale - the normal case (§6.2)
-    UNWEIGHTED_MEAN = "unweighted_mean"      # provisional, multi-cell - package D-a
+    UNWEIGHTED_MEAN = "unweighted_mean"      # provisional, multi-cell - package D-a2
     SALINITY_WEIGHTED = "salinity_weighted"  # the Maar et al. port - package D-b
 
 
@@ -216,8 +216,13 @@ class SiteQuery:
     """Where and when to read.
 
     `geometry_wkt` is a WKT string, not a `shapely` geometry: shapely lives in the
-    `spatial` extra and this type is read by the model core. An empty string means
-    "use the region's coordinate", which is the placeholder path.
+    `spatial` extra and this type is read by the model core. A non-empty POINT or
+    POLYGON for the gridded reader, which refuses anything else; the placeholder
+    ignores geometry, so `SiteContext.from_region` still passes an empty string on
+    that path. (An earlier draft let an empty string
+    mean "the region's coordinate"; D§9 item 2 withdrew that - the app resolves a
+    region to a POINT through `region_query` and the reader never consults the
+    placeholder's coordinate table.)
     """
 
     geometry_wkt: str
@@ -244,6 +249,11 @@ class SiteReading:
     from_artifact: bool = False
     #: Age of the artifact in months, for §7's 18-month staleness note.
     stale_months: int | None = None
+    #: On a POLYGON read with two or more cell coordinates inside it: valid cells ÷
+    #: cells inside, whatever `aggregation` says and whether or not coverage blocked.
+    #: None on a POINT read, or on a POLYGON with fewer than two inside. Surfaced with
+    #: no threshold; §6.2 (3) leaves the threshold to package D-b.
+    valid_fraction: float | None = None
 
     @property
     def is_assessable(self) -> bool:

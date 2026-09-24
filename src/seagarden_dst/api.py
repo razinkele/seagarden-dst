@@ -136,8 +136,9 @@ def assess_site(
             which `PlaceholderForcing.daily_forcing` ignores. A species whose
             cultivation window wraps the year boundary needs `year + 1` too
             (`gridded.GriddedForcing.daily_forcing`); when the source raises
-            `ValueError` because it cannot cover that window, the species is
-            excluded with that message rather than the whole assessment failing.
+            `ForcingUnavailable` because it cannot cover that window, the species
+            is excluded with that message rather than the whole assessment failing.
+            Any other `ValueError` from a source is a defect and propagates.
         params: parameter set; defaults to the shipped one.
         species: species keys to consider; defaults to all.
         methods: optional species_key -> method_key overrides.

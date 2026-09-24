@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import math
 import os
-import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -41,7 +41,6 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 _DATA_DIR_ENV = "SEAGARDEN_DATA_DIR"
 _DEFAULT_DATA_DIR = Path("data/forcing")
 
-_POINT = re.compile(r"POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)", re.IGNORECASE)
 _EARTH_RADIUS_KM = 6371.0
 
 
@@ -58,6 +57,26 @@ class UnrecognisedSchema(ValueError):
         self.found = found
 
 
+@dataclass(frozen=True, kw_only=True)
+class GriddedConditions(SiteConditions):
+    """`SiteConditions` that remember which artifact cells they were averaged over.
+
+    A reader-specific index, which is why it is a subclass here and not a field on the
+    core type. `dataclasses.replace` returns this subclass with both fields intact, so a
+    nutrient scenario's replaced conditions still find their cells (D§9 item 3).
+    """
+
+    #: The (row, col) artifact cells these conditions were averaged over, as plain
+    #: Python ints, row-major. Exactly one cell under CONTAINING_CELL; two or more
+    #: under UNWEIGHTED_MEAN (spec §3.2 labels by the number of VALID cells).
+    cells: tuple[tuple[int, int], ...]
+    #: The artifact year these annual means were taken for. `daily_forcing` refuses a
+    #: `year` that differs (spec §3.6): the DIN ratio is only exactly 1.0 against the
+    #: year the site was read for, and rescaling another year's field to this year's
+    #: mean would be the silent substitution §6.2 forbids.
+    year: int
+
+
 class GriddedForcing:
     """Site conditions read from the artifact, for a polygon and a year."""
 
@@ -67,13 +86,10 @@ class GriddedForcing:
         self.latitudes = np.asarray(dataset["latitude"].values, dtype=float)
         self.longitudes = np.asarray(dataset["longitude"].values, dtype=float)
         self._years = [int(y) for y in np.asarray(dataset["year"].values)]
-        # `SiteConditions` deliberately carries no position. Remember the object this
-        # reader produced so the daily series uses the same cell rather than trying to
-        # reverse-engineer a location from annual means.
-        self._site_cells: dict[int, tuple[int, int]] = {}
 
     @classmethod
     def from_directory(cls, directory) -> GriddedForcing:
+        import shapely  # noqa: F401 - imported here so a missing extra is reported first
         import xarray as xr
 
         # `load_pair` refuses a torn pair on the sha256 linking artifact to manifest.
@@ -101,9 +117,42 @@ class GriddedForcing:
         reach past a leading underscore for."""
         return self._manifest.built_on
 
+    def _select_cells(
+        self, query: SiteQuery
+    ) -> tuple[tuple[int, int], tuple[tuple[int, int], ...] | None]:
+        """(anchor, inside): the cell that decides coverage, and for a polygon the cells
+        whose coordinate values it contains (spec §3.2).
+
+        "Inside" uses the cell's coordinate value (`latitudes[row]`, `longitudes[col]`),
+        the location this reader already assigns each cell — NOT the value plus half a
+        step. The anchor is the cell nearest the polygon's area centroid, by the same
+        per-axis argmin a POINT uses.
+        """
+        import shapely
+
+        geom = self._geometry_of(query.geometry_wkt)
+        if geom.geom_type == "Point":
+            return self._nearest_index(geom.y, geom.x), None
+        centroid = geom.centroid
+        anchor = self._nearest_index(centroid.y, centroid.x)
+        lon_grid, lat_grid = np.meshgrid(self.longitudes, self.latitudes)
+        mask = shapely.contains_xy(geom, lon_grid, lat_grid)
+        rows, cols = np.nonzero(mask)
+        inside = tuple((int(r), int(c)) for r, c in zip(rows, cols, strict=True))
+        return anchor, inside
+
     def reading_at(self, query: SiteQuery) -> SiteReading:
-        lat, lon = self._point_of(query)
-        row, col = self._nearest_index(lat, lon)
+        anchor, inside = self._select_cells(query)
+        row, col = anchor
+        valid = np.asarray(self._ds["valid"].values, dtype=bool)
+
+        # The fraction is computable under every outcome (`valid` has no year axis), so
+        # one rule serves: set it whenever two or more cells lie inside (spec §3.2).
+        valid_inside: tuple[tuple[int, int], ...] = ()
+        fraction: float | None = None
+        if inside is not None and len(inside) >= 2:
+            valid_inside = tuple(cell for cell in inside if valid[cell])
+            fraction = len(valid_inside) / len(inside)
 
         if query.year not in self._years:
             # Never substitutes another year (§6.2): interannual spread is the dominant
@@ -114,11 +163,13 @@ class GriddedForcing:
                 year=query.year,
                 aggregation=Aggregation.CONTAINING_CELL,
                 from_artifact=True,
+                valid_fraction=fraction,
             )
 
-        # The `valid` field, by value. NEVER inferred from NaN: the committed fixture's
+        # The anchor decides coverage (§6.2 rule 1; decision 1 of the D-a2 design). The
+        # `valid` field, by value. NEVER inferred from NaN: the committed fixture's
         # invalid cell holds finite numbers, so a NaN test would call it assessable.
-        if not bool(self._ds["valid"].values[row, col]):
+        if not bool(valid[row, col]):
             return SiteReading(
                 conditions=None,
                 coverage=Coverage.CELL_INVALID,
@@ -126,22 +177,31 @@ class GriddedForcing:
                 aggregation=Aggregation.CONTAINING_CELL,
                 nearest_valid_km=self._nearest_valid_km(row, col),
                 from_artifact=True,
+                valid_fraction=fraction,
             )
 
-        conditions = self._conditions_at(row, col, query.year, query.region)
-        self._site_cells[id(conditions)] = (row, col)
+        # The label follows the number of VALID cells averaged, never the inside count,
+        # so a one-tuple never carries UNWEIGHTED_MEAN. The anchor is not added to a
+        # multi-cell average it does not belong to (a concave polygon).
+        if len(valid_inside) >= 2:
+            cells, aggregation = valid_inside, Aggregation.UNWEIGHTED_MEAN
+        else:
+            cells, aggregation = (anchor,), Aggregation.CONTAINING_CELL
+
+        conditions = self._conditions_at(cells, query.year, query.region)
         return SiteReading(
             conditions=conditions,
             coverage=Coverage.VALID,
             year=query.year,
-            aggregation=Aggregation.CONTAINING_CELL,
+            aggregation=aggregation,
             from_artifact=True,
+            valid_fraction=fraction,
         )
 
     def daily_forcing(
         self, site: SiteConditions, window: tuple[int, int], year: int
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        row, col = self._cell_for_site(site)
+        cells = self._cell_for_site(site, year)
         start, end = window
         first = day_of_year(start, 1)
         last = day_of_year(end, 28)
@@ -155,6 +215,9 @@ class GriddedForcing:
                 )
             last += 365
 
+        # Nearly unreachable via `site`: `_cell_for_site` already requires
+        # `site.year == year`. It survives for a cross-reader handle — a `GriddedConditions`
+        # from a reader with the same grid shape but a different year set (permitted by design).
         if year not in self._years:
             raise ForcingUnavailable(
                 f"artifact does not carry year {year}; available years {self._years}"
@@ -170,8 +233,22 @@ class GriddedForcing:
         else:
             month_years.extend((month, year, day_of_year(month)) for month in range(start, end + 1))
 
-        temp = self._interpolated_monthly("temp_c", row, col, month_years, days)
-        din = self._interpolated_monthly("din_umol_l", row, col, month_years, days)
+        temp = self._interpolated_monthly("temp_c", cells, month_years, days)
+        # §3.6: the series' 12-month mean for `year` is the site's annual DIN. For an
+        # unmodified site numerator and denominator are the same np.mean of the same
+        # _cell_mean_monthly output, so the ratio is exactly 1.0 and nothing moves; a
+        # nutrient scenario that replaced `din_umol_l` scales the seasonal shape.
+        annual_din = float(np.mean(self._cell_mean_monthly("din_umol_l", year, cells)))
+        if annual_din == 0.0:
+            # A masking or unit defect, not a measurement: fail loudly (d3ed04b's rule),
+            # never ForcingUnavailable, which would quietly exclude the species.
+            raise ValueError(
+                f"artifact DIN for {year} averages zero over cells {cells}; refusing to "
+                "scale a series against it"
+            )
+        din = self._interpolated_monthly(
+            "din_umol_l", cells, month_years, days, scale=site.din_umol_l / annual_din
+        )
 
         # The artifact carries no PAR (C§3.3), so only the seasonal shape matches the
         # placeholder; the magnitude remains the site's invented placeholder value.
@@ -179,24 +256,23 @@ class GriddedForcing:
         par = site.par_at_depth() * (0.25 + 0.75 * season)
         return days, par, temp, din
 
-    def _point_of(self, query: SiteQuery) -> tuple[float, float]:
-        match = _POINT.fullmatch(query.geometry_wkt.strip())
-        if match:
-            lon, lat = (float(match.group(1)), float(match.group(2)))
-            return lat, lon
+    def _geometry_of(self, wkt: str):
+        """A non-empty shapely Point or Polygon, or ValueError naming the WKT.
 
-        text = query.geometry_wkt.strip()
-        if text.upper().startswith("POLYGON"):
-            numbers = [float(v) for v in re.findall(r"-?\d+(?:\.\d+)?", text)]
-            if len(numbers) >= 6 and len(numbers) % 2 == 0:
-                points = list(zip(numbers[0::2], numbers[1::2], strict=True))
-                if points[0] == points[-1]:
-                    points = points[:-1]
-                lon = sum(p[0] for p in points) / len(points)
-                lat = sum(p[1] for p in points) / len(points)
-                return lat, lon
+        shapely's own failures are not ValueErrors (`GEOSException` is a
+        `ShapelyError`), and `POLYGON EMPTY` parses to an empty geometry with no
+        centroid, so both are wrapped here (spec §3.1).
+        """
+        import shapely
+        from shapely.errors import ShapelyError
 
-        raise ValueError(f"could not parse site geometry WKT {query.geometry_wkt!r}")
+        try:
+            geom = shapely.from_wkt(wkt)
+        except ShapelyError as exc:
+            raise ValueError(f"could not parse site geometry WKT {wkt!r}") from exc
+        if geom is None or geom.is_empty or geom.geom_type not in ("Point", "Polygon"):
+            raise ValueError(f"could not parse site geometry WKT {wkt!r}")
+        return geom
 
     def _nearest_index(self, lat: float, lon: float) -> tuple[int, int]:
         row = int(np.abs(self.latitudes - lat).argmin())
@@ -217,47 +293,77 @@ class GriddedForcing:
         ]
         return float(min(distances))
 
-    def _cell_for_site(self, site: SiteConditions) -> tuple[int, int]:
-        try:
-            return self._site_cells[id(site)]
-        except KeyError as exc:
+    def _cell_for_site(self, site: SiteConditions, year: int) -> tuple[tuple[int, int], ...]:
+        """The cells a reader-produced site was averaged over, for the same year.
+
+        A handle from a different reader over a same-shape grid is accepted by design
+        (tests hold the fixture reader and a tmp copy; the app holds one reader per
+        session), so the check is on shape and year, not identity.
+        """
+        n_lat, n_lon = self.latitudes.size, self.longitudes.size
+        usable = (
+            isinstance(site, GriddedConditions)
+            and len(site.cells) > 0
+            and all(0 <= r < n_lat and 0 <= c < n_lon for r, c in site.cells)
+            and site.year == year
+        )
+        if not usable:
             raise ValueError(
-                "daily_forcing needs a SiteConditions object produced by this "
-                "GriddedForcing instance"
-            ) from exc
+                "daily_forcing needs a GriddedConditions produced by a GriddedForcing "
+                "over this grid, for the same year"
+            )
+        return site.cells
+
+    def _cell_mean_monthly(
+        self, name: str, year: int, cells: tuple[tuple[int, int], ...]
+    ) -> np.ndarray:
+        """The 12 monthly values of a per-year field, averaged over `cells`, float64.
+
+        The ONLY reader of the per-year monthly fields (spec §3.4). Cast to float64
+        before any reduction, then `np.mean` over the cell axis: for one cell that is
+        the identity on a float64 vector, so single-cell readings are bit-identical to
+        a direct computation; and because `_conditions_at` and `daily_forcing` both
+        come here, the §3.6 ratio is exactly 1.0 for an unmodified site.
+        """
+        rows = [r for r, _ in cells]
+        cols = [c for _, c in cells]
+        year_index = self._years.index(year)
+        block = np.asarray(self._ds[name].values[year_index][:, rows, cols], dtype=float)
+        return np.mean(block, axis=1)
 
     def _interpolated_monthly(
         self,
         name: str,
-        row: int,
-        col: int,
+        cells: tuple[tuple[int, int], ...],
         month_years: list[tuple[int, int, int]],
         days: np.ndarray,
+        scale: float = 1.0,
     ) -> np.ndarray:
+        by_year = {
+            year: self._cell_mean_monthly(name, year, cells)
+            for year in {year for _, year, _ in month_years}
+        }
         x = np.asarray([day for _, _, day in month_years], dtype=float)
-        values = np.asarray(
-            [
-                self._ds[name].values[self._years.index(year), month - 1, row, col]
-                for month, year, _ in month_years
-            ],
-            dtype=float,
+        values = np.asarray([by_year[year][month - 1] for month, year, _ in month_years])
+        return np.interp(days, x, values * scale)
+
+    def _conditions_at(
+        self, cells: tuple[tuple[int, int], ...], year: int, region: str | None
+    ) -> GriddedConditions:
+        """Annual statistics over `cells`, field-mean-first (spec §3.4)."""
+        temp = self._cell_mean_monthly("temp_c", year, cells)
+        salinity = self._cell_mean_monthly("salinity_psu", year, cells)
+        din = self._cell_mean_monthly("din_umol_l", year, cells)
+        dip = self._cell_mean_monthly("dip_umol_l", year, cells)
+        attenuation = self._cell_mean_monthly("light_attenuation_k", year, cells)
+        rows = [r for r, _ in cells]
+        cols = [c for _, c in cells]
+        wave = np.mean(
+            np.asarray(self._ds["significant_wave_m"].values[:, rows, cols], dtype=float), axis=1
         )
-        return np.interp(days, x, values)
+        depth = np.mean(np.asarray(self._ds["depth_mean_m"].values[rows, cols], dtype=float))
 
-    def _conditions_at(self, row: int, col: int, year: int, region: str | None) -> SiteConditions:
-        year_index = self._years.index(year)
-
-        def monthly(name: str) -> np.ndarray:
-            return np.asarray(self._ds[name].values[year_index, :, row, col], dtype=float)
-
-        temp = monthly("temp_c")
-        salinity = monthly("salinity_psu")
-        din = monthly("din_umol_l")
-        dip = monthly("dip_umol_l")
-        attenuation = monthly("light_attenuation_k")
-        wave = np.asarray(self._ds["significant_wave_m"].values[:, row, col], dtype=float)
-
-        return SiteConditions(
+        return GriddedConditions(
             region=region,
             salinity_psu=float(np.mean(salinity)),
             mean_temp_c=float(np.mean(temp)),
@@ -268,9 +374,11 @@ class GriddedForcing:
             surface_par=PLACEHOLDER_SURFACE_PAR,
             din_umol_l=float(np.mean(din)),
             dip_umol_l=float(np.mean(dip)),
-            depth_m=float(self._ds["depth_mean_m"].values[row, col]),
+            depth_m=float(depth),
             significant_wave_m=float(np.mean(wave)),
             light_attenuation_k=float(np.mean(attenuation)),
+            cells=cells,
+            year=year,
         )
 
 
@@ -313,8 +421,8 @@ def select_forcing(directory: Path | None = None) -> ForcingChoice:
         reader = GriddedForcing.from_directory(directory)
     except ImportError:
         return placeholder_choice(
-            f"this install has no spatial extra (xarray/h5netcdf), so the artifact at "
-            f"{directory} cannot be read",
+            f"this install has no spatial extra (xarray/h5netcdf/shapely), so the artifact "
+            f"at {directory} cannot be read",
             directory,
         )
     except TornPair:
