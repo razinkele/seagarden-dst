@@ -117,11 +117,42 @@ class GriddedForcing:
         reach past a leading underscore for."""
         return self._manifest.built_on
 
-    def reading_at(self, query: SiteQuery) -> SiteReading:
+    def _select_cells(
+        self, query: SiteQuery
+    ) -> tuple[tuple[int, int], tuple[tuple[int, int], ...] | None]:
+        """(anchor, inside): the cell that decides coverage, and for a polygon the cells
+        whose coordinate values it contains (spec §3.2).
+
+        "Inside" uses the cell's coordinate value (`latitudes[row]`, `longitudes[col]`),
+        the location this reader already assigns each cell — NOT the value plus half a
+        step. The anchor is the cell nearest the polygon's area centroid, by the same
+        per-axis argmin a POINT uses.
+        """
+        import shapely
+
         geom = self._geometry_of(query.geometry_wkt)
-        point = geom if geom.geom_type == "Point" else geom.centroid
-        lat, lon = point.y, point.x
-        row, col = self._nearest_index(lat, lon)
+        if geom.geom_type == "Point":
+            return self._nearest_index(geom.y, geom.x), None
+        centroid = geom.centroid
+        anchor = self._nearest_index(centroid.y, centroid.x)
+        lon_grid, lat_grid = np.meshgrid(self.longitudes, self.latitudes)
+        mask = shapely.contains_xy(geom, lon_grid, lat_grid)
+        rows, cols = np.nonzero(mask)
+        inside = tuple((int(r), int(c)) for r, c in zip(rows, cols, strict=True))
+        return anchor, inside
+
+    def reading_at(self, query: SiteQuery) -> SiteReading:
+        anchor, inside = self._select_cells(query)
+        row, col = anchor
+        valid = np.asarray(self._ds["valid"].values, dtype=bool)
+
+        # The fraction is computable under every outcome (`valid` has no year axis), so
+        # one rule serves: set it whenever two or more cells lie inside (spec §3.2).
+        valid_inside: tuple[tuple[int, int], ...] = ()
+        fraction: float | None = None
+        if inside is not None and len(inside) >= 2:
+            valid_inside = tuple(cell for cell in inside if valid[cell])
+            fraction = len(valid_inside) / len(inside)
 
         if query.year not in self._years:
             # Never substitutes another year (§6.2): interannual spread is the dominant
@@ -132,11 +163,13 @@ class GriddedForcing:
                 year=query.year,
                 aggregation=Aggregation.CONTAINING_CELL,
                 from_artifact=True,
+                valid_fraction=fraction,
             )
 
-        # The `valid` field, by value. NEVER inferred from NaN: the committed fixture's
+        # The anchor decides coverage (§6.2 rule 1; decision 1 of the D-a2 design). The
+        # `valid` field, by value. NEVER inferred from NaN: the committed fixture's
         # invalid cell holds finite numbers, so a NaN test would call it assessable.
-        if not bool(self._ds["valid"].values[row, col]):
+        if not bool(valid[row, col]):
             return SiteReading(
                 conditions=None,
                 coverage=Coverage.CELL_INVALID,
@@ -144,15 +177,25 @@ class GriddedForcing:
                 aggregation=Aggregation.CONTAINING_CELL,
                 nearest_valid_km=self._nearest_valid_km(row, col),
                 from_artifact=True,
+                valid_fraction=fraction,
             )
 
-        conditions = self._conditions_at(((row, col),), query.year, query.region)
+        # The label follows the number of VALID cells averaged, never the inside count,
+        # so a one-tuple never carries UNWEIGHTED_MEAN. The anchor is not added to a
+        # multi-cell average it does not belong to (a concave polygon).
+        if len(valid_inside) >= 2:
+            cells, aggregation = valid_inside, Aggregation.UNWEIGHTED_MEAN
+        else:
+            cells, aggregation = (anchor,), Aggregation.CONTAINING_CELL
+
+        conditions = self._conditions_at(cells, query.year, query.region)
         return SiteReading(
             conditions=conditions,
             coverage=Coverage.VALID,
             year=query.year,
-            aggregation=Aggregation.CONTAINING_CELL,
+            aggregation=aggregation,
             from_artifact=True,
+            valid_fraction=fraction,
         )
 
     def daily_forcing(

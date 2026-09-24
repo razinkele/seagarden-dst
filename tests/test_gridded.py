@@ -241,3 +241,93 @@ def test_unusable_geometry_raises_a_value_error_naming_the_wkt(reader, wkt):
     so this is what forces the wrapping (spec §3.1)."""
     with pytest.raises(ValueError, match="could not parse site geometry WKT"):
         reader.reading_at(SiteQuery(wkt, year=2024))
+
+
+# Spec §5 polygons, verbatim. WKT is (lon lat). Three review cycles verified every
+# inside set, centroid and anchor against the fixture by script; do not invent others.
+NINE_CELLS = "POLYGON ((19.99 53.99, 20.07 53.99, 20.07 54.05, 19.99 54.05, 19.99 53.99))"
+TRIANGLE_ON_INVALID = "POLYGON ((19.995 53.995, 20.035 53.995, 19.995 54.025, 19.995 53.995))"
+SUB_CELL_NEAR_11 = (
+    "POLYGON ((20.038 54.020, 20.043 54.020, 20.043 54.025, 20.038 54.025, 20.038 54.020))"
+)
+TWO_CELLS_ONE_VALID = (
+    "POLYGON ((19.99 53.99, 20.04 53.99, 20.04 54.008, 19.99 54.008, 19.99 53.99))"
+)
+U_SHAPE = (
+    "POLYGON ((19.99 53.99, 20.07 53.99, 20.07 54.05, 20.045 54.05, 20.045 54.008, "
+    "20.015 54.008, 20.015 54.05, 19.99 54.05, 19.99 53.99))"
+)
+
+
+def test_a_polygon_over_nine_cells_is_the_unweighted_mean_of_the_eight_valid_ones(reader):
+    """Spec test 3. Centroid (20.03, 54.02) -> anchor [1,1], valid."""
+    ds = _open_fixture_dataset()
+    reading = reader.reading_at(SiteQuery(NINE_CELLS, year=2024))
+    assert reading.coverage is Coverage.VALID
+    assert reading.aggregation is Aggregation.UNWEIGHTED_MEAN
+    assert reading.valid_fraction == pytest.approx(8 / 9)
+    cells = reading.conditions.cells
+    assert len(cells) == 8 and (0, 0) not in cells
+    yi = list(int(y) for y in ds["year"].values).index(2024)
+    rows = [r for r, _ in cells]
+    cols = [c for _, c in cells]
+    block = np.asarray(ds["salinity_psu"].values[yi][:, rows, cols], dtype=float)
+    assert np.allclose(reading.conditions.salinity_psu, np.mean(block), rtol=1e-12)
+
+
+def test_a_polygon_whose_anchor_is_invalid_blocks_and_still_reports_the_fraction(reader):
+    """Spec test 4, decision 1: the containing cell decides coverage (§6.2 rule 1)."""
+    reading = reader.reading_at(SiteQuery(TRIANGLE_ON_INVALID, year=2024))
+    assert reading.coverage is Coverage.CELL_INVALID
+    assert reading.conditions is None
+    assert reading.nearest_valid_km is not None and reading.nearest_valid_km > 0.0
+    assert reading.valid_fraction == pytest.approx(2 / 3)
+    assert reading.aggregation is Aggregation.CONTAINING_CELL
+
+
+def test_a_sub_cell_polygon_between_coordinates_is_its_anchor_cell(reader):
+    """Spec test 5: no coordinate inside -> the centroid's nearest cell, no fraction."""
+    reading = reader.reading_at(SiteQuery(SUB_CELL_NEAR_11, year=2024))
+    assert reading.coverage is Coverage.VALID
+    assert reading.aggregation is Aggregation.CONTAINING_CELL
+    assert reading.valid_fraction is None
+    assert reading.conditions.cells == ((1, 1),)
+
+
+def test_the_label_follows_the_valid_count_not_the_inside_count(reader):
+    """Spec test 6, §3.2 row 3: two inside, one valid -> CONTAINING_CELL over the anchor,
+    fraction still reported."""
+    reading = reader.reading_at(SiteQuery(TWO_CELLS_ONE_VALID, year=2024))
+    assert reading.coverage is Coverage.VALID
+    assert reading.aggregation is Aggregation.CONTAINING_CELL
+    assert reading.conditions.cells == ((0, 1),)
+    assert reading.valid_fraction == pytest.approx(0.5)
+
+
+def test_a_concave_polygon_anchors_outside_its_own_inside_set(reader):
+    """Spec test 10. The notch excludes [1,1] and [2,1]; the centroid still lands
+    nearest [1,1], which decides coverage but is not averaged. On this fixture the
+    area centroid (lat 54.0168) and the old vertex mean (54.0245) both anchor [1,1],
+    so the centroid method itself is not pinned here (spec §5, recorded)."""
+    reading = reader.reading_at(SiteQuery(U_SHAPE, year=2024))
+    assert reading.coverage is Coverage.VALID
+    assert reading.aggregation is Aggregation.UNWEIGHTED_MEAN
+    assert reading.valid_fraction == pytest.approx(6 / 7)
+    assert reading.conditions.cells == ((0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 2))
+
+
+def test_a_multi_cell_daily_series_is_the_mean_of_the_single_cell_series(reader):
+    """Spec test 7, field-mean-first: temp and din over the polygon equal the elementwise
+    mean of the eight single-cell series. par is derived from the averaged k and is
+    NOT compared (§3.4). All reads and series for 2024."""
+    lats, lons = reader.latitudes, reader.longitudes
+    poly = reader.reading_at(SiteQuery(NINE_CELLS, year=2024)).conditions
+    _, _, temp_poly, din_poly = reader.daily_forcing(poly, (4, 9), 2024)
+    temps, dins = [], []
+    for r, c in poly.cells:
+        one = reader.reading_at(SiteQuery(_point(lats[r], lons[c]), year=2024)).conditions
+        _, _, t, d = reader.daily_forcing(one, (4, 9), 2024)
+        temps.append(t)
+        dins.append(d)
+    assert np.allclose(temp_poly, np.mean(temps, axis=0), rtol=1e-12)
+    assert np.allclose(din_poly, np.mean(dins, axis=0), rtol=1e-12)
