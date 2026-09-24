@@ -73,6 +73,18 @@ committed anywhere.
 
 Runtime is **hours**, driven by the hourly wave stream. A run that has been going for twenty
 minutes is not stuck; a run that has been going for a day probably is — check the log (§5).
+(The first real run on laguna, 2026-09-24, pulled one month of hourly waves in about five
+seconds, so on that link the whole wave window may take minutes rather than hours; the figure
+above is kept until a complete run has been timed.)
+
+**Memory is the binding constraint on the serving host, not time.** Run 2 of the first real
+refresh (2026-09-24) was OOM-killed at 30.7 GB resident on the 32 GB host that also serves
+the app: the wave layer had rechunked the whole 25.9 GB hourly window into one array before
+the quantile, and dask's default threaded scheduler would run one chunk per core (28 on
+laguna). Since v0.11.2 the wave layer reduces month by month in latitude bands and the driver
+pins dask to four worker threads (`driver.REFRESH_WORKERS`), so the refresh holds a few GB
+however many cores the host has. Do not raise that bound to make a run faster on the serving
+host; a refresh that kills the app is slower than any refresh.
 
 ## 5. The commands
 
@@ -167,6 +179,7 @@ downstream should have to discover the sign or the datum by reading a bare numbe
 | Insufficient free disk | The CLI refuses **before** starting and exits 1 with one line on stderr beginning `refresh refused: insufficient free disk`, naming the directory, what it needs and what it has (C§6.1). Nothing is downloaded and nothing is created. The check runs against the filesystem the directories will land on, so it works before `mkdir`. If the disk fills *during* the run instead (another process wrote to it), the log ends in `OSError: No space left on device` partway through the 30.5 GB transfer. | Free the space the message names (§2's figures) and re-run. The EMODnet tile cache resumes from where it stopped; the Copernicus streams restart from zero. |
 | Layer built but not yet deposited | Every layer's manifest entry reads `archive.status: pending` with a `source_url`. This is not an error — it is the state of every layer immediately after a build, before §9's deposit step. | Proceed to §9. If it is still `pending` long after a deposit, the DOI was never recorded back — do that. |
 | A layer marked `forbidden` that is in fact redistributable | Not automatically detectable — the validator cannot tell a correctly `forbidden` layer from a mis-marked one. This is exactly why `pending` exists as a distinct state: mis-marking a layer `forbidden` is the path of least resistance to clear a check that would otherwise block you. | Check the layer's actual licence by hand before marking it anything other than `pending`. |
+| OOM-killed | The log stops with no traceback; `dmesg` (or `journalctl -k`) shows `Out of memory: Killed process <pid> (python3)`; a stale `tmp*` directory may be left under the target, which the next run ignores. Seen on run 2, 2026-09-24, at 30.7 GB. | Confirm the checkout is at v0.11.2 or later (the bounded wave reduction and `REFRESH_WORKERS`). If it recurs, read the `anon-rss` figure in the kernel line and `LATITUDE_BAND_ROWS` in `wav.py`; halve the band before touching the worker count. Never run the refresh on the serving host with the bound removed. |
 | `TileFetchFailed` (EMODnet) | `emodnet_bathy` dies partway through the WCS tile loop. | Re-run the refresh: the tile cache in `workdir` resumes from where it left off rather than re-fetching completed tiles. If the failure recurs on the same tile, the cached file for it may be poisoned — delete `~/seagarden-data/work/emodnet/<lat0>_<lon0>.tif` (e.g. `~/seagarden-data/work/emodnet/55.0_20.0.tif`) and re-run. |
 
 ## 9. Deposit and record the DOI

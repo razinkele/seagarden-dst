@@ -19,6 +19,30 @@ unreleased.
 
 ---
 
+## [0.11.2] — 2026-09-24
+
+**The refresh fits in memory on the serving host.**
+
+536 tests (534 at 0.11.1): 407 in the default selection, 129 needing the `spatial` extra.
+CI on Python 3.11 and 3.13 across two install states.
+
+The second patch of the afternoon. 0.11.1 got the first real refresh past the merge; run 2
+then died on memory, on the host that also serves the app. Nothing the app computes
+changes; the refresh tooling is again the only code touched.
+
+### Fixed
+
+- **The refresh no longer needs the whole hourly wave window in memory.** Run 2 of the
+  first real refresh was OOM-killed at 30.7 GB on the 32 GB host that also serves the
+  app: the wave layer rechunked the 25.9 GB hourly source into one array before its
+  monthly 95th percentile. It now reduces month by month in 39-row latitude bands
+  (`wav.LATITUDE_BAND_ROWS`), the same arithmetic per cell, and the driver pins dask to
+  four worker threads (`driver.REFRESH_WORKERS`) so no layer fans out across the host's
+  28 cores. One month measured on laguna: 5 seconds, 2.3 GB peak. The runbook gains an
+  OOM row and a memory paragraph.
+
+---
+
 ## [0.11.1] — 2026-09-24
 
 **The refresh can read a real Copernicus grid.**

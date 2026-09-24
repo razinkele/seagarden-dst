@@ -258,6 +258,27 @@ def _declared_windows(layers: Sequence[Layer]) -> dict[str, list[int]]:
     return declared
 
 
+#: dask worker threads for the whole refresh. The default threaded scheduler runs one
+#: chunk per core - 28 on laguna, which also serves the app - and run 2 of the first
+#: real refresh (2026-09-24) was OOM-killed there. Four keeps the in-flight chunks of
+#: every layer to a few GB whatever the host's core count.
+REFRESH_WORKERS = 4
+
+
+def bound_dask_workers() -> None:
+    """Pin dask to `REFRESH_WORKERS` threads, process-wide, for this refresh.
+
+    Imported inside the call: dask arrives with the `spatial` extra (via xarray and
+    copernicusmarine) and nothing in this module may import it at module scope. An
+    install without dask has no lazy arrays to bound, so there is nothing to do.
+    """
+    try:
+        import dask
+    except ImportError:  # pragma: no cover - the spatial extra always brings dask
+        return
+    dask.config.set(scheduler="threads", num_workers=REFRESH_WORKERS)
+
+
 def run_refresh(
     layers: Sequence[Layer],
     grid: GridSpec,
@@ -269,6 +290,7 @@ def run_refresh(
 ) -> tuple[Path, Path]:
     """Run a full refresh for `years` and write the pair (C§10 clause 1)."""
     check_free_disk(Path(workdir), Path(target_dir))  # before any layer, any mkdir
+    bound_dask_workers()  # before any layer opens a lazy source
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
 

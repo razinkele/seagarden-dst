@@ -336,3 +336,31 @@ def test_wav_claims_the_variable_it_produces():
     from seagarden_dst.refresh.sources.wav import CopernicusWav
 
     assert CopernicusWav().provenance().variables == ["significant_wave_m"]
+
+
+def test_wav_reduces_month_by_month_in_latitude_bands_when_the_source_is_lazy(
+    tmp_path, monkeypatch
+):
+    """Run 2 of the first real refresh (2026-09-24) was OOM-killed at 30.7 GB resident:
+    the layer rechunked the 25.9 GB hourly source to ONE chunk before the quantile.
+    Month by month, in latitude bands, the numbers are the same and no chunk is ever
+    the whole array. The product's own chunking is 200 hours over the full extent."""
+    from seagarden_dst.refresh.sources import wav
+    from seagarden_dst.refresh.sources.wav import CopernicusWav
+
+    monkeypatch.setattr(wav, "LATITUDE_BAND_ROWS", 2)
+    hours = list(np.linspace(0.0, 10.0, 100))
+    eager_source = hourly_wave_source(hours)
+    lazy_source = eager_source.chunk({"time": 200, "latitude": -1, "longitude": -1})
+
+    lazy = CopernicusWav(opener=lambda **kw: lazy_source).build(
+        tiny_grid(), YearRange(start=2024, end=2024), tmp_path
+    )["significant_wave_m"]
+    eager = CopernicusWav(opener=lambda **kw: eager_source).build(
+        tiny_grid(), YearRange(start=2024, end=2024), tmp_path
+    )["significant_wave_m"]
+
+    assert lazy.chunks is not None, "the writer computes it chunk by chunk; not loaded here"
+    assert max(lazy.chunks[lazy.dims.index("latitude")]) <= 2
+    assert tuple(lazy.dims) == ("month", "latitude", "longitude")
+    np.testing.assert_allclose(lazy.values, eager.values)

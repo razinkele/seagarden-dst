@@ -1,6 +1,6 @@
 [project]
 name = "seagarden-dst"
-version = "0.11.1"
+version = "0.11.2"
 description = "SeaGarden Decision Support Tool — analytical core (A2.3 / D2.2)"
 readme = "README.md"
 requires-python = ">=3.11"
