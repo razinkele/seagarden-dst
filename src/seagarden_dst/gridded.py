@@ -231,7 +231,21 @@ class GriddedForcing:
             month_years.extend((month, year, day_of_year(month)) for month in range(start, end + 1))
 
         temp = self._interpolated_monthly("temp_c", cells, month_years, days)
-        din = self._interpolated_monthly("din_umol_l", cells, month_years, days)
+        # §3.6: the series' 12-month mean for `year` is the site's annual DIN. For an
+        # unmodified site numerator and denominator are the same np.mean of the same
+        # _cell_mean_monthly output, so the ratio is exactly 1.0 and nothing moves; a
+        # nutrient scenario that replaced `din_umol_l` scales the seasonal shape.
+        annual_din = float(np.mean(self._cell_mean_monthly("din_umol_l", year, cells)))
+        if annual_din == 0.0:
+            # A masking or unit defect, not a measurement: fail loudly (d3ed04b's rule),
+            # never ForcingUnavailable, which would quietly exclude the species.
+            raise ValueError(
+                f"artifact DIN for {year} averages zero over cells {cells}; refusing to "
+                "scale a series against it"
+            )
+        din = self._interpolated_monthly(
+            "din_umol_l", cells, month_years, days, scale=site.din_umol_l / annual_din
+        )
 
         # The artifact carries no PAR (C§3.3), so only the seasonal shape matches the
         # placeholder; the magnitude remains the site's invented placeholder value.

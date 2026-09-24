@@ -331,3 +331,30 @@ def test_a_multi_cell_daily_series_is_the_mean_of_the_single_cell_series(reader)
         dins.append(d)
     assert np.allclose(temp_poly, np.mean(temps, axis=0), rtol=1e-12)
     assert np.allclose(din_poly, np.mean(dins, axis=0), rtol=1e-12)
+
+
+def test_the_daily_din_scales_with_the_sites_annual_value_and_is_untouched_otherwise(reader):
+    """Spec §3.6 / test 11. A replaced annual DIN scales the monthly field by one ratio;
+    temp does not move. For an unmodified site the ratio is EXACTLY 1.0, so the series
+    is array_equal to what today's per-cell interpolation gives."""
+    from dataclasses import replace
+
+    ds = _open_fixture_dataset()
+    lats, lons = reader.latitudes, reader.longitudes
+    site = reader.reading_at(SiteQuery(_point(lats[1], lons[1]), year=2024)).conditions
+    days, _, temp, din = reader.daily_forcing(site, (4, 9), 2024)
+
+    doubled = replace(site, din_umol_l=2.0 * site.din_umol_l)
+    _, _, temp_2, din_2 = reader.daily_forcing(doubled, (4, 9), 2024)
+    assert np.allclose(din_2, 2.0 * din, rtol=1e-12)
+    assert np.array_equal(temp_2, temp)
+
+    # Today's route, reproduced: float32 scalars per month, cast, interpolated.
+    from seagarden_dst.forcing import day_of_year
+
+    yi = list(int(y) for y in ds["year"].values).index(2024)
+    x = np.asarray([day_of_year(m) for m in range(4, 10)], dtype=float)  # mid-month knots
+    values = np.asarray(
+        [ds["din_umol_l"].values[yi, m - 1, 1, 1] for m in range(4, 10)], dtype=float
+    )
+    assert np.array_equal(din, np.interp(days, x, values))
