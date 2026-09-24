@@ -123,19 +123,33 @@ full refresh, and see §8.
   SEAGARDEN_DATA_DIR=$HOME/seagarden-data/forcing $P -c "import xarray as xr; print(len(xr.open_dataset('$HOME/seagarden-data/forcing/forcing.nc')['year']))"
   ```
 
-## 7. The convention to confirm on the first run
+## 7. The convention, confirmed on the first run (2026-09-24)
 
-**`check_grid` has only ever been exercised against fakes.** Every driver test builds its
-Copernicus fixtures straight from `GridSpec`, so whether real `cmems.open_window` output
-actually lines up with `GridSpec.lats()`/`lons()` (which are **lower cell edges**) has never
-been observed against real data. Copernicus products label their cells by **centre**, not
-edge.
+**What this section predicted happened, one step earlier than predicted.** The first real
+refresh (v0.11.0, 2026-09-24) did not reach `check_grid`: it died four minutes in, at
+`merge_layers`, with `xr.merge(join="exact")` refusing to align `latitude`. Opening the
+products from the server showed why. For the Baltic extent every Copernicus product
+returns the GridSpec's shape (390 × 630) and steps, but labels each cell by its **centre**:
+latitude 53.50829 and longitude 9.51375 for the cell `GridSpec.lats()`/`lons()` label
+53.5 / 9.5 (the **lower edges**), i.e. exactly half a step up. And the products are not
+bit-identical to each other — the wave grid starts at 53.50827 where physics starts at
+53.50829, and their longitude steps differ by a millionth of a degree — so the four
+Copernicus layers would not exact-join even among themselves, while `emodnet_bathy` is
+built on the edges and could never join any of them.
 
-If the first real run fails in `check_grid` and the layer it names is one of the four
-Copernicus layers, **stop and report it** — the fix is a shared coordinate-snapping step in
-`cmems.open_window`, not a hand-patch to that one layer. Do **not** touch the bathymetry
-layer to work around it: `emodnet_bathy` follows the `GridSpec` convention as documented and
-is not where this bug would live.
+**The fix is the shared step this section asked for**, and it lives where it said:
+`cmems.snap_to_grid`, called by `open_window` for every Copernicus layer (v0.11.1). It
+checks the window has the GridSpec's size on both axes and that every coordinate sits
+within a quarter step of either the edges or the centres, then relabels with the
+GridSpec's own coordinates. That is a relabel of the same cells, not a shift of data: the
+centre at 53.50829 is the middle of the cell whose southern edge is 53.5. Anything else — a
+wrong size, a whole-step offset — raises `GridMismatch` naming the axis, so a product that
+genuinely moves its grid stops the refresh rather than being quietly relabelled. The
+bathymetry layer is untouched, as this section required.
+
+If a future run fails in `snap_to_grid`, read the message: it prints the first source
+coordinate against the first GridSpec edge, which is enough to tell a half-step convention
+from a real change of grid. Do **not** loosen `_SNAP_TOLERANCE_STEPS` to clear it.
 
 Separately, the bathymetry values themselves are referenced to **LAT** (lowest astronomical
 tide), assumed to hold for the whole 2022 EMODnet release. Depth is `-elevation`; nobody

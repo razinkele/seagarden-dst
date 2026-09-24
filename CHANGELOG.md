@@ -11,7 +11,20 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
-Nothing yet. Changes land here, not in the published sections below. When you cut the next
+### Fixed
+
+- **The first real refresh died at the merge; Copernicus labels cells by centre.** The
+  refresh runbook §7 predicted this and it happened one step earlier than predicted:
+  every Copernicus product returned the artifact grid's shape and steps but labelled by
+  cell centre (53.50829 for the cell the GridSpec labels 53.5), and the physics and wave
+  grids differed from each other in the fifth decimal, so `xr.merge(join="exact")`
+  refused. `cmems.open_window` now passes every window through `snap_to_grid`, which
+  checks the shape and that the coordinates sit within a quarter step of either
+  convention, then relabels with the GridSpec's coordinates — the same cells, the
+  artifact's documented convention. A wrong size or a whole-step offset raises
+  `GridMismatch` naming the axis. Runbook §7 records the observation.
+
+Changes land here, not in the published sections below. When you cut the next
 release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
 open a section for it — `tests/test_version.py` asserts the literals agree with each other
 and with a matching heading here, but it cannot tell you that a merged change went
