@@ -11,7 +11,16 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
-Nothing yet. Changes land here, not in the published sections below. When you cut the next
+### Changed (documentation only)
+
+- **The first annual refresh has run, and the docs say so.** Run 3 on laguna
+  (2026-09-24, v0.11.2) built the 2016–2025 artifact in about five minutes at 6.6 GB
+  peak; the live instance has read it since 2026-09-25. The refresh runbook's "hours"
+  estimate is replaced by the measured figure, and the README's site-conditions and
+  light-attenuation rows record what is now real and what is still placeholder —
+  including that LT-lagoon's sited coordinate lands in a masked cell.
+
+Changes land here, not in the published sections below. When you cut the next
 release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
 open a section for it — `tests/test_version.py` asserts the literals agree with each other
 and with a matching heading here, but it cannot tell you that a merged change went

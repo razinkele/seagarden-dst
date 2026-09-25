@@ -40,8 +40,11 @@ source's catalogue metadata has drifted (a dataset id retired, a version bumped)
   ```bash
   df -h ~/seagarden-data
   ```
-- Wall-clock: **hours**, not minutes. Do not run this and walk away assuming it finished;
-  see §5 for how to check on it without watching it.
+- Wall-clock: **about five minutes on laguna** (run 3, 2026-09-24: 4 min 50 s from launch to
+  the pair written, 6.6 GB peak resident). Earlier versions of this runbook said hours; that
+  was an estimate from the transfer volume, and laguna's link makes it wrong by an order of
+  magnitude. Still do not run this and walk away assuming it finished; see §5 for how to
+  check on it without watching it, and §8 for what an OOM kill looks like.
 
 ## 3. Where things go
 
@@ -71,11 +74,11 @@ of the network.
 **~530 MB** to the scratch space in `workdir` — this is not part of the artifact and is not
 committed anywhere.
 
-Runtime is **hours**, driven by the hourly wave stream. A run that has been going for twenty
-minutes is not stuck; a run that has been going for a day probably is — check the log (§5).
-(The first real run on laguna, 2026-09-24, pulled one month of hourly waves in about five
-seconds, so on that link the whole wave window may take minutes rather than hours; the figure
-above is kept until a complete run has been timed.)
+Runtime on laguna is **about five minutes**, measured on the first complete run (run 3,
+2026-09-24): the ARCO store serves one month of hourly waves in about five seconds, and the
+write of the 210 MB artifact is the longest single step. A run that has been going for twenty
+minutes on that host is therefore worth a look at the log (§5) rather than more patience; on a
+slower link the transfer volume above is what to scale from.
 
 **Memory is the binding constraint on the serving host, not time.** Run 2 of the first real
 refresh (2026-09-24) was OOM-killed at 30.7 GB resident on the 32 GB host that also serves
