@@ -28,7 +28,7 @@ Two halves live in one golden file, tests/golden/assessments.json, under the key
 
 - "scenarios" captures scenarios.compare() for every placeholder site, across every
   species for which api.select_method() finds a workable default method at the
-  "community farm (0.1 ha)" scale. This is the only half that captures the resolved
+  "community_farm_0_1_ha" scale. This is the only half that captures the resolved
   Verdict and Binding constraint and the tier-C display banding. It is a COARSER net
   than the assess_site half: every numeric cell is a string at three significant
   figures via str(for_display(q)) - a tier C harvest reads like
@@ -71,7 +71,7 @@ GOLDEN = Path(__file__).parent / "golden" / "assessments.json"
 
 #: Scale used for the scenarios half. Matches assess_site()'s own default scale, so
 #: the two halves describe the same hardware.
-SCALE = "community farm (0.1 ha)"
+SCALE = "community_farm_0_1_ha"
 
 
 def _elemental_value(option, quantity) -> float:

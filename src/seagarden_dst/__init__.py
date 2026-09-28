@@ -50,16 +50,18 @@ from .regulatory import (
     default_registry,
     load_regulatory_records,
 )
-from .scenarios import SCALES, Scenario, compare, evaluate
+from .scenarios import DEFAULT_SCALE, SCALE_LABELS, SCALES, Scenario, compare, evaluate
 from .suitability import Suitability, Verdict, assess
 
 __version__ = "0.11.2"
 
 __all__ = [
     "DEFAULT_FORCING",
+    "DEFAULT_SCALE",
     "JURISDICTIONS",
     "PLACEHOLDER_SITES",
     "REGIONS",
+    "SCALE_LABELS",
     "SCALES",
     "BowtieUnavailable",
     "Calibration",

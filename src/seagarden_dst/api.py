@@ -27,7 +27,7 @@ from .forcing import (
 from .growth import contraindication, harvest_biomass
 from .nutrients import from_harvest
 from .params import MethodParams, ParameterSet, SpeciesParams, default_parameters
-from .scenarios import SCALES
+from .scenarios import DEFAULT_SCALE, SCALES
 from .shellfish import harvest as shellfish_harvest
 from .suitability import assess
 
@@ -116,7 +116,7 @@ def assess_site(
     params: ParameterSet | None = None,
     species: list[str] | None = None,
     methods: dict[str, str] | None = None,
-    scale: str = "community farm (0.1 ha)",
+    scale: str = DEFAULT_SCALE,
     eutropy: dict | None = None,
     bowtie: dict | None = None,
 ) -> SiteAssessment:
@@ -142,7 +142,7 @@ def assess_site(
         params: parameter set; defaults to the shipped one.
         species: species keys to consider; defaults to all.
         methods: optional species_key -> method_key overrides.
-        scale: a key of `scenarios.SCALES`.
+        scale: a key of `scenarios.SCALES`; `SCALE_LABELS` carries what the user reads.
         eutropy: optional EUTROPY scenario output. When supplied, the site's nutrient
             forcing is replaced by the scenario's — see `eutropy_adapter`.
         bowtie: optional bow-tie inference result. When supplied, its top-event

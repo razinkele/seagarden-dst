@@ -86,7 +86,7 @@ def test_comparison_table_shape_and_calibration_column(params):
             if params.species[key].group == "macroalga"
             else params.methods["mussel_socks"],
             site=site,
-            area_m2=SCALES["mini-farm kit"],
+            area_m2=SCALES["mini_farm_kit"],
         )
         for key in ("ulva", "fucus_vesiculosus", "chorda_filum")
     ]

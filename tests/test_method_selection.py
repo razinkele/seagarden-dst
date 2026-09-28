@@ -22,7 +22,7 @@ def params():
 def test_default_respects_site_depth(params):
     """A 12 m site must not default to a method rated 2-10 m."""
     site = PLACEHOLDER_SITES["LT-coastal"]   # 12 m
-    method = select_method(params.species["ulva"], params, site, SCALES["community farm (0.1 ha)"])
+    method = select_method(params.species["ulva"], params, site, SCALES["community_farm_0_1_ha"])
     assert method is not None
     assert method.min_depth_m <= site.depth_m <= method.max_depth_m
 
@@ -30,21 +30,21 @@ def test_default_respects_site_depth(params):
 def test_default_respects_the_requested_scale(params):
     """A 0.1 ha farm must not be modelled as a citizen-science kit."""
     site = PLACEHOLDER_SITES["LT-coastal"]
-    kit = select_method(params.species["ulva"], params, site, SCALES["mini-farm kit"])
-    farm = select_method(params.species["ulva"], params, site, SCALES["community farm (0.1 ha)"])
+    kit = select_method(params.species["ulva"], params, site, SCALES["mini_farm_kit"])
+    farm = select_method(params.species["ulva"], params, site, SCALES["community_farm_0_1_ha"])
     assert kit.area_m2_per_unit <= farm.area_m2_per_unit
-    assert farm.area_m2_per_unit <= SCALES["community farm (0.1 ha)"]
+    assert farm.area_m2_per_unit <= SCALES["community_farm_0_1_ha"]
 
 
 def test_shallow_lagoon_gets_a_shallow_method(params):
     site = PLACEHOLDER_SITES["PL-lagoon"]    # 4 m
-    method = select_method(params.species["ulva"], params, site, SCALES["community farm (0.1 ha)"])
+    method = select_method(params.species["ulva"], params, site, SCALES["community_farm_0_1_ha"])
     assert method.min_depth_m <= site.depth_m <= method.max_depth_m
 
 
 def test_shellfish_get_a_shellfish_method(params):
     site = PLACEHOLDER_SITES["DK-belt"]
-    method = select_method(params.species["mytilus"], params, site, SCALES["community farm (1 ha)"])
+    method = select_method(params.species["mytilus"], params, site, SCALES["community_farm_1_ha"])
     assert "shellfish" in method.suits_groups
 
 
@@ -53,7 +53,7 @@ def test_no_workable_depth_still_returns_something(params):
     from dataclasses import replace
 
     abyss = replace(PLACEHOLDER_SITES["LT-coastal"], depth_m=400.0)
-    method = select_method(params.species["ulva"], params, abyss, SCALES["community farm (0.1 ha)"])
+    method = select_method(params.species["ulva"], params, abyss, SCALES["community_farm_0_1_ha"])
     assert method is not None
 
 
