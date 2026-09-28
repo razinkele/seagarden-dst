@@ -193,7 +193,6 @@ def placeholders(template: str) -> frozenset[str]:
 @cache
 def core_catalogue(language: str) -> Catalogue:
     """The core's own catalogue for `language`, English underneath. Loaded once."""
-    english = Catalogue.load(DEFAULT_LANGUAGE, CORE_LOCALES)
     if language == DEFAULT_LANGUAGE:
-        return english
-    return Catalogue.load(language, CORE_LOCALES, fallback=english)
+        return Catalogue.load(DEFAULT_LANGUAGE, CORE_LOCALES)
+    return Catalogue.load(language, CORE_LOCALES, fallback=core_catalogue(DEFAULT_LANGUAGE))

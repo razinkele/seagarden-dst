@@ -115,6 +115,10 @@ def test_a_non_english_core_catalogue_without_a_file_is_english_with_that_langua
     assert de.render(msg("calibration.tier.A.label")) == "Locally calibrated"
 
 
+def test_core_catalogue_reuses_the_cached_english_catalogue():
+    assert core_catalogue("de").fallback is core_catalogue("en")
+
+
 def test_every_core_yaml_parses_with_the_required_header():
     for path in sorted(CORE_LOCALES.glob("*.yaml")):
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
