@@ -50,10 +50,13 @@ sed -e 's/^language: en$/language: de/' -e 's/^status: reference$/status: machin
 
 ```bash
 MKL_THREADING_LAYER=SEQUENTIAL micromamba run -n shiny python -c "
+import yaml
 from app.i18n import params_reference_keys
-print('language: de\nstatus: machine-draft\ntranslated_by: \"machine draft (Claude), 2026-10-01\"\nreviewed_by: null\nreviewed_on: null\nmessages:')
-for k, v in params_reference_keys().items():
-    print(f'  {k}: {v!r}')
+doc = {'language': 'de', 'status': 'machine-draft',
+       'translated_by': 'machine draft (Claude), 2026-10-01',
+       'reviewed_by': None, 'reviewed_on': None,
+       'messages': dict(params_reference_keys())}
+print(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False, width=100), end='')
 " > params/i18n/de.yaml
 ```
 

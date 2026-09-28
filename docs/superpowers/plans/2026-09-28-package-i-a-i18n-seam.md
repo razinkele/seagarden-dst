@@ -870,7 +870,7 @@ def assess_physical(site: SiteConditions, method: MethodParams) -> Constraint:
     )
 ```
 
-`assess_legal`: `Constraint(LEGAL, Verdict.UNKNOWN, msg("suitability.legal.no_record"))`. In `assess`, the unsupported-group constraint: `msg("suitability.physical.unsupported_group", method=Message.literal(method.name), group=species.group)`.
+`assess_legal`: `Constraint(LEGAL, Verdict.UNKNOWN, msg("suitability.legal.no_record"))`. In `assess`, the unsupported-group constraint: `msg("suitability.physical.unsupported_group", method=Message.literal(method.name), group=Message.literal(species.group))` — the group is a literal too, so the sidecar's `params.group.<g>` entry translates it mid-sentence (I§5.1) through the text index; in English it renders as itself.
 
 Then `grep -rn contraindicated_default src`: the three `*_default` keys for "Contraindicated." / "Contraindicated at this site." are no longer referenced; **delete them from `en.yaml`** (`suitability.environment.contraindicated_default`, `suitability.growth.contraindicated_default`, `api.excluded.contraindicated_default`). Task 8's hygiene test fails on an unused key otherwise.
 
@@ -1481,7 +1481,8 @@ class Translator:
         return self._lookup(f"params.group.{group}")
 
     def confidence_label(self, confidence: str) -> str:
-        return self.render(Message(f"contracts.confidence.{confidence}"))
+        # A lookup, not a Message: the app never constructs one (I§4.1).
+        return self._lookup(f"contracts.confidence.{confidence}")
 
 
 def english() -> Translator:
@@ -1837,7 +1838,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 6: The shell and the entry point build per request, in a language
+### Task 6 (part 1 of 2, with Task 7): The shell and the entry point build per request, in a language
+
+**Tasks 6 and 7 are one unit of work and one commit.** `app.py` here already calls the panel signatures Task 7 defines, so the suite is red between them. Implement 6 then 7, run the whole suite at the end of Task 7, commit once there. A reviewer gates the pair, not the halves.
 
 **Files:**
 - Modify: `app/shell.py` (whole file)
@@ -2285,21 +2288,14 @@ This file already calls the Task 7 signatures (`site_ui("site", tr)`, `headline_
 
 `app/tests/test_app_smoke.py:489-492` `_page_html()` becomes `return str(build_ui("en"))` with `from app.app import build_ui`; `test_app_object_builds` keeps `from app.app import app, app_ui` and adds `assert callable(app_ui)`.
 
-- [ ] **Step 6: Run the shell tests and commit**
+- [ ] **Step 6: Run the shell-only tests, then go straight to Task 7 — no commit yet**
 
-Run: `MKL_THREADING_LAYER=SEQUENTIAL micromamba run -n shiny python -m pytest app/tests/test_i18n_app.py -k "menu or banner or state_carries" -q && micromamba run -n shiny ruff check app`
-Expected: pass. (The page-build tests pass once Task 7 lands.)
-
-```bash
-git add app/shell.py app/app.py app/state.py app/www/seagarden.css app/tests/
-git commit -m "feat(app): the page is built per request in the chosen language; language menu; draft banner (I-a)
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
-```
+Run: `MKL_THREADING_LAYER=SEQUENTIAL micromamba run -n shiny python -m pytest app/tests/test_i18n_app.py -k "menu or banner or state_carries" -q && micromamba run -n shiny ruff check app/shell.py app/state.py`
+Expected: pass. Everything else goes green at the end of Task 7, whose commit covers both tasks.
 
 ---
 
-### Task 7: The five panels render through `tr`, as pure functions
+### Task 7 (part 2 of 2, with Task 6): The five panels render through `tr`, as pure functions
 
 **Files:**
 - Modify: `app/modules/_widgets.py` (whole file), `app/modules/user_mode.py` (whole file), `app/modules/report.py` (whole file)
@@ -2976,7 +2972,9 @@ def render_excluded(assessment, tr: Translator) -> ui.Tag:
     # grow kelp here" is one of the questions the tool exists to answer.
     return ui.tags.ul(
         *[
-            ui.tags.li(ui.tags.b(tr.species_name(key) if key in _SPECIES else key), ": ", tr.render(reason))
+            # The raw species key, as before: the excluded dict is keyed by identifier and
+            # English never showed the common name here, so the seam must not either.
+            ui.tags.li(ui.tags.b(key), ": ", tr.render(reason))
             for key, reason in assessment.excluded.items()
         ]
     )
@@ -3002,7 +3000,7 @@ def render_pressure(assessment, tr: Translator) -> ui.Tag:
     )
 ```
 
-with `_SPECIES = frozenset(default_parameters().species)` at module level (import `default_parameters`). The old `binding_constraint or "All constraints pass"` fallback is gone: `explain()` always returns a message (`suitability.explain.no_binding` when nothing binds), so `app.results.all_pass` is unused — **delete that key from `app/locales/en.yaml`**.
+The old `binding_constraint or "All constraints pass"` fallback is gone: `explain()` always returns a message (`suitability.explain.no_binding` when nothing binds), so `app.results.all_pass` is unused — **delete that key from `app/locales/en.yaml`**.
 
 - [ ] **Step 8: Convert `app/modules/site.py`**
 
@@ -3082,7 +3080,10 @@ Expected: all pass; nothing under `tests/golden` modified — the English report
 
 ```bash
 git add app tests
-git commit -m "feat(app): every panel renders through the Translator as a pure function (I-a)
+git commit -m "feat(app): the page builds per request in the chosen language; every panel renders through the Translator (I-a)
+
+Tasks 6 and 7 of the I-a plan, one commit: the shell defines the Translator's
+journey and the panels are where it arrives, and app.py calls both.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -3342,10 +3343,24 @@ class _Text(HTMLParser):
             self.chunks.append(data)
 
 
+#: The one permitted category of English under `xx`: text the FRAMEWORK emits, not us.
+#: Each entry names its origin. Verify the exact strings on the first run; do not guess.
+FRAMEWORK_STRINGS = {
+    "Close",              # Bootstrap modal close button aria-label
+    "Toggle navigation",  # Bootstrap navbar toggler aria-label
+    "Toggle sidebar",     # bslib sidebar collapse aria-label
+}
+#: The draft banner is bilingual BY DESIGN (I§6): the English sentence beside the
+#: translated one is required, so it is stripped before the leak scan, exactly once.
+ENGLISH_DRAFT_BANNER = Translator.for_language("en")("app.shell.draft_banner")
+
+
 def _leaks(text: str) -> list[str]:
     out = []
     for chunk in text.split("\n"):
-        stripped = chunk
+        stripped = chunk.replace(ENGLISH_DRAFT_BANNER, " ")
+        if stripped.strip() in FRAMEWORK_STRINGS:
+            continue
         for pattern in (MARKER, URL, DATE, VERSION, NUMBER):
             stripped = pattern.sub(" ", stripped)
         for token in stripped.split():
@@ -3449,7 +3464,7 @@ def test_8_a_draft_language_is_hidden_unless_the_deployment_shows_drafts():
     assert "de" in shown and language_for("?lang=de", None, shown) == "de"
 ```
 
-Expect the first run of test 6 to list leaks: that list is the work of this task. Each leak is fixed by giving the string a key (Task 7's pattern) or, for an identifier/unit/proper noun, by adding it to `ALLOWED_TOKENS` with a one-word justification comment. **Do not add an English sentence fragment to the allowlist**; that is the failure the test exists to catch.
+Expect the first run of test 6 to list leaks: that list is the work of this task. Each leak is fixed by giving the string a key (Task 7's pattern) or, for an identifier/unit/proper noun, by adding it to `ALLOWED_TOKENS` with a one-word justification comment. **Do not add an English sentence fragment to `ALLOWED_TOKENS`**; that is the failure the test exists to catch. The single exception is `FRAMEWORK_STRINGS`: attribute text Bootstrap or bslib emits on its own (a modal's close button, the navbar toggler), each entry with its origin in a comment.
 
 - [ ] **Step 3: Retire the `t(` grep**
 
