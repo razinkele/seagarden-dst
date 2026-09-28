@@ -97,7 +97,7 @@ class _FakeState:
         self.context = _Value(context)
         self.selected_species = _Value([])
         self.method_overrides = _Value({})
-        self.scale = _Value("community farm (0.1 ha)")
+        self.scale = _Value("community_farm_0_1_ha")
         self.assessment = _Value(None)
         self.eutropy_scenario = _Value(None)
         self.bowtie_inference = _Value(None)
@@ -527,6 +527,23 @@ def test_tier_and_verdict_widgets_are_styled_by_class_not_inline_colour():
     pill = str(verdict_pill("unsuitable"))
     assert 'class="sg-verdict sg-verdict-unsuitable"' in pill
     assert "style=" not in pill
+
+
+def test_state_and_doors_hold_scale_identifiers_not_labels():
+    from seagarden_dst import SCALES
+
+    assert AppState.defaults()["scale"] in SCALES
+    for mode, spec in MODES.items():
+        assert spec["scale"] in SCALES, f"{mode} holds a label, not a key"
+
+
+def test_the_sidebar_status_shows_the_scale_label_never_the_slug():
+    """`app.py` formats the scale into a sentence; after I-0 the state holds a slug."""
+    from app.app import scale_sentence
+
+    text = scale_sentence(label="Melnrage", count=3, scale_key="community_farm_0_1_ha")
+    assert "community farm (0.1 ha)" in text
+    assert "community_farm_0_1_ha" not in text
 
 
 def test_no_app_module_hard_codes_a_colour_in_an_inline_style():
