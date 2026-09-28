@@ -68,3 +68,65 @@ def test_the_default_calibration_statement_is_a_message():
     fallback = no_calibration.calibration_for("nowhere")
     assert isinstance(fallback.note, Message)
     assert str(fallback.note) == "No calibration statement for this region."
+
+
+def test_constraints_and_explanations_are_messages_saying_what_they_said():
+    from seagarden_dst import SiteContext, assess_site
+
+    result = assess_site(SiteContext.from_region("LT-coastal"))
+    option = result.ranked[0]
+    assert isinstance(option.binding_constraint, Message)
+    for name, verdict, reason in option.constraints:
+        assert isinstance(name, Message) and isinstance(reason, Message)
+        assert verdict in {"suitable", "marginal", "unsuitable", "unknown"}
+    names = {str(c[0]) for c in option.constraints}
+    assert names == {
+        "Physical feasibility", "Environmental tolerance", "Growth viability",
+        "Legal permissibility",
+    }
+    legal = next(c for c in option.constraints if str(c[0]) == "Legal permissibility")
+    assert str(legal[2]).startswith("No regulatory record loaded")
+    assert str(option.binding_constraint).startswith("Legal permissibility: ")
+
+
+def test_caveats_excluded_and_pressure_note_are_messages():
+    from seagarden_dst import CAVEAT_LABELS, SiteContext, assess_site
+
+    result = assess_site(
+        SiteContext.from_region("LT-coastal"),
+        eutropy={"nonsense": True},
+        bowtie={"Catastrophe": 1.0},
+    )
+    assert all(isinstance(v, Message) for v in result.caveats.values())
+    assert all(isinstance(v, Message) for v in result.excluded.values())
+    assert isinstance(result.pressure_note, Message)
+    assert str(result.caveats["nutrient_forcing"]).startswith("EUTROPY forcing not applied: ")
+    assert str(CAVEAT_LABELS["nutrient_forcing"]) == "nutrient forcing"
+    assert "failed" in str(result.excluded["saccharina_latissima"]).lower()
+
+
+def test_pressure_note_without_a_bowtie_is_none_not_an_empty_message():
+    from seagarden_dst import SiteContext, assess_site
+
+    assert assess_site(SiteContext.from_region("LT-coastal")).pressure_note is None
+
+
+def test_scale_labels_and_verdict_labels_are_messages():
+    from seagarden_dst import SCALE_LABELS, Verdict
+
+    assert str(SCALE_LABELS["community_farm_0_1_ha"]) == "community farm (0.1 ha)"
+    assert isinstance(Verdict.SUITABLE.label, Message)
+    assert str(Verdict.UNSUITABLE.label) == "unsuitable"
+
+
+def test_the_adapter_notes_compose_from_keyed_sentences():
+    from seagarden_dst import SiteContext, assess_site
+
+    bowtie = {"Low": 0.2, "Moderate": 0.3, "High": 0.5}
+    lagoon = assess_site(SiteContext.from_region("LT-lagoon"), bowtie=bowtie)
+    note = str(lagoon.pressure_note)
+    assert note.startswith("Eutrophication pressure from the MARBEFES bow-tie (bow-tie scenario).")
+    assert note.endswith("neither a yield nor a risk.")
+    assert "parameterised for the Curonian Lagoon" not in note  # in domain
+    coast = assess_site(SiteContext.from_region("LT-coastal"), bowtie=bowtie)
+    assert "this site is LT-coastal" in str(coast.pressure_note)

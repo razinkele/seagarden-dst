@@ -28,7 +28,10 @@ def catalogue_ui() -> ui.Tag:
                 selected=list(SPECIES_CHOICES),
             ),
             ui.input_select(
-                "scale", "Scale", choices=dict(SCALE_LABELS), selected=DEFAULT_SCALE
+                "scale",
+                "Scale",
+                choices={k: str(v) for k, v in SCALE_LABELS.items()},
+                selected=DEFAULT_SCALE,
             ),
             ui.input_action_link(
                 "only_af", "Select only the species named in the Application Form"

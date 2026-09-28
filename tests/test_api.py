@@ -42,7 +42,7 @@ def test_contraindicated_species_is_excluded_with_a_reason(lithuania):
     """Sugar kelp in Lithuania: excluded and explained, not ranked last."""
     result = assess_site(lithuania)
     assert "saccharina_latissima" in result.excluded
-    assert "failed" in result.excluded["saccharina_latissima"].lower()
+    assert "failed" in str(result.excluded["saccharina_latissima"]).lower()
     assert all(o.species_key != "saccharina_latissima" for o in result.ranked)
 
 
@@ -54,7 +54,7 @@ def test_kelp_is_not_excluded_in_the_danish_belt():
 def test_calibration_caveat_is_attached_when_priors_are_used(lithuania):
     result = assess_site(lithuania)
     assert "calibration" in result.caveats
-    assert "indicative" in result.caveats["calibration"].lower()
+    assert "indicative" in str(result.caveats["calibration"]).lower()
 
 
 def test_unknown_scale_is_refused(lithuania):

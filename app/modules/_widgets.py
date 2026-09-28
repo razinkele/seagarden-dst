@@ -43,7 +43,7 @@ def quantity(q: Quantity | None) -> ui.Tag:
 
 def verdict_pill(verdict: str) -> ui.Tag:
     kind = verdict if verdict in _VERDICTS else "unknown"
-    shown = Verdict(verdict).label if verdict in _VERDICTS else verdict
+    shown = str(Verdict(verdict).label) if verdict in _VERDICTS else verdict
     return ui.tags.span(shown, class_=f"sg-verdict sg-verdict-{kind}")
 
 

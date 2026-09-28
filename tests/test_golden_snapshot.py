@@ -87,7 +87,7 @@ def _capture_assess_site() -> dict:
     for region in sorted(PLACEHOLDER_SITES):
         result = assess_site(SiteContext.from_region(region))
         out[region] = {
-            "excluded": dict(sorted(result.excluded.items())),
+            "excluded": {k: str(v) for k, v in sorted(result.excluded.items())},
             "ranked": [
                 {
                     "species": option.species_key,
@@ -97,7 +97,7 @@ def _capture_assess_site() -> dict:
                     "nitrogen": round(option.nitrogen_value, 6),
                     "phosphorus": round(_elemental_value(option, option.phosphorus), 6),
                     "carbon": round(_elemental_value(option, option.carbon), 6),
-                    "constraints": [list(c) for c in option.constraints],
+                    "constraints": [[str(n), v, str(r)] for n, v, r in option.constraints],
                 }
                 for option in result.ranked
             ],

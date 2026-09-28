@@ -105,7 +105,9 @@ def results_server(input, output, session, state) -> None:  # noqa: A002
                     ui.tags.td(
                         ui.tags.details(
                             ui.tags.summary(
-                                ui.tags.small(option.binding_constraint or "All constraints pass")
+                                ui.tags.small(
+                                    str(option.binding_constraint) or "All constraints pass"
+                                )
                             ),
                             ui.tags.ul(
                                 *[
@@ -159,7 +161,7 @@ def results_server(input, output, session, state) -> None:  # noqa: A002
         # grow kelp here" is one of the questions the tool exists to answer.
         return ui.tags.ul(
             *[
-                ui.tags.li(ui.tags.b(key), ": ", reason)
+                ui.tags.li(ui.tags.b(key), ": ", str(reason))
                 for key, reason in assessment.excluded.items()
             ]
         )
@@ -172,17 +174,19 @@ def results_server(input, output, session, state) -> None:  # noqa: A002
             return ui.p("-", style="opacity:.7;")
         if not assessment.pressure:
             return ui.p(
-                assessment.pressure_note
-                or "No bow-tie inference supplied. Nutrient removal is reported on its "
-                   "own terms.",
+                str(assessment.pressure_note)
+                if assessment.pressure_note is not None
+                else "No bow-tie inference supplied. Nutrient removal is reported on its "
+                     "own terms.",
                 style="opacity:.7;",
             )
         items = [
             ui.tags.li(f"P(top event {state_}) = {p:.3f}")
             for state_, p in assessment.pressure.items()
         ]
+        framing = removal_framing(assessment.pressure)
         return ui.TagList(
             ui.tags.ul(*items),
-            ui.p(removal_framing(assessment.pressure)),
-            ui.p(ui.tags.small(assessment.pressure_note)),
+            ui.p(str(framing) if framing is not None else ""),
+            ui.p(ui.tags.small(str(assessment.pressure_note or ""))),
         )

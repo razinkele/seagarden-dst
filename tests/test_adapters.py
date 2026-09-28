@@ -35,14 +35,14 @@ def test_scenario_replaces_nutrients_only(lagoon):
     assert forced.conditions.dip_umol_l == 0.9
     assert forced.conditions.salinity_psu == before.salinity_psu
     assert forced.conditions.depth_m == before.depth_m
-    assert "BSAP" in note
+    assert "BSAP" in str(note)
 
 
 def test_lagoon_model_applied_to_the_open_coast_says_so(lithuania):
     """The domain mismatch must reach the user, not a log file."""
     _forced, note = apply_nutrient_scenario(lithuania, {"din_umol_l": 9.0, "dip_umol_l": 0.5})
-    assert "Curonian Lagoon box model" in note
-    assert "scenario reasoning, not as a prediction" in note
+    assert "Curonian Lagoon box model" in str(note)
+    assert "scenario reasoning, not as a prediction" in str(note)
 
 
 def test_malformed_scenarios_are_refused(lagoon):
@@ -73,7 +73,7 @@ def test_bad_eutropy_input_does_not_break_the_assessment(lithuania):
     clean = assess_site(lithuania)
     degraded = assess_site(lithuania, eutropy={"nonsense": True})
     assert [o.species_key for o in degraded.ranked] == [o.species_key for o in clean.ranked]
-    assert "EUTROPY forcing not applied" in degraded.caveats["nutrient_forcing"]
+    assert "EUTROPY forcing not applied" in str(degraded.caveats["nutrient_forcing"])
 
 
 # LT-coastal rather than the lagoon: this test needs a site with a non-empty
@@ -106,7 +106,7 @@ def test_pressure_accepts_the_wrapped_form(lagoon):
         {"top_event": {"Low": 0.3, "Moderate": 0.25, "High": 0.45}, "label": "current loading"},
     )
     assert values["High"] == pytest.approx(0.45)
-    assert "current loading" in note
+    assert "current loading" in str(note)
 
 
 def test_pressure_is_never_folded_into_the_ranking(lagoon):
@@ -117,7 +117,7 @@ def test_pressure_is_never_folded_into_the_ranking(lagoon):
         o.nitrogen_value for o in with_pressure.ranked
     ]
     assert with_pressure.pressure["High"] == pytest.approx(0.5)
-    assert "never folded into it" in with_pressure.pressure_note
+    assert "never folded into it" in str(with_pressure.pressure_note)
 
 
 # LT-coastal rather than the lagoon: this test needs a site with a non-empty
@@ -126,7 +126,7 @@ def test_pressure_is_never_folded_into_the_ranking(lagoon):
 def test_malformed_bowtie_is_reported_not_raised(lithuania):
     result = assess_site(lithuania, bowtie={"Catastrophe": 1.0})
     assert result.pressure == {}
-    assert "names none of" in result.pressure_note
+    assert "names none of" in str(result.pressure_note)
     assert result.ranked, "the ranking is unaffected"
 
 
@@ -139,6 +139,6 @@ def test_bad_bowtie_shapes_are_refused(lagoon):
 def test_removal_framing_changes_with_pressure():
     high = removal_framing({"High": 0.47})
     low = removal_framing({"High": 0.12})
-    assert "mitigation of an active problem" in high
-    assert "maintenance rather than mitigation" in low
-    assert removal_framing({}) == ""
+    assert "mitigation of an active problem" in str(high)
+    assert "maintenance rather than mitigation" in str(low)
+    assert removal_framing({}) is None

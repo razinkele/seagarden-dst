@@ -26,6 +26,7 @@ from .forcing import (
     SiteQuery,
     SiteReading,
 )
+from .i18n import Message
 
 #: E§3.5. Set on a context built through the reader whose region has no coordinate, so
 #: the session runs on the artifact while this one site stays on the placeholder - a
@@ -126,13 +127,13 @@ class SpeciesOption:
     method_name: str
     area_m2: float
     verdict: str
-    binding_constraint: str
+    binding_constraint: Message
     tier: Tier
     harvest: Quantity
     nitrogen: Quantity | None = None
     phosphorus: Quantity | None = None
     carbon: Quantity | None = None
-    constraints: list[tuple[str, str, str]] = field(default_factory=list)
+    constraints: list[tuple[Message, str, Message]] = field(default_factory=list)
 
     @property
     def is_reportable(self) -> bool:
@@ -159,10 +160,10 @@ class SiteAssessment:
     context: SiteContext
     ranked: list[SpeciesOption]
     best: SpeciesOption | None = None
-    excluded: dict[str, str] = field(default_factory=dict)
-    caveats: dict[str, str] = field(default_factory=dict)
+    excluded: dict[str, Message] = field(default_factory=dict)
+    caveats: dict[str, Message] = field(default_factory=dict)
     pressure: dict[str, float] = field(default_factory=dict)
-    pressure_note: str = ""
+    pressure_note: Message | None = None
     unassessable: bool = False
     coverage: Coverage = Coverage.VALID
     nearest_valid_km: float | None = None

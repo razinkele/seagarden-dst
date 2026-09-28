@@ -109,7 +109,7 @@ def test_a_wrapping_window_the_artifact_cannot_cover_excludes_only_that_species(
 
     assert any(o.species_key == "fucus_vesiculosus" for o in result.ranked)
     assert "fucus_wrapped" in result.excluded
-    assert "wrapping" in result.excluded["fucus_wrapped"]
+    assert "wrapping" in str(result.excluded["fucus_wrapped"])
     assert all(o.species_key != "fucus_wrapped" for o in result.ranked)
 
 

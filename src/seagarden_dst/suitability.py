@@ -25,6 +25,7 @@ from enum import StrEnum
 from .calibration import Tier
 from .forcing import DEFAULT_FORCING, PLACEHOLDER_YEAR, ForcingSource, SiteConditions
 from .growth import contraindication, harvest_biomass
+from .i18n import Message, msg
 from .params import MethodParams, SpeciesParams, default_parameters
 
 
@@ -50,20 +51,18 @@ class Verdict(StrEnum):
         }[self]
 
     @property
-    def label(self) -> str:
-        """What a user reads. Identical to the value in English; the identifier is the
-        value, which is also the CSS class (`sg-verdict-<value>`). Package I-a makes this
-        a `Message` so the pill can say 'geeignet' while the class stays 'suitable'."""
-        return self.value
+    def label(self) -> Message:
+        """What a user reads. The value is the identifier and the CSS class."""
+        return msg(f"suitability.verdict.{self.value}")
 
 
 @dataclass(frozen=True)
 class Constraint:
     """One constraint class and why it landed where it did."""
 
-    name: str
+    name: Message
     verdict: Verdict
-    reason: str
+    reason: Message
 
 
 @dataclass
@@ -94,31 +93,44 @@ class Suitability:
         ordered = sorted(self.constraints, key=lambda c: c.verdict.score)
         return ordered[0] if ordered else None
 
-    def explain(self) -> str:
+    def explain(self) -> Message:
         binding = self.binding_constraint
         if binding is None:
-            return "No assessment performed."
+            return msg("suitability.explain.none")
         if self.verdict is Verdict.SUITABLE:
-            return "No binding constraint identified."
-        return f"{binding.name}: {binding.reason}"
+            return msg("suitability.explain.no_binding")
+        return msg("suitability.explain.binding", name=binding.name, reason=binding.reason)
+
+
+PHYSICAL = msg("suitability.class.physical")
+ENVIRONMENT = msg("suitability.class.environment")
+GROWTH = msg("suitability.class.growth")
+LEGAL = msg("suitability.class.legal")
 
 
 def assess_physical(site: SiteConditions, method: MethodParams) -> Constraint:
+    method_name = Message.literal(method.name)  # literal: YAML data, translated by the sidecar
     if not (method.min_depth_m <= site.depth_m <= method.max_depth_m):
         return Constraint(
-            "Physical feasibility",
+            PHYSICAL,
             Verdict.UNSUITABLE,
-            f"Depth {site.depth_m:g} m is outside the workable window for "
-            f"{method.name} ({method.min_depth_m:g}-{method.max_depth_m:g} m).",
+            msg(
+                "suitability.physical.depth_outside",
+                depth=f"{site.depth_m:g}", method=method_name,
+                min_depth=f"{method.min_depth_m:g}", max_depth=f"{method.max_depth_m:g}",
+            ),
         )
     if site.significant_wave_m > method.max_significant_wave_m:
         return Constraint(
-            "Physical feasibility",
+            PHYSICAL,
             Verdict.MARGINAL,
-            f"Significant wave height {site.significant_wave_m:g} m exceeds the "
-            f"design limit of {method.max_significant_wave_m:g} m for {method.name}.",
+            msg(
+                "suitability.physical.wave_exceeds",
+                wave=f"{site.significant_wave_m:g}",
+                limit=f"{method.max_significant_wave_m:g}", method=method_name,
+            ),
         )
-    return Constraint("Physical feasibility", Verdict.SUITABLE, "Depth and exposure workable.")
+    return Constraint(PHYSICAL, Verdict.SUITABLE, msg("suitability.physical.ok"))
 
 
 def assess_environment(
@@ -134,23 +146,19 @@ def assess_environment(
         salinity_factor_floor = default_parameters().assessment.salinity_factor_floor
     contra = contraindication(species, site)
     if contra is not None:
-        return Constraint(
-            "Environmental tolerance",
-            Verdict.UNSUITABLE,
-            str(contra.note or "Contraindicated at this site."),
-        )
+        return Constraint(ENVIRONMENT, Verdict.UNSUITABLE, contra.caveat())
     if species.salinity is not None and species.salinity.applies:
         factor = species.salinity.factor(site.salinity_psu)
         if factor < salinity_factor_floor:
             return Constraint(
-                "Environmental tolerance",
+                ENVIRONMENT,
                 Verdict.MARGINAL,
-                f"Salinity {site.salinity_psu:g} psu scales maximum yield to "
-                f"{factor:.0%} of the reference.",
+                msg(
+                    "suitability.environment.salinity_scales",
+                    salinity=f"{site.salinity_psu:g}", factor=f"{factor:.0%}",
+                ),
             )
-    return Constraint(
-        "Environmental tolerance", Verdict.SUITABLE, "Within the species' tolerance range."
-    )
+    return Constraint(ENVIRONMENT, Verdict.SUITABLE, msg("suitability.environment.ok"))
 
 
 def assess_growth(
@@ -177,31 +185,29 @@ def assess_growth(
     if floor_kg_dw_per_m2 is None:
         floor_kg_dw_per_m2 = default_parameters().assessment.yield_floor_kg_dw_per_m2
     if species.group != "macroalga":
-        return Constraint(
-            "Growth viability", Verdict.SUITABLE, "Assessed by the banded yield model."
-        )
+        return Constraint(GROWTH, Verdict.SUITABLE, msg("suitability.growth.banded"))
     harvest = harvest_biomass(
         species, site, area_m2=method.area_m2_per_unit, forcing=forcing, year=year
     )
     if not harvest.calibration.is_reportable:
-        return Constraint(
-            "Growth viability",
-            Verdict.UNSUITABLE,
-            str(harvest.calibration.note or "Contraindicated."),
-        )
+        return Constraint(GROWTH, Verdict.UNSUITABLE, harvest.calibration.caveat())
     per_m2 = harvest.value / method.area_m2_per_unit
     if per_m2 < floor_kg_dw_per_m2:
         return Constraint(
-            "Growth viability",
+            GROWTH,
             Verdict.MARGINAL,
-            f"Predicted {per_m2:.2f} kg DW/m2 is below the {floor_kg_dw_per_m2:g} "
-            f"kg DW/m2 default floor.",
+            msg(
+                "suitability.growth.below_floor",
+                per_m2=f"{per_m2:.2f}", floor=f"{floor_kg_dw_per_m2:g}",
+            ),
         )
-    tier_note = " (literature prior)" if harvest.calibration.tier is Tier.C else ""
+    tier_note = msg(
+        "suitability.growth.tier_note_prior"
+        if harvest.calibration.tier is Tier.C else "suitability.growth.tier_note_none"
+    )
     return Constraint(
-        "Growth viability",
-        Verdict.SUITABLE,
-        f"Predicted {per_m2:.2f} kg DW/m2 over one cycle{tier_note}.",
+        GROWTH, Verdict.SUITABLE,
+        msg("suitability.growth.ok", per_m2=f"{per_m2:.2f}", tier_note=tier_note),
     )
 
 
@@ -213,12 +219,7 @@ def assess_legal(site: SiteConditions, permitting_layer: object | None = None) -
     verdict, not silently pass it.
     """
     if permitting_layer is None:
-        return Constraint(
-            "Legal permissibility",
-            Verdict.UNKNOWN,
-            "No regulatory record loaded for this jurisdiction. The permitting layer "
-            "is produced in-project by A2.2 (M12) and tested by WP3 A3.1.",
-        )
+        return Constraint(LEGAL, Verdict.UNKNOWN, msg("suitability.legal.no_record"))
     raise NotImplementedError("Regulatory layer integration - specification section 9")
 
 
@@ -247,9 +248,13 @@ def assess(
             region=site.region,
             constraints=[
                 Constraint(
-                    "Physical feasibility",
+                    PHYSICAL,
                     Verdict.UNSUITABLE,
-                    f"{method.name} does not support {species.group} cultivation.",
+                    msg(
+                        "suitability.physical.unsupported_group",
+                        method=Message.literal(method.name),
+                        group=Message.literal(species.group),
+                    ),
                 )
             ],
         )

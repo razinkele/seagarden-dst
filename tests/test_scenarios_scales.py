@@ -17,7 +17,7 @@ def test_every_scale_has_exactly_one_label():
 
 
 def test_labels_are_the_sentences_the_tool_showed_before_the_split():
-    assert SCALE_LABELS == {
+    assert {k: str(v) for k, v in SCALE_LABELS.items()} == {
         "mini_farm_kit": "mini-farm kit",
         "community_farm_0_1_ha": "community farm (0.1 ha)",
         "community_farm_1_ha": "community farm (1 ha)",
