@@ -326,8 +326,8 @@ wrong English sentence rather than translating around it.
 
 ## I§8 Testing
 
-English output is unchanged, so `tests/test_golden_snapshot.py` (after I-0's one label
-regeneration), every report assertion in `app/tests/test_app_smoke.py` and every core test
+English output is unchanged, so `tests/test_golden_snapshot.py` (unchanged by I-0),
+every report assertion in `app/tests/test_app_smoke.py` and every core test
 asserting on prose stand as they are, with `.lower()`-style calls on former strings
 wrapped in `str()`. New:
 
@@ -374,8 +374,10 @@ wrapped in `str()`. New:
     signature change; I-a inherits it.
 11. **The catalogue is in the wheel.** `test_packaging.py` gains the locales glob.
 
-Tests 1–5 and 7–9 live in `tests/test_i18n.py` (core, default selection). Test 6, 8 and
-10 live in `app/tests/test_i18n_app.py`. None needs the `spatial` extra.
+Tests 1–5 and 7–9 live in `tests/test_i18n.py` (core, default selection). Tests 6 and 8
+live in `app/tests/test_i18n_leaks.py`; test 10 lives in `tests/test_report_golden.py`,
+because `--snapshot-update` is registered in `tests/conftest.py`, and it `importorskip`s
+`shiny` so the spatial CI job can collect `tests/` without the app extra.
 
 ## I§9 Amendments this design requires
 
@@ -393,7 +395,8 @@ Tests 1–5 and 7–9 live in `tests/test_i18n.py` (core, default selection). Te
   rule, the two environment variables; the layout block gains `i18n.py`, `locales/` and
   `params/i18n/`.
 - **`docs/runbooks/deploy.md`** — the two environment variables on the systemd unit.
-- **`CHANGELOG.md`** — I-0 under *Changed* (scale keys, caveat slugs, snapshot labels);
+- **`CHANGELOG.md`** — I-0 under *Changed* (scale keys, caveat slugs, `Verdict.label`,
+  `render_report(today=)`, the English report goldens; the assessments golden unchanged);
   I-a under *Added* (the seam, English only, JSON export schema change); I-b under
   *Added* (five draft catalogues, none enabled) with a *Known limits* line that the live
   instance is still English until the first review.
@@ -414,10 +417,15 @@ amending. Partner review time is theirs, not counted here.
 **I-0**
 
 1. `grep -rn "community farm\|mini-farm kit\|small commercial" src app tests
-   --exclude-dir=golden` returns hits only inside `SCALE_LABELS`. (`tests/golden/` embeds
+   --exclude-dir=golden` is expected to hit: `SCALE_LABELS` itself, its mirror in
+   `test_scenarios_scales.py`, comments and docstrings that name the hardware in prose,
+   and label assertions in tests (`assert "community farm (0.1 ha)" in text`, the old
+   prose key rejected by `test_the_old_prose_key_is_refused_loudly`). Outside those, no
+   code path builds or compares against a prose scale string. (`tests/golden/` embeds
    the labels by design, I§3; the English catalogue takes them over in I-a.)
 2. `caveats` keys are slugs; `test_adapters.py` and `test_api.py` index by slug.
-3. The golden snapshot diff touches labels only; the plan's task shows it line by line.
+3. `tests/golden/assessments.json` is unchanged and its test passes without
+   `--snapshot-update`.
 4. `pytest` and `ruff` clean; the English report golden file (test 10) is committed.
 
 **I-a**
