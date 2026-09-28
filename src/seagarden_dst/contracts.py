@@ -14,7 +14,8 @@ there and how much nutrient it removes.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from .calibration import Quantity, Tier
 from .forcing import (
@@ -26,12 +27,12 @@ from .forcing import (
     SiteQuery,
     SiteReading,
 )
-from .i18n import Message
+from .i18n import Message, msg
 
 #: E§3.5. Set on a context built through the reader whose region has no coordinate, so
 #: the session runs on the artifact while this one site stays on the placeholder - a
 #: fallback the banner and report must say, not one they infer from a boolean.
-SOURCE_NOTE_NO_POSITION = "no confirmed position; conditions are the sub-region placeholder"
+SOURCE_NOTE_NO_POSITION = msg("contracts.source_note.no_position")
 
 
 @dataclass
@@ -64,8 +65,8 @@ class SiteContext:
     nearest_valid_km: float | None = None
     from_artifact: bool = False
     #: Why this site is on the placeholder while the session runs on the artifact;
-    #: empty otherwise (E§3.5).
-    source_note: str = ""
+    #: None otherwise (E§3.5). A Message, never "", so callers test `is not None`.
+    source_note: Message | None = None
 
     @classmethod
     def from_region(
@@ -144,13 +145,28 @@ class SpeciesOption:
         """Sort key. Zero for anything not reportable, so tier D never ranks."""
         return self.nitrogen.value if (self.is_reportable and self.nitrogen) else 0.0
 
-    def to_dict(self) -> dict:
-        out = asdict(self)
-        out["tier"] = self.tier.value
-        for key in ("harvest", "nitrogen", "phosphorus", "carbon"):
-            value = getattr(self, key)
-            out[key] = None if value is None else str(value)
-        return out
+    def to_dict(self, render: Callable[[Message], str] = str) -> dict:
+        """Export. Every Message is `{"key", "params", "text"}` (I§5.1); quantities are
+        their English `str()`, as before. Written by hand rather than `asdict`, which
+        would recurse into Message and emit it without its text."""
+        return {
+            "species_key": self.species_key,
+            "species_name": self.species_name,
+            "method_key": self.method_key,
+            "method_name": self.method_name,
+            "area_m2": self.area_m2,
+            "verdict": self.verdict,
+            "binding_constraint": self.binding_constraint.to_dict(render),
+            "tier": self.tier.value,
+            "harvest": str(self.harvest),
+            "nitrogen": None if self.nitrogen is None else str(self.nitrogen),
+            "phosphorus": None if self.phosphorus is None else str(self.phosphorus),
+            "carbon": None if self.carbon is None else str(self.carbon),
+            "constraints": [
+                [name.to_dict(render), verdict, reason.to_dict(render)]
+                for name, verdict, reason in self.constraints
+            ],
+        }
 
 
 @dataclass
@@ -181,7 +197,8 @@ class SiteAssessment:
         order = [Tier.A, Tier.B, Tier.C]
         return max(tiers, key=lambda t: order.index(t) if t in order else 99)
 
-    def to_dict(self) -> dict:
+    def to_dict(self, render: Callable[[Message], str] = str) -> dict:
+        note = self.context.source_note
         return {
             "site": {
                 "region": self.context.region,
@@ -189,12 +206,14 @@ class SiteAssessment:
                 "confidence": self.context.confidence,
                 "geometry_wkt": self.context.geometry_wkt,
                 "from_artifact": self.context.from_artifact,
-                "source_note": self.context.source_note,
+                "source_note": None if note is None else note.to_dict(render),
             },
-            "ranked": [o.to_dict() for o in self.ranked],
-            "best": None if self.best is None else self.best.to_dict(),
-            "excluded": dict(self.excluded),
-            "caveats": dict(self.caveats),
+            "ranked": [o.to_dict(render) for o in self.ranked],
+            "best": None if self.best is None else self.best.to_dict(render),
+            "excluded": {k: v.to_dict(render) for k, v in self.excluded.items()},
+            "caveats": {k: v.to_dict(render) for k, v in self.caveats.items()},
             "pressure": dict(self.pressure),
-            "pressure_note": self.pressure_note,
+            "pressure_note": (
+                None if self.pressure_note is None else self.pressure_note.to_dict(render)
+            ),
         }

@@ -104,7 +104,7 @@ def data_source_banner(choice: ForcingChoice, context: SiteContext | None = None
             "Data source: placeholder conditions — plausible order-of-magnitude values, "
             f"not measurements ({choice.reason})."
         )
-    if context is not None and context.source_note:
+    if context is not None and context.source_note is not None:
         text += f" This site: {context.source_note}."
     return text
 

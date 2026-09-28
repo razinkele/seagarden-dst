@@ -164,7 +164,7 @@ def test_a_region_with_a_coordinate_commits_through_the_readers_reading():
     context = build_site_context("LT-lagoon", "Curonian", choice)
     assert seen and seen[0].region == "LT-lagoon" and seen[0].year == 2025
     assert seen[0].geometry_wkt.startswith("POINT (")
-    assert context.from_artifact is True and context.source_note == ""
+    assert context.from_artifact is True and context.source_note is None
     assert context.label == "Curonian" and context.region == "LT-lagoon"
     assert context.geometry_wkt == seen[0].geometry_wkt
 
@@ -175,7 +175,7 @@ def test_a_region_without_a_coordinate_stays_on_the_placeholder_with_a_note():
 
     context = build_site_context("LT-coastal", "Melnrage", _artifact_choice())
     assert context.from_artifact is False
-    assert context.source_note == SOURCE_NOTE_NO_POSITION
+    assert context.source_note is SOURCE_NOTE_NO_POSITION
     assert context.region == "LT-coastal"
 
 
@@ -183,7 +183,7 @@ def test_on_the_placeholder_a_site_commits_as_today_with_no_note():
     from app.modules.site import build_site_context
 
     context = build_site_context("LT-lagoon", "Curonian", placeholder_choice("no artifact"))
-    assert context.from_artifact is False and context.source_note == ""
+    assert context.from_artifact is False and context.source_note is None
 
 
 def test_a_blocked_reading_keeps_the_region_it_was_asked_for():
@@ -310,8 +310,8 @@ def test_every_marker_states_its_provenance():
     for marker in _markers():
         coordinate = SITE_COORDINATES[marker["region"]]
         assert marker["provenance"] == coordinate.provenance.value
-        assert marker["provenance_label"] == coordinate.provenance.label
-        assert marker["presentation"] == coordinate.provenance.presentation
+        assert marker["provenance_label"] == str(coordinate.provenance.label)
+        assert marker["presentation"] == str(coordinate.provenance.presentation)
 
 
 def test_marker_positions_are_lon_lat_and_match_the_coordinate():
@@ -444,9 +444,10 @@ def test_the_banner_names_what_the_tool_is_running_on():
 def test_the_banner_appends_a_sites_own_fallback_note():
     from app.modules._widgets import data_source_banner
     from seagarden_dst import SiteContext
+    from seagarden_dst.contracts import SOURCE_NOTE_NO_POSITION
 
     context = SiteContext.from_region("LT-coastal", label="Melnrage")
-    context.source_note = "no confirmed position; conditions are the sub-region placeholder"
+    context.source_note = SOURCE_NOTE_NO_POSITION
     text = data_source_banner(_artifact_choice(), context)
     assert text.endswith(
         "This site: no confirmed position; conditions are the sub-region placeholder."
@@ -477,13 +478,13 @@ def test_the_report_line_names_the_artifact_year_and_build_date():
 
 
 def test_source_note_reaches_the_json_export():
+    from seagarden_dst.contracts import SOURCE_NOTE_NO_POSITION
+
     state = _FakeState(SiteContext.from_region("LT-coastal", label="Melnrage"))
-    state.context.get().source_note = (
-        "no confirmed position; conditions are the sub-region placeholder"
-    )
+    state.context.get().source_note = SOURCE_NOTE_NO_POSITION
     run_assessment(state)
     site = state.assessment.get().to_dict()["site"]
-    assert site["source_note"].startswith("no confirmed position")
+    assert site["source_note"]["text"].startswith("no confirmed position")
 
 
 

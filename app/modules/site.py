@@ -75,10 +75,10 @@ def site_markers() -> list[dict]:
             {
                 "position": [coordinate.lon, coordinate.lat],
                 "region": region,
-                "name": REGIONS.get(region, region),
+                "name": str(REGIONS[region]),
                 "provenance": coordinate.provenance.value,
-                "provenance_label": coordinate.provenance.label,
-                "presentation": coordinate.provenance.presentation,
+                "provenance_label": str(coordinate.provenance.label),
+                "presentation": str(coordinate.provenance.presentation),
                 "depth": "unknown" if coordinate.depth_m is None else f"{coordinate.depth_m:g} m",
                 "colour": _PROVENANCE_COLOUR[coordinate.provenance],
             }
@@ -166,7 +166,7 @@ def _legend() -> ui.Tag:
                         f"background:rgb({r},{g},{b});margin-right:.35rem;"
                     )
                 ),
-                ui.tags.small(provenance.label),
+                ui.tags.small(str(provenance.label)),
                 style="margin-right:1.1rem;white-space:nowrap;",
             )
         )
@@ -178,11 +178,16 @@ def site_ui() -> ui.Tag:
     absent = regions_without_a_position()
     return ui.layout_sidebar(
         ui.sidebar(
-            ui.input_select("region", "Sub-region", choices=REGIONS, selected="LT-coastal"),
+            ui.input_select(
+                "region",
+                "Sub-region",
+                choices={k: str(v) for k, v in REGIONS.items()},
+                selected="LT-coastal",
+            ),
             ui.help_text(
                 "Click a marker on the map, or choose here. "
                 + (
-                    f"{' and '.join(REGIONS[r] for r in absent)} "
+                    f"{' and '.join(str(REGIONS[r]) for r in absent)} "
                     f"{'have' if len(absent) != 1 else 'has'} no confirmed position yet "
                     "and can only be chosen here."
                     if absent
@@ -280,7 +285,7 @@ def site_server(input, output, session, state) -> None:  # noqa: A002
     # a site the user never chose and put the app straight into 'Site ready'.
     def _set_site():
         region = input.region()
-        label = (input.label() or "").strip() or REGIONS[region]
+        label = (input.label() or "").strip() or str(REGIONS[region])
         state.context.set(build_site_context(region, label, state.forcing.get()))
         state.site_label.set(label)
 
@@ -299,7 +304,7 @@ def site_server(input, output, session, state) -> None:  # noqa: A002
         return ui.p(
             ui.tags.small(
                 f"{coordinate.lat:.4f}, {coordinate.lon:.4f} - "
-                f"{coordinate.provenance.label.lower()}. "
+                f"{str(coordinate.provenance.label).lower()}. "
                 f"A result here is a {coordinate.provenance.presentation}."
             )
         )

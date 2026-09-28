@@ -119,7 +119,7 @@ def _data_source_line(choice: ForcingChoice | None, context) -> str:
         text = "Data source: gridded forcing artifact"
     else:
         text = "Data source: placeholder conditions"
-    if context.source_note:
+    if context.source_note is not None:
         text += f" — this site: {context.source_note}"
     return text
 
@@ -135,7 +135,7 @@ def _data_source_caveat(choice: ForcingChoice | None, context) -> str:
         text = "- Site conditions come from the gridded forcing artifact."
     else:
         text = "- Site conditions in this prototype are placeholders, not measurements."
-    if context.source_note:
+    if context.source_note is not None:
         text += f" This site: {context.source_note}."
     return text
 

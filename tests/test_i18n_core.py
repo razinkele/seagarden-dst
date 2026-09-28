@@ -130,3 +130,59 @@ def test_the_adapter_notes_compose_from_keyed_sentences():
     assert "parameterised for the Curonian Lagoon" not in note  # in domain
     coast = assess_site(SiteContext.from_region("LT-coastal"), bowtie=bowtie)
     assert "this site is LT-coastal" in str(coast.pressure_note)
+
+
+def test_regions_and_provenance_are_messages():
+    import json
+
+    from seagarden_dst import REGIONS, SiteProvenance
+
+    assert all(isinstance(v, Message) for v in REGIONS.values())
+    assert str(REGIONS["DK-belt"]) == "Great Belt"
+    assert str(SiteProvenance.SNAPPED.label) == "Snapped to the nearest modelled cell"
+    assert str(SiteProvenance.INDICATIVE.presentation) == (
+        "result labelled indicative of the water body, not of a site"
+    )
+    json.dumps({k: v.to_dict() for k, v in REGIONS.items()})
+
+
+def test_source_note_is_none_until_set_and_a_message_when_set():
+    from seagarden_dst import SiteContext
+    from seagarden_dst.contracts import SOURCE_NOTE_NO_POSITION
+
+    context = SiteContext.from_region("LT-coastal")
+    assert context.source_note is None
+    context.source_note = SOURCE_NOTE_NO_POSITION
+    assert str(context.source_note) == (
+        "no confirmed position; conditions are the sub-region placeholder"
+    )
+
+
+def test_to_dict_is_json_serialisable_with_text_on_every_message():
+    import json
+
+    from seagarden_dst import SiteContext, assess_site
+    from seagarden_dst.contracts import SOURCE_NOTE_NO_POSITION
+
+    context = SiteContext.from_region("LT-coastal", label="Melnrage")
+    context.source_note = SOURCE_NOTE_NO_POSITION
+    result = assess_site(context, bowtie={"Low": 0.2, "Moderate": 0.3, "High": 0.5})
+    d = result.to_dict()
+    json.dumps(d)
+    assert d["site"]["source_note"]["key"] == "contracts.source_note.no_position"
+    assert d["site"]["source_note"]["text"].startswith("no confirmed position")
+    option = d["ranked"][0]
+    assert set(option["binding_constraint"]) == {"key", "params", "text"}
+    name, verdict, reason = option["constraints"][0]
+    assert isinstance(verdict, str) and "text" in name and "text" in reason
+    assert d["caveats"]["calibration"]["text"].startswith("At least one option")
+    assert d["pressure_note"]["key"] == "_join"
+    upper = result.to_dict(render=lambda m: str(m).upper())
+    assert upper["caveats"]["calibration"]["text"].startswith("AT LEAST ONE OPTION")
+
+
+def test_to_dict_without_a_note_or_pressure_writes_null():
+    from seagarden_dst import SiteContext, assess_site
+
+    d = assess_site(SiteContext.from_region("LT-coastal")).to_dict()
+    assert d["site"]["source_note"] is None and d["pressure_note"] is None

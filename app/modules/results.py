@@ -26,7 +26,7 @@ def forcing_for(context, choice: ForcingChoice):
     before any assessment can run, so `run_assessment` always calls this with a real
     `ForcingChoice`.
     """
-    return DEFAULT_FORCING if context.source_note else choice.source
+    return DEFAULT_FORCING if context.source_note is not None else choice.source
 
 
 def run_assessment(state) -> None:

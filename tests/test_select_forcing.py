@@ -225,4 +225,4 @@ def test_a_point_in_the_fixture_reads_from_the_artifact_through_the_choice():
     assert reading.from_artifact is True
     context = SiteContext.from_reading(reading, label="fixture cell")
     assert context.from_artifact is True
-    assert context.source_note == ""
+    assert context.source_note is None
