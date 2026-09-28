@@ -106,6 +106,9 @@ Rules the type enforces:
   unless the `Translator`'s text index (I§5.4) has a translation for that exact source
   string, which it does for every YAML-sourced string the sidecar covers and never for a
   reader diagnostic. Test 5 guards that `literal` appears only at allowlisted sites.
+- **`Message.join(*parts)`** composes optional sentences (the adapters' notes) as one
+  message with key `_join`; it renders its parts in the same language, separated by a
+  space.
 - **The app never constructs a `Message`.** `Message.__str__` reads the core's English
   catalogue, so an app-built `Message("app.…")` would raise on `str()`. App chrome goes
   through `Translator.__call__` with a key; core prose arrives as a `Message` and is
@@ -226,6 +229,8 @@ reading them.
   default site label in `_set_site` (today `REGIONS[region]`) is rendered **at commit
   time in the session language**; `SiteContext.label` stays `str`, because it is what
   the user typed or accepted, not a message.
+- The map tooltip's fixed label is the one string that stays English in every language,
+  recorded as a known limit.
 - The About, Help and Feedback modals are three keys each holding a whole markdown block,
   because a reviewer needs to read them as prose and a sentence-by-sentence split would
   produce German in English word order.
@@ -374,10 +379,11 @@ wrapped in `str()`. New:
     signature change; I-a inherits it.
 11. **The catalogue is in the wheel.** `test_packaging.py` gains the locales glob.
 
-Tests 1–5 and 7–9 live in `tests/test_i18n.py` (core, default selection). Tests 6 and 8
-live in `app/tests/test_i18n_leaks.py`; test 10 lives in `tests/test_report_golden.py`,
-because `--snapshot-update` is registered in `tests/conftest.py`, and it `importorskip`s
-`shiny` so the spatial CI job can collect `tests/` without the app extra.
+Tests 1–5 and 7 live in `tests/test_i18n_guards.py`; test 9 lives in `tests/test_i18n.py`
+(both core, default selection). Tests 6 and 8 live in `app/tests/test_i18n_leaks.py`;
+test 10 lives in `tests/test_report_golden.py`, because `--snapshot-update` is registered
+in `tests/conftest.py`, and it `importorskip`s `shiny` so the spatial CI job can collect
+`tests/` without the app extra.
 
 ## I§9 Amendments this design requires
 

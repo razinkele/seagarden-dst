@@ -44,7 +44,7 @@ for once already:
 |---|---|---|
 | Pure analytical core, single `assess_site()` entry | `nid4ocean_dst.api` | The UI renders one result object and never reaches into the models |
 | `contracts.py` — `SiteContext` in, assessment out, `to_dict()` on everything exported | `nid4ocean_dst.contracts` | Report and JSON export cannot drift from what the screen shows |
-| App shell with `t()` i18n seam, About / Help / Feedback modals, version read from the package | `app/shell.py` | A hand-copied version number drifts silently, and the About box is where a reader checks what they are looking at |
+| App shell with a `Translator` i18n seam, About / Help / Feedback modals, version read from the package | `app/shell.py` | A hand-copied version number drifts silently, and the About box is where a reader checks what they are looking at |
 | `AppState` with `_DEFAULTS` as single source of truth | `app/state.py` | `__init__` and `defaults()` cannot disagree |
 | **Stale-assessment invalidation** on any input change | `app/app.py` | The failure it prevents: one site's numbers under another site's label, in the downloaded report |
 | Optional engines that degrade, never fail | `nid4ocean_dst.ses_signal` | A tool that falls over because a sibling package is missing is worse than one that says "not computed" |
@@ -55,7 +55,9 @@ for once already:
 ```
 app/                      Shiny application — run as `shiny run app.app`
   app.py                  wiring, Assess, stale-assessment invalidation
-  shell.py                branding, sidebar, About/Help/Feedback, t() seam
+  i18n.py                 Translator: one per language, chosen per request from ?lang=
+  locales/                app chrome, one YAML per language (en is the reference)
+  shell.py                branding, sidebar, About/Help/Feedback, language menu
   state.py                per-session reactive state
   modules/                one *_ui / *_server pair per panel
     user_mode.py          the four doors of specification §4
@@ -67,6 +69,8 @@ app/                      Shiny application — run as `shiny run app.app`
   tests/                  application smoke tests
 src/seagarden_dst/        analytical core — no Shiny imports
   api.py                  assess_site() — the only entry point the UI uses
+  i18n.py                 Message and Catalogue — the core's prose, keyed (package I)
+  locales/                the core's catalogues, shipped in the wheel
   contracts.py            SiteContext, SpeciesOption, SiteAssessment
   calibration.py          calibration tiers that travel with every number (§7.4)
   params.py               YAML parameter sets, pydantic-validated (§3.2)
@@ -79,6 +83,7 @@ src/seagarden_dst/        analytical core — no Shiny imports
   eutropy_adapter.py      optional: nutrient forcing from EUTROPY
   bowtie_adapter.py       optional: eutrophication pressure from bowtiepy
 params/                   the parameter files — data, not code
+  i18n/                   translations of species/method names and calibration notes
 tests/                    core test suite
 ```
 
@@ -153,6 +158,26 @@ layer returns `UNKNOWN`, which *blocks* the verdict rather than silently passing
 | Scenario comparison panel (spec §5.4) | `scenarios.compare()` exists in the core; no UI caller anywhere in `app/` | Deferred past the data-layer work (`docs/superpowers/specs/2026-09-13-dst-data-layer-design.md` §8) |
 | Human-use conflict screening (spec §5.1) | `SiteContext.activities` and `.protection` exist, defined in `contracts.py`; read nowhere | The EMODnet/HELCOM human-use vectors (§6) |
 | SeaGarden branding | `app/shell.py` | WP4's Communication folder |
+
+## Languages
+
+The tool is built to speak English, German, Polish, Danish, Lithuanian and Swedish
+(`de`, `pl`, `da`, `lt`, `sv`). English is the reference and the fallback. A user picks a
+language from the navbar menu, which reloads the page with `?lang=xx`; a first visit
+follows the browser's `Accept-Language`.
+
+**A language is live only after a native speaker has reviewed it.** Each language has three
+catalogue files — `src/seagarden_dst/locales/<lang>.yaml` (what the model says),
+`app/locales/<lang>.yaml` (the app's chrome) and `params/i18n/<lang>.yaml` (species and
+method names, calibration notes) — and each carries a `status:` header. The menu shows a
+language when all three say `reviewed`, naming the reviewer and the date. Until then the
+deployment can show drafts for a review round with `SEAGARDEN_SHOW_DRAFT_LANGUAGES=1`, under
+a bilingual "machine translation, not yet reviewed" banner; `SEAGARDEN_LANGUAGES=en,de`
+restricts the set. Numbers keep the decimal point and dates are ISO in every language.
+How to review and enable a language: `docs/runbooks/translations.md` (package I-b).
+
+The core stays readable from a notebook: every sentence it produces is a `Message`, and
+`str(message)` is English. The JSON export writes each message as `{key, params, text}`.
 
 ## Testing
 

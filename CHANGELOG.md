@@ -11,6 +11,25 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
+### Added
+
+- **Package I-a — the internationalisation seam.** The core's prose is `Message`-valued
+  (`seagarden_dst.i18n`), rendered from `locales/en.yaml`; the app builds its page per
+  request in the language `?lang=` or `Accept-Language` asks for, through one `Translator`
+  per language, and shows a language menu. English output is byte-identical (the report
+  golden proves it) except two sentences: the sidebar status line, now count-neutral, and
+  a new About-dialog sentence — numbers keep the decimal point and dates are year-month-day
+  in every language. **Only English ships**: no other catalogue exists yet (package I-b),
+  so the menu has one entry. **JSON export schema change:** every message field
+  (`binding_constraint`, `constraints`, `excluded`, `caveats`, `pressure_note`,
+  `site.source_note`) is now `{key, params, text}` rather than a string; each message's
+  `params` hold its inputs as given, so for text sourced from `params/` (a calibration
+  note) `params` carries the English source while `text` is what the requesting user
+  read; quantities are unchanged. New environment variables `SEAGARDEN_LANGUAGES` and
+  `SEAGARDEN_SHOW_DRAFT_LANGUAGES` (README, *Languages*). Known limit: the map tooltip's
+  "Model depth" label renders in English in every language — the widget is built with
+  `english()` before the session's `Translator` exists.
+
 ### Changed
 
 - **Package I-0 — the identifier split.** `SCALES` is keyed by slug

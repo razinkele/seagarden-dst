@@ -199,3 +199,17 @@ def test_languages_constant_matches_the_endonym_table():
     from app.i18n import LANGUAGE_NAMES
 
     assert tuple(LANGUAGE_NAMES) == LANGUAGES
+
+
+def test_the_review_sheet_lists_every_key_with_its_english():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "sheet", REPO / "scripts" / "i18n_review_sheet.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    text = module.sheet("de")
+    for key in list(_reference("core"))[:3] + list(_reference("app"))[:3]:
+        assert f"`{key}`" in text
+    assert "`params.methods.raft.name` | Raft |" in text
