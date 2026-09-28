@@ -185,7 +185,7 @@ messages:
   app.catalogue.col.max_wave: "Max wave"
   app.catalogue.col.unit_area: "Unit area"
   app.catalogue.methods_note: "Costs and labour are deliberately empty. They are filled from WP3's actual procurement records - the viability figures are only defensible if the coefficients are what the project really paid."
-  # --- results panel --------------------------------------------------------------
+  # --- results panel ------------------------------------------------------------
   app.results.ranked: "Ranked options"
   app.results.excluded: "Excluded"
   app.results.pressure: "Pressure context"
