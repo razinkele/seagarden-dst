@@ -15,6 +15,7 @@ from seagarden_dst.i18n import (
     Message,
     core_catalogue,
     msg,
+    placeholders,
 )
 
 
@@ -44,6 +45,56 @@ def test_join_renders_its_parts_separated():
 def test_equality_is_structural():
     assert msg("a.b", x=1) == msg("a.b", x=1)
     assert msg("a.b", x=1) != msg("a.b", x=2)
+
+
+def test_printing_a_results_caveats_reads_as_english(capsys):
+    """I§11.5, the spec's own command: `print(assess_site(...).caveats)` shows readable
+    English from a core-only install - the notebook promise holds. A dict prints its
+    values with `repr()`, so this is `Message.__repr__`'s job, not `__str__`'s."""
+    from seagarden_dst import SiteContext, assess_site
+
+    caveats = assess_site(SiteContext.from_region("LT-coastal")).caveats
+    print(caveats)
+    printed = capsys.readouterr().out
+    sentence = str(caveats["calibration"])
+    assert sentence.startswith("At least one option rests on literature priors")
+    assert repr(sentence) in printed and "'api.caveat.calibration'" in printed
+    assert "params=" not in printed, "the bare dataclass repr is back"
+
+
+def test_repr_falls_back_to_structure_when_the_message_cannot_render():
+    class Unformattable:
+        def __format__(self, spec):
+            raise ValueError("cannot format")
+
+        def __repr__(self):
+            return "Unformattable()"
+
+    # No English entry: KeyError inside, structure outside.
+    assert repr(msg("no.such.key", x=1)) == "Message(key='no.such.key', params={'x': 1})"
+    # A render that fails with ValueError.
+    broken = msg("suitability.explain.binding", name=Unformattable(), reason="r")
+    assert repr(broken) == (
+        "Message(key='suitability.explain.binding', "
+        "params={'name': Unformattable(), 'reason': 'r'})"
+    )
+    # A broken nested message: the outer falls back and the inner shows its own structure.
+    nested = msg("suitability.explain.binding", name=msg("no.such.key"), reason="r")
+    assert "Message(key='no.such.key', params={})" in repr(nested)
+
+
+def test_a_message_takes_a_format_spec_like_its_english_text():
+    m = msg("calibration.tier.A.label")
+    assert format(m, ">20") == format("Locally calibrated", ">20")
+    assert f"[{m:<20}]" == "[Locally calibrated  ]"
+    assert f"{m}" == "Locally calibrated"
+
+
+def test_placeholders_reads_a_template_the_way_str_format_does():
+    assert placeholders("{a} and {b}") == {"a", "b"}
+    assert placeholders("{{a}} and {b}") == {"b"}  # doubled braces are literal text
+    with pytest.raises(ValueError):
+        placeholders("{a} m}")
 
 
 def test_to_dict_carries_key_params_and_rendered_text():
@@ -94,6 +145,14 @@ def test_a_brace_in_a_value_that_is_not_a_param_names_key_and_language(tmp_path)
     )
     with pytest.raises(KeyError, match=r"a\.b.*en.*typo"):
         Catalogue.load("en", tmp_path).render(msg("a.b"))
+
+
+def test_an_unbalanced_brace_is_a_value_error_naming_key_and_language(tmp_path):
+    (tmp_path / "en.yaml").write_text(
+        "language: en\nstatus: reference\nmessages:\n  a.b: 'depth {x} m}'\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match=r"'a\.b' in 'en' is not a valid template"):
+        Catalogue.load("en", tmp_path).render(msg("a.b", x="3"))
 
 
 def test_the_english_core_catalogue_is_the_reference():

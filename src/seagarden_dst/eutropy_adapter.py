@@ -91,9 +91,10 @@ def apply_nutrient_scenario(
         bits.append(f"box {scenario['box']}")
     if scenario.get("fN") is not None and scenario.get("fP") is not None:
         bits.append(f"fN={scenario['fN']}, fP={scenario['fP']}")
-    # `run` stays a plain str: it is mostly data ("box 19", "fN=0.5, fP=0.5") around one
-    # keyed word, and a Message inside a str.join would lose its key anyway.
-    run = "; ".join(bits) or str(msg("adapters.eutropy.unlabelled_run"))
+    # `run` is the scenario's own data ("L; box 19", "fN=0.5, fP=0.5") when it names
+    # itself, kept as a plain str. When it names nothing, `run` is the Message itself,
+    # not its English `str()`, so "unlabelled run" renders in the session's language.
+    run = "; ".join(bits) if bits else msg("adapters.eutropy.unlabelled_run")
 
     scenario_region = scenario.get("region")
     parts = [msg("adapters.eutropy.applied", run=run)]

@@ -11,6 +11,7 @@ import pytest
 from seagarden_dst import BowtieUnavailable, EutropyUnavailable, SiteContext, assess_site
 from seagarden_dst.bowtie_adapter import eutrophication_pressure, removal_framing
 from seagarden_dst.eutropy_adapter import apply_nutrient_scenario, scenario_from_ensemble
+from seagarden_dst.i18n import msg
 
 
 @pytest.fixture
@@ -43,6 +44,15 @@ def test_lagoon_model_applied_to_the_open_coast_says_so(lithuania):
     _forced, note = apply_nutrient_scenario(lithuania, {"din_umol_l": 9.0, "dip_umol_l": 0.5})
     assert "Curonian Lagoon box model" in str(note)
     assert "scenario reasoning, not as a prediction" in str(note)
+
+
+def test_an_unlabelled_run_stays_a_message_until_it_is_rendered(lagoon):
+    """The one word the adapter authors must reach the renderer as a key, not as its
+    English `str()` - otherwise it is English in every language (I-a final review)."""
+    _forced, note = apply_nutrient_scenario(lagoon, {"din_umol_l": 9.0, "dip_umol_l": 0.5})
+    applied = note.params["parts"][0]
+    assert applied.params["run"] == msg("adapters.eutropy.unlabelled_run")
+    assert str(note) == "DIN and DIP from EUTROPY (unlabelled run)."
 
 
 def test_malformed_scenarios_are_refused(lagoon):

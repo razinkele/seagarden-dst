@@ -13,7 +13,7 @@ and the rest import it, so an import from any of them here would be a cycle.
 
 from __future__ import annotations
 
-import re
+import string
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
@@ -31,10 +31,10 @@ LITERAL_KEY = "literal"
 JOIN_KEY = "_join"
 _STATUSES = ("reference", "machine-draft", "reviewed")
 _STATUS_RANK = {"machine-draft": 0, "reviewed": 1, "reference": 2}
-_PLACEHOLDER = re.compile(r"\{([^{}]*)\}")
+_FORMATTER = string.Formatter()
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class Message:
     """A sentence the core wants said, not yet said in any language.
 
@@ -42,6 +42,8 @@ class Message:
     here, so a catalogue value never carries a format spec a translator could break.
     A parameter may itself be a `Message`; it renders in the same language.
     Equality is structural. Not hashable in practice (a dict field); nothing needs it.
+    `repr()` shows the key beside the English text, so printing a dict of messages in a
+    notebook (`print(result.caveats)`) reads as English (I§11.5).
     """
 
     key: str
@@ -49,6 +51,19 @@ class Message:
 
     def __str__(self) -> str:
         return core_catalogue(DEFAULT_LANGUAGE).render(self)
+
+    def __repr__(self) -> str:
+        # A notebook prints whole dicts of these and a failing assertion shows a broken
+        # one, so a key with no English entry (KeyError) or a malformed template
+        # (ValueError) falls back to the structural form instead of raising.
+        try:
+            return f"{type(self).__name__}({self.key!r}: {str(self)!r})"
+        except (KeyError, ValueError):
+            return f"{type(self).__name__}(key={self.key!r}, params={dict(self.params)!r})"
+
+    def __format__(self, spec: str) -> str:
+        """`f"{message:>30}"` pads the English text, as it would a `str`."""
+        return format(str(self), spec)
 
     def to_dict(self, render: Callable[[Message], str] = str) -> dict:
         """`{"key", "params", "text"}` - stable structure, human text via `render`.
@@ -179,6 +194,13 @@ class Catalogue:
                 f"catalogue value for {message.key!r} in {self.language!r} names a "
                 f"placeholder the message does not supply: {exc}"
             ) from exc
+        except ValueError as exc:
+            # An unbalanced brace ("{depth} m}", a trailing "{"). Test 4 of I§8 refuses
+            # such a value in a catalogue file; if one gets past it, name the key.
+            raise ValueError(
+                f"catalogue value for {message.key!r} in {self.language!r} is not a "
+                f"valid template: {exc}"
+            ) from exc
 
 
 def _normalise(text: str) -> str:
@@ -186,8 +208,12 @@ def _normalise(text: str) -> str:
 
 
 def placeholders(template: str) -> frozenset[str]:
-    """The placeholder names a template uses - the hygiene tests compare these."""
-    return frozenset(_PLACEHOLDER.findall(template))
+    """The field names `template.format(**params)` looks up, read by `str.format`'s own
+    parser: `{{x}}` is literal text, not a placeholder, and an unbalanced brace raises
+    `ValueError`. The pseudo-locale keeps these (`app/i18n.py`)."""
+    return frozenset(
+        name for _text, name, _spec, _conversion in _FORMATTER.parse(template) if name is not None
+    )
 
 
 @cache
