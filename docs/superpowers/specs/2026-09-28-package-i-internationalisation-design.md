@@ -44,13 +44,22 @@ which does not exist yet (package F2 owns the display of whatever GMU delivers a
 ## I§3 I-0 — the identifier split
 
 Three places use an English sentence as a key. Each is split into an identifier and a
-`Message`-valued label; the identifier is what state, signatures, CSS and tests hold.
+label; the identifier is what state, signatures, CSS and tests hold. **I-0 knows nothing
+of `Message`** — its labels are plain English `str` tables, and I-a converts them along
+with everything else in I§5.1. That keeps I-0 a refactor with no new type.
 
 | Today | After I-0 | Where it is held today |
 |---|---|---|
-| `SCALES = {"community farm (0.1 ha)": 1_000.0, ...}` | `SCALES = {"community_farm_0_1_ha": 1_000.0, ...}` with keys `mini_farm_kit`, `community_farm_0_1_ha`, `community_farm_1_ha`, `small_commercial_5_ha`; `SCALE_LABELS: dict[str, Message]` beside it | `assess_site(scale=...)` default, `state._DEFAULTS["scale"]`, `user_mode.MODES[*]["scale"]`, the Catalogue select, `scenarios.compare` labels, four test files, the golden snapshot's scenarios half |
-| `caveats["nutrient forcing"]`, `["site conditions"]`, `["calibration"]` | `caveats["nutrient_forcing"]`, `["site_conditions"]`, `["calibration"]`; the UI renders a label per slug | `api.assess_site`, `tests/test_adapters.py`, `tests/test_api.py`, both renderers |
-| `Verdict` values (`"suitable"`, …) doubling as display text | Value stays the identifier and the CSS class (`sg-verdict-suitable`); `Verdict.label -> Message` is what is displayed | `_widgets.verdict_pill`, `results.py`, `report.py` |
+| `SCALES = {"community farm (0.1 ha)": 1_000.0, ...}` | `SCALES = {"community_farm_0_1_ha": 1_000.0, ...}` with keys `mini_farm_kit`, `community_farm_0_1_ha`, `community_farm_1_ha`, `small_commercial_5_ha`; `SCALE_LABELS: dict[str, str]` beside it, the only place the English label lives | `assess_site(scale=...)` default, `state._DEFAULTS["scale"]`, `user_mode.MODES[*]["scale"]`, the Catalogue select, `scenarios.compare` labels, the sidebar status sentence in `app.py` (`{scale}` must go through `SCALE_LABELS` or the slug reaches the screen), four test files, the golden snapshot's scenarios half |
+| `caveats["nutrient forcing"]`, `["site conditions"]`, `["calibration"]` | `caveats["nutrient_forcing"]`, `["site_conditions"]`, `["calibration"]`; `CAVEAT_LABELS: dict[str, str]` for display | `api.assess_site`, `tests/test_adapters.py`, `tests/test_api.py`, both renderers |
+| `Verdict` values (`"suitable"`, …) doubling as display text | Value stays the identifier and the CSS class (`sg-verdict-suitable`); `Verdict.label -> str` is what is displayed | `_widgets.verdict_pill`, `results.py`, `report.py` |
+
+Two more identifiers are displayed raw and are the same conflation, but need no key
+change: `SpeciesParams.group` (`"macroalga"`, `"shellfish"`, shown in the species table and
+interpolated into a core sentence in `suitability.assess`) and `SiteContext.confidence`
+(`"low"`, shown in the report). I-0 leaves them; I-a gives them catalogue keys
+(`params.group.<g>`, `contracts.confidence.<c>`) and test 6 is what catches them if it
+does not.
 
 `excluded` is already keyed by species key and needs no split. `SpeciesOption.constraints`
 tuples change type in I-a, not here.
@@ -91,11 +100,15 @@ Rules the type enforces:
   recurses. This is how `method.name` — data from `methods.yaml` — appears inside a
   sentence the core composes.
 - **`literal` is for data, not for laziness.** A calibration `note:` from a species
-  YAML, a `ForcingUnavailable` message from the reader, a `select_forcing` failure
-  reason: text the core did not author. It renders as-is in every language unless the
-  params sidecar (I§5.4) carries a translation for that exact source string, which it
-  can for calibration notes and never will for a reader diagnostic. Test 5 guards that
-  `literal` is used only at the sites this section names.
+  YAML, a `method.name` composed into a core sentence, a `ForcingUnavailable` message
+  from the reader: text the core did not author. It renders as-is in every language
+  unless the `Translator`'s text index (I§5.4) has a translation for that exact source
+  string, which it does for every YAML-sourced string the sidecar covers and never for a
+  reader diagnostic. Test 5 guards that `literal` appears only at allowlisted sites.
+- **The app never constructs a `Message`.** `Message.__str__` reads the core's English
+  catalogue, so an app-built `Message("app.…")` would raise on `str()`. App chrome goes
+  through `Translator.__call__` with a key; core prose arrives as a `Message` and is
+  rendered with `Translator.render`.
 - **Equality is by key and params**, so tests can assert on structure without rendering.
   `Message` is not hashable; nothing needs it to be.
 
@@ -116,8 +129,10 @@ class Catalogue:
 
 `render` looks the key up in this language, falls back to English for a missing key, and
 raises `KeyError` only if English lacks it too — a missing English key is a defect, a
-missing German one is an incomplete draft. The English `Catalogue` for the core's own
-keys is loaded once per process, lazily, and is what `Message.__str__` uses.
+missing German one is an incomplete draft. Catalogues are loaded **once per process**,
+lazily, the way `catalogue.PARAMS` already is: the English core catalogue is what
+`Message.__str__` uses, and `Translator.for_language` returns a cached instance, so
+`language_for`'s enabled-set check does not read eighteen YAML files per request.
 
 ### I§4.3 File format
 
@@ -159,10 +174,12 @@ reviewer: *if the string would be wrong in German, it is a `Message`.*
 | `SiteAssessment.pressure_note`, `removal_framing()` | `str` | `Message` |
 | `REGIONS` | `dict[str, str]` | `dict[str, Message]` (`forcing.region.<key>`) |
 | `SiteProvenance.label`, `.presentation` | `str` | `Message` |
-| `SOURCE_NOTE_NO_POSITION` | `str` | `Message` |
-| `ForcingChoice.reason` | `str` | `Message.literal` — an operator diagnostic, English by design (I§7) |
+| `SOURCE_NOTE_NO_POSITION`; `SiteContext.source_note` | `str`; `str = ""` | `Message`; `Message \| None = None`. Three call sites test its falsiness today (`results.forcing_for`, the banner, the report) and must test `is not None`, because an empty `Message` would be truthy |
+| `SCALE_LABELS`, `CAVEAT_LABELS`, `Verdict.label` (from I-0) | `str` | `Message` |
+| `SpeciesParams.group`, `SiteContext.confidence` (displayed) | identifiers shown raw | unchanged type; displayed through `params.group.<g>` and `contracts.confidence.<c>` |
 | `eutropy_adapter` and `bowtie_adapter` notes | `str` | `Message` |
-| `SpeciesParams.common_name`, `MethodParams.name`, `.anchoring_unit`, `.cultivation_unit` | `str` from YAML | unchanged type; the app translates through the sidecar (I§5.4). `scientific_name` is never translated |
+| `SpeciesParams.common_name`, `MethodParams.name`, `.anchoring_unit`, `.cultivation_unit` | `str` from YAML | unchanged type; the app translates through `Translator.species_name(key)`, `.method_name(key)` and the text index (I§5.4). `scientific_name` is never translated |
+| `ForcingChoice.reason`, reader refusals | `str` | **unchanged** — operator diagnostics, English by design (I§7); wrapping them would touch `forcing.py`, `gridded.py` and their tests for no translation |
 
 `to_dict()` on `SpeciesOption` and `SiteAssessment` gains a `language` argument and emits
 each `Message` as `{"key", "params", "text"}`. The structure is stable and machine-readable
@@ -182,7 +199,13 @@ class Translator:
     def __call__(self, key: str, **params) -> str: ...    # app chrome
     def render(self, message: Message) -> str: ...        # core prose
     def quantity(self, q: Quantity) -> str: ...           # the report's number-with-tier
+    def species_name(self, key: str) -> str: ...          # sidecar, else the YAML English
+    def method_name(self, key: str) -> str: ...
 ```
+
+`SpeciesOption.species_name` and `.method_name` stay English from YAML; the headline, the
+results table and the report call `tr.species_name(option.species_key)` instead of
+reading them.
 
 - `app_ui` becomes `def app_ui(request: Request)` — Shiny 1.8 accepts a callable of the
   request — and passes `tr` into every panel factory: `site_ui("site", tr)`,
@@ -194,6 +217,14 @@ class Translator:
   reliably the same object in a render as in the effect that set it.
 - Choices built at import today become functions of `tr`: `catalogue.SPECIES_CHOICES`,
   `user_mode.CHOICES`, the region select in `site.py`, the scale select.
+- Small words that are prose get keys too: `_widgets._MONTHS` and `"(over winter)"`, the
+  species table's `yes`/`no`, the marker tooltip's `unknown` depth, `Data confidence`.
+  They are exactly what test 6 exists to find.
+- `site_markers(tr)` renders region names and provenance labels to strings for deck.gl,
+  and `test_every_marker_states_its_provenance` compares against rendered text. The
+  default site label in `_set_site` (today `REGIONS[region]`) is rendered **at commit
+  time in the session language**; `SiteContext.label` stays `str`, because it is what
+  the user typed or accepted, not a message.
 - The About, Help and Feedback modals are three keys each holding a whole markdown block,
   because a reviewer needs to read them as prose and a sentence-by-sentence split would
   produce German in English word order.
@@ -237,6 +268,16 @@ back to the species YAML's own English text, so a new species without translatio
 readable, in English, with the sidecar's absence visible in test 3 rather than in
 production.
 
+**The text index — how a `literal` gets translated.** The sidecar is keyed by species and
+method key, but a `literal` carries only its English text. `Translator` therefore builds,
+once, an index from whitespace-normalised English text to translated text by pairing each
+sidecar entry with its counterpart in `params/` (`params.methods.raft.name` ↔
+`methods.yaml`'s `name: Raft`). `render` on a `literal` consults the index and falls
+through to the text itself. This is what makes `method.name` inside a core sentence and a
+calibration `note:` translatable without the core knowing a sidecar exists. Test 3 also
+asserts every sidecar entry has an English counterpart in `params/`, so a stale entry for
+a renamed method is a failing test rather than a silently untranslated sentence.
+
 For partner review, `scripts/i18n_review_sheet.py <lang>` writes one markdown table per
 language merging all three files with the English beside each row. It is a convenience
 for the reviewer, not a source of truth; the YAML files are.
@@ -273,8 +314,10 @@ wrong English sentence rather than translating around it.
 - **Units and symbols** (`psu`, `µmol/L`, `kg DW`, `m²`, `°C`) are not translated.
 - **Scientific names** are Latin in every language.
 - **Operator diagnostics** — `ForcingChoice.reason`, reader refusals, `ValueError`
-  messages — stay English `literal`s. They name paths and schema versions for whoever
-  runs the service, and that person reads the runbooks, which are English.
+  messages — stay plain English `str`, not even wrapped in `literal`. They name paths and
+  schema versions for whoever runs the service, and that person reads the runbooks,
+  which are English. The banner sentence around `reason` is keyed; the reason inside it
+  is not.
 - **Everything that is not the running app**: docstrings, comments, commit messages,
   CHANGELOG, README, runbooks, this document.
 - **Live switching.** Decided against in I§2; the design does not preclude it, because
@@ -301,13 +344,17 @@ wrapped in `str()`. New:
    says which of I§4.1's three kinds it is. The same offenders-list pattern as
    `test_no_app_module_imports_shiny_deckgl_at_module_scope`.
 6. **The pseudo-locale leak test.** A synthetic language `xx` whose every value is
-   `⟦key⟧` is built in memory; the whole page and each panel are rendered with
-   `Translator` for `xx`, plus a full report and JSON export for an assessment at a
-   placeholder site; the HTML and text are then asserted to contain **no English
-   catalogue value** and no English word from a short list (`Assess`, `Species`,
-   `Verdict`, `Caveats`, `placeholder`). This is the guard against a string that bypassed
-   the seam, and it replaces the earlier idea of an AST scan for string literals reaching
-   `ui.*`, which would have flagged CSS and ids all day.
+   `⟦key⟧` is built in memory, including a synthetic sidecar; the whole page and each
+   panel are rendered with `Translator` for `xx`, plus a full report and a JSON export
+   for an assessment at a placeholder site. Then **every text node** of the HTML (with
+   `<style>`, `<script>`, attributes and the base64 images stripped) and every line of
+   the report must be one of: a `⟦…⟧` marker, a number, a unit or symbol, a Latin
+   scientific name, a region key, a date, or an entry on an explicit allowlist inside
+   the test (the brand mark `SeaGarden DST`, the funding lockup's alt text). Anything
+   else is a string that bypassed the seam, whether or not it ever entered a catalogue —
+   which is why this is stronger than asserting the English values are absent, and why
+   it replaces an AST scan for literals reaching `ui.*`, which would flag CSS and ids all
+   day.
 7. **One chooser.** `language_for` is the only symbol either half imports for the
    purpose; parametrised cases for query wins, `Accept-Language` with `q`, an unenabled
    language falling to English, garbage falling to English.
@@ -318,7 +365,12 @@ wrapped in `str()`. New:
    requested language; `str()` equals the English render; equality is structural.
 10. **English byte-identity.** `render_report` for every placeholder site is identical
     before and after I-a, captured as a golden text file in I-0 (English only) and
-    asserted unchanged in I-a.
+    asserted unchanged in I-a. Two lines would otherwise defeat this: the `Generated:`
+    line carries `date.today()` and `__version__`. `render_report` gains a keyword-only
+    `today: date` parameter that the module server passes as `date.today()` — the
+    pattern `regulatory.py` documents, for the same reason — and the golden test passes a
+    fixed date and replaces `v{__version__}` with `v*` before comparing. I-0 makes the
+    signature change; I-a inherits it.
 11. **The catalogue is in the wheel.** `test_packaging.py` gains the locales glob.
 
 Tests 1–5 and 7–9 live in `tests/test_i18n.py` (core, default selection). Test 6, 8 and
@@ -360,8 +412,9 @@ amending. Partner review time is theirs, not counted here.
 
 **I-0**
 
-1. `grep -rn "community farm\|mini-farm kit\|small commercial" src app tests` returns hits
-   only inside `SCALE_LABELS`, the English catalogue and this document.
+1. `grep -rn "community farm\|mini-farm kit\|small commercial" src app tests
+   --exclude-dir=golden` returns hits only inside `SCALE_LABELS`. (`tests/golden/` embeds
+   the labels by design, I§3; the English catalogue takes them over in I-a.)
 2. `caveats` keys are slugs; `test_adapters.py` and `test_api.py` index by slug.
 3. The golden snapshot diff touches labels only; the plan's task shows it line by line.
 4. `pytest` and `ruff` clean; the English report golden file (test 10) is committed.
