@@ -133,7 +133,7 @@ messages:
   # --- site panel ---------------------------------------------------------------
   app.site.region: "Sub-region"
   app.site.help: "Click a marker on the map, or choose here. "
-  app.site.help_absent_one: "{regions} has no confirmed position yet and can only be chosen here."
+  app.site.help_absent_single: "{regions} has no confirmed position yet and can only be chosen here."
   app.site.help_absent_many: "{regions} have no confirmed position yet and can only be chosen here."
   app.site.and: " and "
   app.site.label: "Site name (optional)"

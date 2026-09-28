@@ -184,7 +184,7 @@ def absent_regions_note(tr: Translator) -> str:
     if not absent:
         return ""
     names = tr("app.site.and").join(tr.render(REGIONS[r]) for r in absent)
-    key = "app.site.help_absent_one" if len(absent) == 1 else "app.site.help_absent_many"
+    key = "app.site.help_absent_single" if len(absent) == 1 else "app.site.help_absent_many"
     return tr(key, regions=names)
 
 

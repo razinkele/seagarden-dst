@@ -581,3 +581,14 @@ def test_the_verdict_pill_keeps_the_value_as_its_class_and_shows_the_label():
     pill = str(verdict_pill(Verdict.MARGINAL.value, english()))
     assert 'class="sg-verdict sg-verdict-marginal"' in pill
     assert ">marginal<" in pill
+
+
+def test_the_english_passthrough_seam_is_gone():
+    """`t()` was the identity; the Translator replaced it (spec done-when 10)."""
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    for path in sorted(root.rglob("*.py")):
+        if "__pycache__" in path.parts or path.parts[-2] == "tests":
+            continue
+        assert "def t(" not in path.read_text(encoding="utf-8"), f"{path} still defines t()"
