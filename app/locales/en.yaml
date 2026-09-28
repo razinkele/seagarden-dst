@@ -1,0 +1,253 @@
+# app/locales/en.yaml
+# The reference catalogue for the app's own chrome (design I§4.3). Every other language
+# file here must carry exactly these keys. Placeholder NAMES only, never format specs.
+language: en
+status: reference
+messages:
+  # --- navbar and shell (shell.py, app.py) ------------------------------------
+  app.nav.site: "Site"
+  app.nav.catalogue: "Catalogue"
+  app.nav.results: "Results"
+  app.nav.report: "Report"
+  app.shell.about: "About"
+  app.shell.help: "Help"
+  app.shell.feedback: "Feedback"
+  app.shell.language: "Language"
+  app.shell.title: "SeaGarden Decision Support Tool"
+  app.shell.window_title: "SeaGarden DST"
+  app.shell.setup: "Setup"
+  app.shell.workflow: "Workflow: 1) pick a Site · 2) choose species, method and scale in Catalogue · 3) click Assess · 4) read Results and Report."
+  app.shell.assess: "Assess"
+  app.shell.close: "Close"
+  app.shell.funding_alt: "SeaGarden - Interreg South Baltic, co-funded by the European Union"
+  app.shell.draft_banner: "Machine translation, not yet reviewed."
+  app.shell.about.title: "About the SeaGarden DST"
+  app.shell.about.body: |
+    The **SeaGarden Decision Support Tool** helps plan community-driven regenerative marine farms in the South Baltic. Pick a site, choose what to grow and at what scale, and the tool returns a siting verdict, an expected harvest, and the nitrogen, phosphorus and carbon that harvest removes from the water.
+
+    **What it gives you**
+
+    - A siting verdict computed as the **minimum** across constraint classes, with the binding constraint named. Not a weighted index: a site with a fatal legal exclusion must not score 'moderate' because the water is good.
+    - A **calibration tier** beside every number - locally calibrated, regionally extrapolated, literature prior, or contraindicated. Before the WP3 pilot data arrives, essentially every South Baltic figure is a literature prior, and the tool says so on the number itself.
+    - **Eutrophication pressure** from the MARBEFES bow-tie, and optional **nutrient forcing** from the EUTROPY box model, both reported beside the ranking and never folded into it.
+
+    - **Programme** - Interreg South Baltic 2021-2027 · **SeaGarden** (STHB.02.02-IP.01-0006/25)
+    - **Work package / activity** - WP2 / A2.3 · Deliverable **D2.2**
+    - **Lead** - Klaipeda University, Marine Research Institute
+    - **Status** - prototype · core `v{version}`
+
+    Source & issues: [{repo_name}]({repo_url})
+
+    Numbers use a decimal point and dates are written year-month-day in every language.
+
+    *Prototype. Outputs are indicative and are not a basis for permitting or consent. Co-funded by the European Union; views expressed are the authors' only.*
+  app.shell.help.title: "Using the SeaGarden DST"
+  app.shell.help.body: |
+    **Workflow**
+
+    1. **Site** - choose a sub-region. In the delivered tool you will draw a polygon; the prototype uses placeholder conditions per sub-region.
+    2. **Catalogue** - choose species, cultivation method and scale.
+    3. **Assess** - the sidebar button. Results and Report stay blank until you press it, and are cleared again the moment you change the site.
+    4. **Results** - ranked options, the binding constraint for each, and the nutrient removal with its calibration tier.
+    5. **Report** - the assessment as text, caveats included.
+
+    **Reading the calibration tiers**
+
+    | Tier | Meaning | How it is shown |
+    |---|---|---|
+    | A | Fitted to SeaGarden pilot data | value with an interval |
+    | B | Fitted elsewhere in the Baltic | value as a range |
+    | C | Literature prior, no local validation | order-of-magnitude band |
+    | D | Contraindicated - a local finding contradicts the model | the finding, in place of the number |
+
+    The tier D case worth knowing: sugar kelp below about 16 psu. The salinity scaling returns a small positive yield; the OLAMUR pilot found outright cultivation failure at 5.5-6.5 psu. The tool shows the finding.
+  app.shell.feedback.title: "Send feedback"
+  app.shell.feedback.body: |
+    This is a co-development prototype for WP2 A2.3. Concrete feedback - which panel, which site, what you expected - is the most useful kind.
+
+    - **Open an issue** - [{repo_url}/issues/new]({repo_url}/issues/new)
+    - **Email** - [{email}](mailto:{email}?subject=SeaGarden%20DST%20feedback)
+  # --- sidebar status (app.py, _widgets.py) -----------------------------------
+  app.status.no_site: "No site selected. Open Site and choose one."
+  app.status.site_ready: "Site ready: {label}. Species selected: {n}. Scale: {scale}. Click Assess."
+  app.headline.unassessed: "Site unassessed: {reason}"
+  app.headline.none: "No species could be assessed at this site."
+  app.headline.nothing_reportable: "Nothing reportable here - every option is contraindicated."
+  app.headline.none_suitable: "No option is currently suitable; see Results for the constraints."
+  app.headline.best: "Best option: {species}, {verdict}{suffix}."
+  app.headline.priors_suffix: " (literature priors)"
+  app.headline.no_suffix: ""
+  app.unassessable.cell_invalid: "no data at this cell.{distance}"
+  app.unassessable.nearest: " Nearest valid cell is {km} km away."
+  app.unassessable.no_distance: ""
+  app.unassessable.year_absent: "the artifact does not carry the requested year."
+  app.unassessable.no_conditions: "the data layer could not provide conditions."
+  app.source.artifact: "gridded forcing artifact, conditions for {year}, built {built}"
+  app.source.unknown_date: "unknown date"
+  app.banner.artifact: "Data source: {source}."
+  app.banner.placeholder: "Data source: placeholder conditions — plausible order-of-magnitude values, not measurements ({reason})."
+  app.banner.this_site: " This site: {note}."
+  # --- widgets ------------------------------------------------------------------
+  app.tier.badge_title: "{label} - {presentation}"
+  app.quantity.none: "-"
+  app.quantity.range: "{low}-{high} {unit}"
+  app.quantity.value: "{value} {unit}"
+  app.quantity.range_tiered: "{low}-{high} {unit} [{tier}]"
+  app.quantity.value_tiered: "{value} {unit} [{tier}]"
+  app.quantity.not_applicable: "not applicable - {caveat}"
+  app.legend.title: "Calibration tiers"
+  app.legend.A: " fitted to SeaGarden pilot data"
+  app.legend.B: " fitted elsewhere in the Baltic"
+  app.legend.C: " literature prior, no local validation"
+  app.legend.D: " contraindicated - a finding contradicts the model"
+  app.legend.note: "Before WP3 pilot data arrives (M12-30), essentially every South Baltic result is tier C. Read those as indicative bands, not estimates."
+  app.month.1: "Jan"
+  app.month.2: "Feb"
+  app.month.3: "Mar"
+  app.month.4: "Apr"
+  app.month.5: "May"
+  app.month.6: "Jun"
+  app.month.7: "Jul"
+  app.month.8: "Aug"
+  app.month.9: "Sep"
+  app.month.10: "Oct"
+  app.month.11: "Nov"
+  app.month.12: "Dec"
+  app.window.span: "{start}–{end}"
+  app.window.over_winter: "{span} (over winter)"
+  # --- user mode ----------------------------------------------------------------
+  app.mode.label: "I am here as"
+  app.mode.choice: "{title} - {audience}"
+  app.mode.plan.title: "Plan"
+  app.mode.plan.audience: "Authorities, spatial planners"
+  app.mode.plan.question: "Where could regenerative farming go here, and what would it achieve?"
+  app.mode.farm.title: "Farm"
+  app.mode.farm.audience: "Farmers, SMEs, operators"
+  app.mode.farm.question: "Can I farm this spot, what should I grow, and what will I get?"
+  app.mode.start.title: "Start"
+  app.mode.start.audience: "Communities, NGOs, citizen science"
+  app.mode.start.question: "Could we run a small sea garden here, and what would it take?"
+  app.mode.explore.title: "Explore"
+  app.mode.explore.audience: "Researchers, students, consultants"
+  app.mode.explore.question: "What do the models say, and how confident are they?"
+  # --- site panel ---------------------------------------------------------------
+  app.site.region: "Sub-region"
+  app.site.help: "Click a marker on the map, or choose here. "
+  app.site.help_absent_one: "{regions} has no confirmed position yet and can only be chosen here."
+  app.site.help_absent_many: "{regions} have no confirmed position yet and can only be chosen here."
+  app.site.and: " and "
+  app.site.label: "Site name (optional)"
+  app.site.label_placeholder: "e.g. Melnrage pilot"
+  app.site.use: "Use this site"
+  app.site.where: "Where"
+  app.site.no_map: |
+    *The map needs `shiny_deckgl`, which ships on a conda channel rather than PyPI and is not installed here:*
+
+        micromamba install -n shiny -c razinka shiny-deckgl
+
+    *Choosing a sub-region in the sidebar works either way.*
+  app.site.tooltip_depth: "Model depth"
+  app.site.depth_unknown: "unknown"
+  app.site.no_position: "{region} has no confirmed position. Its conditions are a sub-region summary, so nothing here is about a particular cell."
+  app.site.position: "{lat}, {lon} - {provenance}. A result here is a {presentation}."
+  app.site.conditions: "Site conditions"
+  app.site.cond.salinity: "Salinity"
+  app.site.cond.mean_temp: "Mean temperature"
+  app.site.cond.summer_winter: "Summer / winter temperature"
+  app.site.cond.din: "Dissolved inorganic nitrogen"
+  app.site.cond.dip: "Dissolved inorganic phosphorus"
+  app.site.cond.depth: "Depth"
+  app.site.cond.wave: "Significant wave height"
+  app.site.cond.par: "PAR at cultivation depth"
+  app.site.confidence_line: "Data confidence: {confidence} (placeholder). Calibration domain: {region}."
+  app.site.provenance_card: "Where these numbers come from"
+  app.site.provenance_body: |
+    The map shows **where** a sub-region is. The numbers below are **placeholder conditions**, one set per sub-region: plausible order-of-magnitude values, not measurements, and not read from the position. Every result derived from them is a literature prior.
+
+    In the delivered tool you draw a polygon and the conditions are read from the curated layers - Copernicus Marine reanalysis for salinity, temperature and nutrients, EMODnet for bathymetry and human use, HELCOM for protected areas. The contract between this panel and the model core does not change.
+  # --- catalogue panel ----------------------------------------------------------
+  app.catalogue.species: "Species"
+  app.catalogue.scale: "Scale"
+  app.catalogue.only_af: "Select only the species named in the Application Form"
+  app.catalogue.methods: "Cultivation methods"
+  app.catalogue.col.species: "Species"
+  app.catalogue.col.scientific: "Scientific name"
+  app.catalogue.col.group: "Group"
+  app.catalogue.col.in_af: "In the AF"
+  app.catalogue.col.window: "Cultivation window"
+  app.catalogue.yes: "yes"
+  app.catalogue.no: "no"
+  app.catalogue.species_note: "Only Ulva and blue mussel are named in the Application Form. Fucus carries the OLAMUR low-salinity evidence, Chorda is what KU will actually cultivate in Lithuania (decision D1), and sugar kelp is carried for the Danish site and as the worked contraindication."
+  app.catalogue.col.method: "Method"
+  app.catalogue.col.anchoring: "Anchoring"
+  app.catalogue.col.cultivation: "Cultivation"
+  app.catalogue.col.depth: "Depth"
+  app.catalogue.col.max_wave: "Max wave"
+  app.catalogue.col.unit_area: "Unit area"
+  app.catalogue.methods_note: "Costs and labour are deliberately empty. They are filled from WP3's actual procurement records - the viability figures are only defensible if the coefficients are what the project really paid."
+  # --- results panel --------------------------------------------------------------
+  app.results.ranked: "Ranked options"
+  app.results.excluded: "Excluded"
+  app.results.pressure: "Pressure context"
+  app.results.pick_site: "Pick a site, then click Assess."
+  app.results.unassessed: "This site is unassessed because the data layer could not provide conditions. See the report for the coverage reason."
+  app.results.none: "No species could be assessed at this site."
+  app.results.col.option: "Option"
+  app.results.col.verdict: "Verdict"
+  app.results.col.harvest: "Harvest"
+  app.results.col.nitrogen: "Nitrogen"
+  app.results.col.phosphorus: "Phosphorus"
+  app.results.col.carbon: "Carbon"
+  app.results.all_pass: "All constraints pass"
+  app.results.constraint_line: "{name}: {verdict} - {reason}"
+  app.results.caveats: "Caveats"
+  app.results.caveat_line: "{label}: {text}"
+  app.results.dash: "-"
+  app.results.nothing_excluded: "Nothing excluded at this site."
+  app.results.no_bowtie: "No bow-tie inference supplied. Nutrient removal is reported on its own terms."
+  app.results.p_top: "P(top event {state}) = {p}"
+  # --- report panel -------------------------------------------------------------
+  app.report.title: "Assessment report"
+  app.report.download_txt: "Download report (.txt)"
+  app.report.download_json: "Download data (.json)"
+  app.report.none: "No assessment yet. Pick a site and click Assess."
+  app.report.heading: "SEAGARDEN DECISION SUPPORT TOOL - SITE ASSESSMENT"
+  app.report.site: "Site:        {site}"
+  app.report.subregion: "Sub-region:  {region}"
+  app.report.conditions_unavailable: "Conditions:  unavailable — data layer could not assess this site"
+  app.report.conditions: "Conditions:  salinity {salinity} psu, DIN {din} umol/L, depth {depth} m"
+  app.report.confidence: "Data confidence: {confidence}"
+  app.report.generated: "Generated:   {date} - core v{version}"
+  app.report.ranked: "RANKED OPTIONS"
+  app.report.unassessed: "UNASSESSED: {reason}"
+  app.report.none_assessed: "No species could be assessed at this site."
+  app.report.option: "{species} - {method} ({ha} ha)"
+  app.report.verdict: "  Verdict:   {verdict}"
+  app.report.binding: "  Binding:   {binding}"
+  app.report.harvest: "  Harvest:   {harvest}"
+  app.report.nitrogen: "  Nitrogen:  {value}"
+  app.report.phosphorus: "  Phosphorus:{value}"
+  app.report.carbon: "  Carbon:    {value}"
+  app.report.calibration: "  Calibration: {label} - {presentation}"
+  app.report.excluded: "EXCLUDED"
+  app.report.excluded_line: "- {key}: {reason}"
+  app.report.pressure: "PRESSURE CONTEXT"
+  app.report.p_top: "- P(top event {state}) = {p}"
+  app.report.pressure_note: "  {note}"
+  app.report.caveats: "CAVEATS"
+  app.report.caveat_line: "- {label}: {text}"
+  app.report.carbon_caveat: "- Carbon is reported as carbon in harvested biomass only. Sequestration is not reported: calcification releases CO2, so a sequestration claim would depend on shell being removed from the water and kept out of it."
+  app.report.legal_caveat: "- Legal permissibility is unassessed until the regulatory records exist (A2.2, M12). An unknown legal status blocks the verdict rather than passing it."
+  app.report.footer: "Prototype output. Indicative only; not a basis for permitting or consent."
+  app.report.unassessed.cell_invalid_near: "No data at this cell; nearest valid cell is {km} km away."
+  app.report.unassessed.cell_invalid: "No data at this cell."
+  app.report.unassessed.year_absent: "The artifact does not carry the requested year."
+  app.report.unassessed.no_conditions: "The data layer could not provide conditions."
+  app.report.source.artifact: "Data source: {source}"
+  app.report.source.placeholder_reason: "Data source: placeholder conditions ({reason})"
+  app.report.source.artifact_bare: "Data source: gridded forcing artifact"
+  app.report.source.placeholder_bare: "Data source: placeholder conditions"
+  app.report.source.this_site: " — this site: {note}"
+  app.report.caveat.artifact: "- Site conditions come from the gridded forcing artifact."
+  app.report.caveat.placeholder: "- Site conditions in this prototype are placeholders, not measurements."
+  app.report.caveat.this_site: " This site: {note}."
