@@ -1,0 +1,21 @@
+SEAGARDEN DECISION SUPPORT TOOL - SITE ASSESSMENT
+====================================================
+
+Site:        Off-grid golden
+Sub-region:  None
+Conditions:  unavailable — data layer could not assess this site
+Data confidence: low
+Data source: gridded forcing artifact, conditions for 2025, built 2026-09-22
+Generated:   2026-09-28 - core v*
+
+RANKED OPTIONS
+----------------------------------------------------
+UNASSESSED: No data at this cell; nearest valid cell is 1.10 km away.
+
+CAVEATS
+----------------------------------------------------
+- Carbon is reported as carbon in harvested biomass only. Sequestration is not reported: calcification releases CO2, so a sequestration claim would depend on shell being removed from the water and kept out of it.
+- Site conditions come from the gridded forcing artifact.
+- Legal permissibility is unassessed until the regulatory records exist (A2.2, M12). An unknown legal status blocks the verdict rather than passing it.
+
+Prototype output. Indicative only; not a basis for permitting or consent.

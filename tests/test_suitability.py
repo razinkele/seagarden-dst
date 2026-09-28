@@ -86,7 +86,7 @@ def test_comparison_table_shape_and_calibration_column(params):
             if params.species[key].group == "macroalga"
             else params.methods["mussel_socks"],
             site=site,
-            area_m2=SCALES["mini-farm kit"],
+            area_m2=SCALES["mini_farm_kit"],
         )
         for key in ("ulva", "fucus_vesiculosus", "chorda_filum")
     ]
@@ -110,3 +110,11 @@ def test_comparison_panel_takes_at_most_four(params):
 
     # The Plan door's species overview is a different thing and lifts the cap.
     assert len(compare([scenario] * 5, limit=None)) == 5
+
+
+def test_every_verdict_has_a_label_and_in_english_it_is_the_value():
+    """I-0 opens the seam; I-a fills it. Until then the label must not move the report."""
+    from seagarden_dst import Verdict
+
+    for verdict in Verdict:
+        assert verdict.label == verdict.value

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, ui
 
-from seagarden_dst import SCALES, default_parameters
+from seagarden_dst import DEFAULT_SCALE, SCALE_LABELS, default_parameters
 
 from ._widgets import window_label
 
@@ -28,7 +28,7 @@ def catalogue_ui() -> ui.Tag:
                 selected=list(SPECIES_CHOICES),
             ),
             ui.input_select(
-                "scale", "Scale", choices=list(SCALES), selected="community farm (0.1 ha)"
+                "scale", "Scale", choices=dict(SCALE_LABELS), selected=DEFAULT_SCALE
             ),
             ui.input_action_link(
                 "only_af", "Select only the species named in the Application Form"

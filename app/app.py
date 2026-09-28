@@ -21,6 +21,7 @@ from app.modules.site import site_server, site_ui
 from app.modules.user_mode import user_mode_server, user_mode_ui
 from app.shell import about_modal, app_shell, feedback_modal, help_modal, t
 from app.state import AppState
+from seagarden_dst import SCALE_LABELS
 from seagarden_dst.gridded import select_forcing
 
 app_ui = app_shell(
@@ -29,6 +30,14 @@ app_ui = app_shell(
     ui.nav_panel("Results", results_ui("res")),
     ui.nav_panel("Report", report_ui("rep")),
 )
+
+
+def scale_sentence(*, label: str, count: int, scale_key: str) -> str:
+    """The 'site ready' sentence. `scale_key` is state; the user reads its label."""
+    # t() takes a STATIC template; interpolate AFTER the lookup.
+    return t("Site ready: {label}. {n} species selected at {scale}. Click Assess.").format(
+        label=label, n=count, scale=SCALE_LABELS[scale_key]
+    )
 
 
 def server(input, output, session):  # noqa: A002 - Shiny's signature
@@ -54,10 +63,9 @@ def server(input, output, session):  # noqa: A002 - Shiny's signature
         if assessment is None:
             species = state.selected_species.get()
             count = len(species) if species else 0
-            # t() takes a STATIC template; interpolate AFTER the lookup.
             return ui.p(
-                t("Site ready: {label}. {n} species selected at {scale}. Click Assess.").format(
-                    label=state.site_label.get(), n=count, scale=state.scale.get()
+                scale_sentence(
+                    label=state.site_label.get(), count=count, scale_key=state.scale.get()
                 )
             )
         _cls, text = headline_for(assessment)

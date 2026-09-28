@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from shiny import module, render, ui
 
-from seagarden_dst import assess_site, removal_framing
+from seagarden_dst import CAVEAT_LABELS, Verdict, assess_site, removal_framing
 from seagarden_dst.forcing import DEFAULT_FORCING, ForcingChoice
 
 from ._widgets import calibration_legend, quantity, verdict_pill
@@ -110,7 +110,9 @@ def results_server(input, output, session, state) -> None:  # noqa: A002
                             ui.tags.ul(
                                 *[
                                     ui.tags.li(
-                                        ui.tags.small(f"{name}: {verdict} - {reason}")
+                                        ui.tags.small(
+                                            f"{name}: {Verdict(verdict).label} - {reason}"
+                                        )
                                     )
                                     for name, verdict, reason in option.constraints
                                 ]
@@ -131,7 +133,12 @@ def results_server(input, output, session, state) -> None:  # noqa: A002
                 [
                     ui.tags.div(
                         ui.tags.b("Caveats"),
-                        ui.tags.ul(*[ui.tags.li(f"{k}: {v}") for k, v in caveats.items()]),
+                        ui.tags.ul(
+                            *[
+                                ui.tags.li(f"{CAVEAT_LABELS.get(k, k)}: {v}")
+                                for k, v in caveats.items()
+                            ]
+                        ),
                         style="margin-top:.75rem;font-size:.9em;",
                     )
                 ]

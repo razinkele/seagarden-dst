@@ -1,0 +1,30 @@
+SEAGARDEN DECISION SUPPORT TOOL - SITE ASSESSMENT
+====================================================
+
+Site:        LT-coastal golden
+Sub-region:  LT-coastal
+Conditions:  salinity 7 psu, DIN 6 umol/L, depth 12 m
+Data confidence: low
+Data source: placeholder conditions (golden fixture)
+Generated:   2026-09-28 - core v*
+
+RANKED OPTIONS
+----------------------------------------------------
+
+Sea lettuce - Mini-farm kit (A3.5) (0.1 ha)
+  Verdict:   unsuitable
+  Binding:   Physical feasibility: Depth 12 m is outside the workable window for Mini-farm kit (A3.5) (2-10 m).
+  Harvest:   114-1.02e+03 kg DW [C]
+  Nitrogen:  3.41-30.7 kg N [C]
+  Phosphorus:0.284-2.56 kg P [C]
+  Carbon:    34.1-307 kg C [C]
+  Calibration: Literature prior - order-of-magnitude band, labelled indicative
+
+CAVEATS
+----------------------------------------------------
+- calibration: At least one option rests on literature priors with no local validation. Read the harvest figures as indicative bands.
+- Carbon is reported as carbon in harvested biomass only. Sequestration is not reported: calcification releases CO2, so a sequestration claim would depend on shell being removed from the water and kept out of it.
+- Site conditions in this prototype are placeholders, not measurements.
+- Legal permissibility is unassessed until the regulatory records exist (A2.2, M12). An unknown legal status blocks the verdict rather than passing it.
+
+Prototype output. Indicative only; not a basis for permitting or consent.

@@ -24,14 +24,28 @@ from .suitability import Suitability, assess
 if TYPE_CHECKING:  # pandas is an `app` extra, not a core dependency
     import pandas as pd
 
-#: Named scales, in m2. The mini-farm figure is the OLAMUR cage size, which is also
-#: the order of the A3.5 citizen-science kit.
+#: Named scales, in m2, keyed by IDENTIFIER. The mini-farm figure is the OLAMUR cage
+#: size, which is also the order of the A3.5 citizen-science kit. The keys are slugs
+#: because they are state: `AppState.scale`, `assess_site(scale=...)` and the door
+#: defaults all hold one. What a user reads is `SCALE_LABELS[key]` (I§3), and package
+#: I-a translates that table without moving a key.
 SCALES: dict[str, float] = {
-    "mini-farm kit": 6.0,
-    "community farm (0.1 ha)": 1_000.0,
-    "community farm (1 ha)": 10_000.0,
-    "small commercial (5 ha)": 50_000.0,
+    "mini_farm_kit": 6.0,
+    "community_farm_0_1_ha": 1_000.0,
+    "community_farm_1_ha": 10_000.0,
+    "small_commercial_5_ha": 50_000.0,
 }
+
+#: English label per scale key — the only place the sentence lives.
+SCALE_LABELS: dict[str, str] = {
+    "mini_farm_kit": "mini-farm kit",
+    "community_farm_0_1_ha": "community farm (0.1 ha)",
+    "community_farm_1_ha": "community farm (1 ha)",
+    "small_commercial_5_ha": "small commercial (5 ha)",
+}
+
+#: The scale `assess_site` and `default_scenarios` assume when none is asked for.
+DEFAULT_SCALE = "community_farm_0_1_ha"
 
 
 @dataclass
@@ -146,7 +160,7 @@ def compare(
 
 
 def default_scenarios(
-    params: ParameterSet, site: SiteConditions, scale: str = "community farm (0.1 ha)"
+    params: ParameterSet, site: SiteConditions, scale: str = DEFAULT_SCALE
 ) -> list[Scenario]:
     """A starting set: every species the parameter files carry, at one scale.
 
@@ -163,7 +177,7 @@ def default_scenarios(
             continue
         out.append(
             Scenario(
-                label=f"{species.common_name} - {scale}",
+                label=f"{species.common_name} - {SCALE_LABELS[scale]}",
                 species=species,
                 method=method,
                 site=site,

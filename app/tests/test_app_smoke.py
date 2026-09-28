@@ -8,6 +8,8 @@ one site's numbers under another site's label.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from app.modules.report import render_report
@@ -97,7 +99,7 @@ class _FakeState:
         self.context = _Value(context)
         self.selected_species = _Value([])
         self.method_overrides = _Value({})
-        self.scale = _Value("community farm (0.1 ha)")
+        self.scale = _Value("community_farm_0_1_ha")
         self.assessment = _Value(None)
         self.eutropy_scenario = _Value(None)
         self.bowtie_inference = _Value(None)
@@ -255,7 +257,7 @@ def test_run_assessment_populates_the_assessment():
 def test_report_carries_the_site_label_and_the_caveats():
     state = _FakeState(SiteContext.from_region("LT-coastal", label="Melnrage"))
     run_assessment(state)
-    text = render_report(state.assessment.get())
+    text = render_report(state.assessment.get(), today=date.today())
     assert "Melnrage" in text
     assert "CAVEATS" in text
     assert "Sequestration is not reported" in text
@@ -263,14 +265,14 @@ def test_report_carries_the_site_label_and_the_caveats():
 
 
 def test_report_without_an_assessment_says_so():
-    assert "No assessment yet" in render_report(None)
+    assert "No assessment yet" in render_report(None, today=date.today())
 
 
 @pytest.mark.parametrize("region", ["LT-coastal", "DK-belt", "PL-lagoon"])
 def test_report_renders_for_every_shipped_region(region):
     state = _FakeState(SiteContext.from_region(region))
     run_assessment(state)
-    text = render_report(state.assessment.get())
+    text = render_report(state.assessment.get(), today=date.today())
     assert "SITE ASSESSMENT" in text
 
 
@@ -457,9 +459,11 @@ def test_the_report_line_takes_the_choice_and_falls_back_to_the_context_without_
 
     state = _FakeState(SiteContext.from_region("LT-coastal", label="Melnrage"))
     run_assessment(state)
-    with_choice = render_report(state.assessment.get(), placeholder_choice("no artifact at x"))
+    with_choice = render_report(
+        state.assessment.get(), placeholder_choice("no artifact at x"), today=date.today()
+    )
     assert "Data source: placeholder conditions (no artifact at x)" in with_choice
-    without = render_report(state.assessment.get())
+    without = render_report(state.assessment.get(), today=date.today())
     # Discriminating: without a choice, the fallback line names no reason at all - a
     # bare `in` check would also pass for "placeholder conditions (something)".
     assert "Data source: placeholder conditions" in without.splitlines()
@@ -468,7 +472,7 @@ def test_the_report_line_takes_the_choice_and_falls_back_to_the_context_without_
 def test_the_report_line_names_the_artifact_year_and_build_date():
     state = _FakeState(SiteContext.from_region("LT-coastal", label="Melnrage"))
     run_assessment(state)
-    text = render_report(state.assessment.get(), _artifact_choice())
+    text = render_report(state.assessment.get(), _artifact_choice(), today=date.today())
     assert "Data source: gridded forcing artifact, conditions for 2025, built 2026-09-22" in text
 
 
@@ -529,6 +533,23 @@ def test_tier_and_verdict_widgets_are_styled_by_class_not_inline_colour():
     assert "style=" not in pill
 
 
+def test_state_and_doors_hold_scale_identifiers_not_labels():
+    from seagarden_dst import SCALES
+
+    assert AppState.defaults()["scale"] in SCALES
+    for mode, spec in MODES.items():
+        assert spec["scale"] in SCALES, f"{mode} holds a label, not a key"
+
+
+def test_the_sidebar_status_shows_the_scale_label_never_the_slug():
+    """`app.py` formats the scale into a sentence; after I-0 the state holds a slug."""
+    from app.app import scale_sentence
+
+    text = scale_sentence(label="Melnrage", count=3, scale_key="community_farm_0_1_ha")
+    assert "community farm (0.1 ha)" in text
+    assert "community_farm_0_1_ha" not in text
+
+
 def test_no_app_module_hard_codes_a_colour_in_an_inline_style():
     """Colours live in app/www/seagarden.css. A hex literal in a `style=` attribute is
     a colour the theme cannot reach."""
@@ -544,3 +565,12 @@ def test_no_app_module_hard_codes_a_colour_in_an_inline_style():
             if re.search(r"#[0-9a-fA-F]{3,8}\b", line) and "style" in line:
                 offenders.append(f"{path.relative_to(root)}:{i}")
     assert not offenders, f"inline colours: {offenders}"
+
+
+def test_the_verdict_pill_keeps_the_value_as_its_class_and_shows_the_label():
+    from app.modules._widgets import verdict_pill
+    from seagarden_dst import Verdict
+
+    pill = str(verdict_pill(Verdict.MARGINAL.value))
+    assert 'class="sg-verdict sg-verdict-marginal"' in pill
+    assert ">marginal<" in pill

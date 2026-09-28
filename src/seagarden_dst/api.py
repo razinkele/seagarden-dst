@@ -27,9 +27,17 @@ from .forcing import (
 from .growth import contraindication, harvest_biomass
 from .nutrients import from_harvest
 from .params import MethodParams, ParameterSet, SpeciesParams, default_parameters
-from .scenarios import SCALES
+from .scenarios import DEFAULT_SCALE, SCALES
 from .shellfish import harvest as shellfish_harvest
 from .suitability import assess
+
+#: English label per caveat slug. `SiteAssessment.caveats` is keyed by the slug (I§3);
+#: the renderers look the label up here, and package I-a translates this table.
+CAVEAT_LABELS: dict[str, str] = {
+    "nutrient_forcing": "nutrient forcing",
+    "site_conditions": "site conditions",
+    "calibration": "calibration",
+}
 
 
 def select_method(
@@ -116,7 +124,7 @@ def assess_site(
     params: ParameterSet | None = None,
     species: list[str] | None = None,
     methods: dict[str, str] | None = None,
-    scale: str = "community farm (0.1 ha)",
+    scale: str = DEFAULT_SCALE,
     eutropy: dict | None = None,
     bowtie: dict | None = None,
 ) -> SiteAssessment:
@@ -142,7 +150,7 @@ def assess_site(
         params: parameter set; defaults to the shipped one.
         species: species keys to consider; defaults to all.
         methods: optional species_key -> method_key overrides.
-        scale: a key of `scenarios.SCALES`.
+        scale: a key of `scenarios.SCALES`; `SCALE_LABELS` carries what the user reads.
         eutropy: optional EUTROPY scenario output. When supplied, the site's nutrient
             forcing is replaced by the scenario's — see `eutropy_adapter`.
         bowtie: optional bow-tie inference result. When supplied, its top-event
@@ -178,9 +186,9 @@ def assess_site(
         try:
             working, note = apply_nutrient_scenario(context, eutropy)
             if note:
-                caveats["nutrient forcing"] = note
+                caveats["nutrient_forcing"] = note
         except EutropyUnavailable as exc:
-            caveats["nutrient forcing"] = f"EUTROPY forcing not applied: {exc}"
+            caveats["nutrient_forcing"] = f"EUTROPY forcing not applied: {exc}"
 
     excluded: dict[str, str] = {}
     options: list[SpeciesOption] = []
@@ -234,7 +242,7 @@ def assess_site(
 
     if working.conditions is not context.conditions:
         caveats.setdefault(
-            "site conditions",
+            "site_conditions",
             "Nutrient concentrations were overridden by a scenario; other conditions "
             "are unchanged.",
         )

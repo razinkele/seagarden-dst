@@ -10,7 +10,7 @@ _DEFAULTS = {
     "site_label": "",
     "selected_species": [],
     "method_overrides": {},       # species_key -> method_key
-    "scale": "community farm (0.1 ha)",
+    "scale": "community_farm_0_1_ha",
     "assessment": None,           # SiteAssessment | None
     "eutropy_scenario": None,     # dict | None, optional nutrient forcing
     "bowtie_inference": None,     # dict | None, optional pressure context

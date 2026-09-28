@@ -73,7 +73,7 @@ def test_bad_eutropy_input_does_not_break_the_assessment(lithuania):
     clean = assess_site(lithuania)
     degraded = assess_site(lithuania, eutropy={"nonsense": True})
     assert [o.species_key for o in degraded.ranked] == [o.species_key for o in clean.ranked]
-    assert "EUTROPY forcing not applied" in degraded.caveats["nutrient forcing"]
+    assert "EUTROPY forcing not applied" in degraded.caveats["nutrient_forcing"]
 
 
 # LT-coastal rather than the lagoon: this test needs a site with a non-empty

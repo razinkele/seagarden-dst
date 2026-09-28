@@ -2,6 +2,9 @@
 
 The report carries the site label and the caveats, because a table of numbers that
 outlives the screen it was read on is exactly where a caveat gets lost.
+
+`render_report` takes `today` for the same reason `regulatory.py` makes it a
+parameter: the test suite must not turn red on a calendar boundary.
 """
 
 from __future__ import annotations
@@ -11,14 +14,14 @@ from datetime import date
 
 from shiny import module, render, ui
 
-from seagarden_dst import __version__
+from seagarden_dst import CAVEAT_LABELS, Verdict, __version__
 from seagarden_dst.calibration import for_display
 from seagarden_dst.forcing import Coverage, ForcingChoice
 
 from ._widgets import artifact_source_text
 
 
-def render_report(assessment, choice: ForcingChoice | None = None) -> str:
+def render_report(assessment, choice: ForcingChoice | None = None, *, today: date) -> str:
     if assessment is None:
         return "No assessment yet. Pick a site and click Assess."
 
@@ -39,7 +42,7 @@ def render_report(assessment, choice: ForcingChoice | None = None) -> str:
         conditions_line,
         f"Data confidence: {context.confidence}",
         _data_source_line(choice, context),
-        f"Generated:   {date.today().isoformat()} - core v{__version__}",
+        f"Generated:   {today.isoformat()} - core v{__version__}",
         "",
         "RANKED OPTIONS",
         "-" * 52,
@@ -55,7 +58,7 @@ def render_report(assessment, choice: ForcingChoice | None = None) -> str:
             "",
             f"{option.species_name} - {option.method_name} "
             f"({option.area_m2 / 10_000:.4g} ha)",
-            f"  Verdict:   {option.verdict}",
+            f"  Verdict:   {Verdict(option.verdict).label}",
             f"  Binding:   {option.binding_constraint}",
             f"  Harvest:   {harvest}",
         ]
@@ -79,7 +82,7 @@ def render_report(assessment, choice: ForcingChoice | None = None) -> str:
 
     lines += ["", "CAVEATS", "-" * 52]
     for key, value in assessment.caveats.items():
-        lines.append(f"- {key}: {value}")
+        lines.append(f"- {CAVEAT_LABELS.get(key, key)}: {value}")
     lines += [
         "- Carbon is reported as carbon in harvested biomass only. Sequestration is "
         "not reported: calcification releases CO2, so a sequestration claim would "
@@ -154,11 +157,11 @@ def report_server(input, output, session, state) -> None:  # noqa: A002
     @output
     @render.code
     def report_text():
-        return render_report(state.assessment.get(), state.forcing.get())
+        return render_report(state.assessment.get(), state.forcing.get(), today=date.today())
 
     @render.download(filename=lambda: f"seagarden-dst-{date.today().isoformat()}.txt")
     def download_txt():
-        yield render_report(state.assessment.get(), state.forcing.get())
+        yield render_report(state.assessment.get(), state.forcing.get(), today=date.today())
 
     @render.download(filename=lambda: f"seagarden-dst-{date.today().isoformat()}.json")
     def download_json():

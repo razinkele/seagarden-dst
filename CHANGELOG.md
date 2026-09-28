@@ -11,6 +11,21 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
+### Changed
+
+- **Package I-0 — the identifier split.** `SCALES` is keyed by slug
+  (`community_farm_0_1_ha`, not `"community farm (0.1 ha)"`), with `SCALE_LABELS` and
+  `DEFAULT_SCALE` beside it; `SiteAssessment.caveats` is keyed by slug
+  (`nutrient_forcing`, `site_conditions`, `calibration`) with `CAVEAT_LABELS`;
+  `to_dict()["caveats"]` and the Report panel's JSON download therefore carry the slugs
+  (`nutrient_forcing`, `site_conditions`) where they carried the English keys;
+  `calibration` is unchanged. `Verdict.label` exists and equals the value.
+  `render_report` takes a keyword-only `today`. A caller passing the old prose scale
+  key gets `KeyError("Unknown scale …")`. Nothing a user sees changes; the assessments
+  golden is untouched and the English report is now a golden file of its own
+  (`tests/golden/reports/`), which package I-a must leave byte-identical. Design:
+  `docs/superpowers/specs/2026-09-28-package-i-internationalisation-design.md`.
+
 ### Changed (documentation only)
 
 - **The first annual refresh has run, and the docs say so.** Run 3 on laguna
