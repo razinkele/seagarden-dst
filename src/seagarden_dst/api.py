@@ -213,7 +213,7 @@ def assess_site(
         # visible with its reason rather than ranked last and scrolled past.
         contra = contraindication(species_params, working.conditions)
         if contra is not None:
-            excluded[key] = contra.note or "Contraindicated at this site."
+            excluded[key] = str(contra.note or "Contraindicated at this site.")
             continue
 
         try:

@@ -138,7 +138,7 @@ def compare(
             "Verdict": result.suitability.verdict.value,
             "Binding constraint": result.suitability.explain(),
             "Harvest": str(for_display(result.harvest)),
-            "Calibration": result.harvest.calibration.tier.label,
+            "Calibration": str(result.harvest.calibration.tier.label),
         }
         if result.removal is not None:
             row["Nitrogen removed"] = str(for_display(result.removal.nitrogen))

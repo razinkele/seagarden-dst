@@ -137,7 +137,7 @@ def assess_environment(
         return Constraint(
             "Environmental tolerance",
             Verdict.UNSUITABLE,
-            contra.note or "Contraindicated at this site.",
+            str(contra.note or "Contraindicated at this site."),
         )
     if species.salinity is not None and species.salinity.applies:
         factor = species.salinity.factor(site.salinity_psu)
@@ -187,7 +187,7 @@ def assess_growth(
         return Constraint(
             "Growth viability",
             Verdict.UNSUITABLE,
-            harvest.calibration.note or "Contraindicated.",
+            str(harvest.calibration.note or "Contraindicated."),
         )
     per_m2 = harvest.value / method.area_m2_per_unit
     if per_m2 < floor_kg_dw_per_m2:

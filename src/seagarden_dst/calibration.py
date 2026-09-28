@@ -16,6 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from .i18n import Message, msg
+
 
 class Tier(StrEnum):
     """Calibration tier of a (species x region x parameter set) combination."""
@@ -26,23 +28,13 @@ class Tier(StrEnum):
     D = "D"  # contraindicated - a local finding contradicts the model
 
     @property
-    def label(self) -> str:
-        return {
-            Tier.A: "Locally calibrated",
-            Tier.B: "Regionally extrapolated",
-            Tier.C: "Literature prior",
-            Tier.D: "Contraindicated",
-        }[self]
+    def label(self) -> Message:
+        return msg(f"calibration.tier.{self.value}.label")
 
     @property
-    def presentation(self) -> str:
+    def presentation(self) -> Message:
         """How a value at this tier must be rendered (specification section 7.4)."""
-        return {
-            Tier.A: "value with confidence interval",
-            Tier.B: "value as a range, calibration region named",
-            Tier.C: "order-of-magnitude band, labelled indicative",
-            Tier.D: "finding shown in place of the number",
-        }[self]
+        return msg(f"calibration.tier.{self.value}.presentation")
 
 
 @dataclass(frozen=True)
@@ -54,30 +46,35 @@ class Calibration:
         region: the region this statement applies to, e.g. "LT-coastal".
         source: where the parameters came from, e.g. "OLAMUR D3.2".
         calibrated_on: region the parameters were actually fitted to, if different.
-        note: shown to the user verbatim. For tier D this replaces the number.
+        note: shown to the user verbatim - a str from a parameter file, or a Message
+            the code composed. For tier D this replaces the number.
     """
 
     tier: Tier
     region: str
     source: str
     calibrated_on: str | None = None
-    note: str | None = None
+    note: str | Message | None = None
 
     @property
     def is_reportable(self) -> bool:
         """False when a numeric result must be suppressed in favour of the note."""
         return self.tier is not Tier.D
 
-    def caveat(self) -> str:
+    def caveat(self) -> Message:
         """One line for display beside the value."""
         if self.tier is Tier.D:
-            return self.note or "Contraindicated for this region."
+            if self.note is None:
+                return msg("calibration.caveat.D_default")
+            return self.note if isinstance(self.note, Message) else Message.literal(self.note)
         if self.tier is Tier.C:
-            return f"Indicative only - literature prior ({self.source}), no local validation."
+            return msg("calibration.caveat.C", source=self.source)
         if self.tier is Tier.B:
-            where = self.calibrated_on or "elsewhere in the Baltic"
-            return f"Extrapolated - parameters calibrated on {where} ({self.source})."
-        return f"Calibrated on {self.calibrated_on or self.region} pilot data ({self.source})."
+            where = self.calibrated_on or msg("calibration.caveat.B_where_default")
+            return msg("calibration.caveat.B", where=where, source=self.source)
+        return msg(
+            "calibration.caveat.A", where=self.calibrated_on or self.region, source=self.source
+        )
 
 
 @dataclass(frozen=True)
@@ -98,7 +95,7 @@ class Quantity:
 
     def __str__(self) -> str:
         if not self.calibration.is_reportable:
-            return f"not applicable - {self.calibration.caveat()}"
+            return str(msg("calibration.quantity.not_applicable", caveat=self.calibration.caveat()))
         if self.low is not None and self.high is not None:
             return f"{self.low:.3g}-{self.high:.3g} {self.unit} [{self.calibration.tier.value}]"
         return f"{self.value:.3g} {self.unit} [{self.calibration.tier.value}]"

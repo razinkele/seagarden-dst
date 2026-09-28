@@ -18,6 +18,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .calibration import Calibration, Tier
+from .i18n import msg
 
 # params/ lives beside the repository root, not inside the package: it is data the
 # project curates and republishes under the open-data commitment, not code. That is why
@@ -342,7 +343,7 @@ class SpeciesParams(BaseModel):
             tier=Tier.C,
             region=region,
             source="unspecified",
-            note="No calibration statement for this region.",
+            note=msg("paramset.calibration.none_for_region"),
         )
 
     def salinity_floor(self) -> tuple[float, str] | None:
