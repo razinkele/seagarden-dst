@@ -105,12 +105,54 @@ def test_4b_every_english_key_is_used_somewhere():
             )
 
 
+def _owner(parents: dict[ast.AST, ast.AST], node: ast.AST) -> str:
+    """The innermost scope enclosing `node`: a function's name, `"<class Name>"` for a
+    class body with no enclosing function, or `"<module>"` at top level. Walking up
+    stops at the FIRST function/class def it meets, so a method (a `FunctionDef`
+    nested in a `ClassDef`) reports its own name, not its class's - a bare class
+    attribute is the only case that reports `"<class Name>"`.
+    """
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return current.name
+        if isinstance(current, ast.ClassDef):
+            return f"<class {current.name}>"
+        current = parents.get(current)
+    return "<module>"
+
+
 def test_5_literal_appears_only_where_the_spec_allows():
-    """`Message.literal(` is for data and engine messages, never for app chrome (I§4.1)."""
+    """`Message.literal(` is for data and engine messages, never for app chrome (I§4.1).
+
+    Each allowed site is `file:function`, with a comment naming which of I§4.1's three
+    kinds of literal it is: (1) YAML data - a note or a name read from `params/`; (2) an
+    engine's or reader's own message; (3) a data identifier composed into a sentence.
+
+    The scan attributes every call whose attribute name is `literal` to its innermost
+    function (`_owner`, above), whatever the receiver expression is (`Message.literal`,
+    `i18n.Message.literal`, `M.literal`, ...) and whatever scope it sits in - a bare
+    module-level assignment, a class attribute, an `async def` - not only a call found
+    by walking a `FunctionDef` node's own body, which is blind to all of those.
+    """
     allowed = {
+        # (1) YAML data: `self.note`, the plain string on a species YAML's own tier-D
+        # calibration row (`calibration_for`'s row). `caveat()`'s tier-D branch is
+        # `self.note if isinstance(self.note, Message) else Message.literal(self.note)`;
+        # the salinity-floor contraindication `contraindication()` synthesises
+        # separately passes a keyed `msg(...)` as `note`, so it takes the `if` arm, not
+        # this `literal` one - but it DOES reach `caveat()`'s tier-D branch, same as
+        # this YAML row does. Translated when the sidecar has a match (I§5.4).
         ("src/seagarden_dst/calibration.py", "caveat"),
+        # (1) YAML data: `method.name`, from params/methods.yaml.
         ("src/seagarden_dst/suitability.py", "assess_physical"),
+        # (1) YAML data (`method.name`) and (3) a data identifier composed into a
+        # sentence (`species.group`, e.g. "macroalga"/"shellfish" - an identifier I§5.1
+        # says is normally displayed raw, composed here into a constraint's reason).
         ("src/seagarden_dst/suitability.py", "assess"),
+        # (2) the reader's own message (`str(exc)` for a `ForcingUnavailable` window)
+        # and the engine's own message (`str(exc)` for a `BowtieUnavailable` window) -
+        # operator diagnostics the core did not author, not YAML or catalogue text.
         ("src/seagarden_dst/api.py", "assess_site"),
     }
     found = set()
@@ -118,19 +160,26 @@ def test_5_literal_appears_only_where_the_spec_allows():
         if "__pycache__" in path.parts or path.parts[-2] == "tests":
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef):
-                for call in ast.walk(node):
-                    if (
-                        isinstance(call, ast.Call)
-                        and isinstance(call.func, ast.Attribute)
-                        and call.func.attr == "literal"
-                        and isinstance(call.func.value, ast.Name)
-                        and call.func.value.id == "Message"
-                    ):
-                        found.add((path.relative_to(REPO).as_posix(), node.name))
+        parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+        for call in ast.walk(tree):
+            if (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr == "literal"
+            ):
+                found.add((path.relative_to(REPO).as_posix(), _owner(parents, call)))
     assert found <= allowed, f"unlisted Message.literal sites: {sorted(found - allowed)}"
     assert not any(f.startswith("app/") for f, _ in found)
+
+    # Backstop for app/: `.literal(` must never appear as text, whatever the receiver -
+    # independent of the AST walk above, so a construct the parser cannot see through
+    # (or a future change to this test) cannot let one slip past both checks at once.
+    for path in sorted((REPO / "app").rglob("*.py")):
+        if "__pycache__" in path.parts or path.parts[-2] == "tests":
+            continue
+        assert ".literal(" not in path.read_text(encoding="utf-8"), (
+            f"{path}: .literal( must never appear under app/ (I§4.1)"
+        )
 
 
 def test_7_one_chooser_drives_both_halves():

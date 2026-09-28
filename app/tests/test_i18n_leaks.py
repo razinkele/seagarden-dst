@@ -8,6 +8,7 @@ catalogue, which is why this is stronger than checking the English values are ab
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import UTC, date, datetime
 from html.parser import HTMLParser
@@ -16,9 +17,10 @@ import pytest
 
 from app.i18n import LANGUAGE_NAMES, Translator, enabled_languages
 from app.modules._widgets import calibration_legend, data_source_banner, headline_for
+from app.modules.catalogue import method_table, species_table
 from app.modules.report import render_report
 from app.modules.results import render_excluded, render_pressure, render_ranking, run_assessment
-from app.modules.site import render_conditions, render_position_note, site_markers
+from app.modules.site import _legend, render_conditions, render_position_note, site_markers
 from app.modules.user_mode import mode_question_tag
 from app.shell import about_modal, feedback_modal, help_modal
 from app.tests.test_app_smoke import _FakeState
@@ -34,7 +36,13 @@ NUMBER = re.compile(r"[-+]?\d[\d.,]*(?:e[-+]?\d+)?%?")
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 VERSION = re.compile(r"v\d[\w.]*|v\*")
 URL = re.compile(r"https?://\S+|\S+@\S+\.\w+|mailto:\S+")
-ALLOWED_TOKENS = {
+#: Shared with `_leaks`' token lookup below, so an allowlist entry and the token found
+#: in rendered text are normalised the same way. Without this, an entry that itself
+#: ends in one of these characters (an abbreviation like "spp.") never matches the
+#: token `_leaks` looks up, which has already had the same trailing punctuation
+#: stripped - see `_RAW_ALLOWED_TOKENS`'s Latin names, word by word, below.
+_STRIP = "().,;:[]*|"
+_RAW_ALLOWED_TOKENS = {
     # units and symbols (I§7)
     "psu", "m", "ha", "kg", "t", "DW", "FW", "N", "P", "C", "CO2", "km", "°C", "µmol/L",
     "umol/L", "µmol", "photons/m²/s", "m²", "m2", "/", "-", "–", "—", "·", "=", "(", ")", "[", "]",
@@ -52,7 +60,9 @@ ALLOWED_TOKENS = {
     *LANGUAGE_NAMES.values(),
     # identifiers that are legitimately shown raw
     *REGIONS, *PARAMS.species, *PARAMS.methods,
-    # Latin names, word by word
+    # Latin names, word by word - an abbreviation like "Mytilus spp." splits into
+    # "Mytilus" and "spp.", the latter with its trailing dot; normalised below the
+    # same way a found token is, or "spp." (kept) would never match "spp" (stripped).
     *{w for s in PARAMS.species.values() for w in s.scientific_name.split()},
     # the About modal's {repo_name} - the bare repository host+path, no scheme, so the
     # URL regex above (which requires "https?://") does not consume it
@@ -65,6 +75,7 @@ ALLOWED_TOKENS = {
     # deliberate golden update fixes it.
     "None",
 }
+ALLOWED_TOKENS = {token.strip(_STRIP) for token in _RAW_ALLOWED_TOKENS}
 
 
 class _Text(HTMLParser):
@@ -115,7 +126,7 @@ def _leaks(text: str) -> list[str]:
         for pattern in (MARKER, URL, DATE, VERSION, NUMBER):
             stripped = pattern.sub(" ", stripped)
         for token in stripped.split():
-            if token.strip("().,;:[]*|") in ALLOWED_TOKENS or not re.search(r"[A-Za-z]", token):
+            if token.strip(_STRIP) in ALLOWED_TOKENS or not re.search(r"[A-Za-z]", token):
                 continue
             out.append(f"{token!r} in {chunk.strip()[:80]!r}")
     return out
@@ -125,6 +136,28 @@ def _html_text(tag) -> str:
     parser = _Text()
     parser.feed(str(tag))
     return "\n".join(c for c in parser.chunks if c.strip())
+
+
+def _text_values(obj: object) -> list[str]:
+    """Every message's own rendered `"text"` in a JSON export, collected recursively
+    (I§8.6) - never a value that merely sits inside a `"params"` dict, which is DATA
+    (I§5.1), not prose read by the seam. `Message.literal(text)` stores its payload as
+    `params={"text": text}` - the RAW English source, not the rendered marker - so a
+    walk that does not exempt `"params"` would flag that raw text as a leak even
+    though the very same message's own `"text"` field (checked here) is correctly
+    translated or marked. Structural keys, identifiers and stable-English fields such
+    as `species_name`/`method_name` are never named `"text"`, so they are never
+    visited in the first place.
+    """
+    if isinstance(obj, dict):
+        out = [v for k, v in obj.items() if k == "text" and isinstance(v, str)]
+        for k, v in obj.items():
+            if k not in ("text", "params"):
+                out.extend(_text_values(v))
+        return out
+    if isinstance(obj, list):
+        return [v for item in obj for v in _text_values(item)]
+    return []
 
 
 def _artifact_choice() -> ForcingChoice:
@@ -153,6 +186,12 @@ def test_6_the_whole_page_has_no_untranslated_text():
 
 @pytest.mark.parametrize("region", sorted(PLACEHOLDER_SITES))
 def test_6_every_render_has_no_untranslated_text(region):
+    # Local import: `app.app` instantiates `App(app_ui, server)` at module scope, so
+    # importing it at this file's top level would pay that cost for every test here,
+    # not only this one - the same reason `test_6_the_whole_page_has_no_untranslated_text`
+    # below imports `build_ui` locally instead.
+    from app.app import scale_sentence
+
     assessment = _assessment(region)
     rendered = [
         _html_text(render_ranking(assessment, XX)),
@@ -165,12 +204,26 @@ def test_6_every_render_has_no_untranslated_text(region):
         headline_for(assessment, XX)[1],
         data_source_banner(_artifact_choice(), assessment.context, XX),
         render_report(assessment, _artifact_choice(), today=date(2026, 9, 28), tr=XX),
+        # The catalogue panel's two tables: `ui.output_ui`-served, so the whole-page
+        # scan below never sees them (I§5.2 names the species table's yes/no and the
+        # month words as exactly what this test exists to find).
+        _html_text(species_table(XX)),
+        _html_text(method_table(XX)),
+        # The site map's legend: part of the Site panel, but only reachable on the
+        # page when `shiny_deckgl` is installed, which CI lacks - rendered directly.
+        _html_text(_legend(XX)),
+        # The sidebar's "site ready" sentence, never otherwise pseudo-rendered.
+        scale_sentence(label="Melnrage", count=3, scale_key="community_farm_0_1_ha", tr=XX),
     ]
     for modal in (about_modal, help_modal, feedback_modal):
         rendered.append(_html_text(modal(XX)))
     skip = ("position", "colour", "region", "provenance")
     for marker in site_markers(XX):
         rendered.append(" ".join(str(v) for k, v in marker.items() if k not in skip))
+    # The JSON download (report.py, `to_dict(render=tr.render)`, spec I§8.6): only the
+    # values under "text" keys are prose a user reads; see `_text_values`.
+    payload = json.loads(json.dumps(assessment.to_dict(render=XX.render), default=str))
+    rendered.extend(_text_values(payload))
     leaks = [leak for text in rendered for leak in _leaks(text)]
     assert not leaks, "\n".join(leaks)
 
