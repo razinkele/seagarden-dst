@@ -27,6 +27,7 @@ from seagarden_dst.i18n import (
     Catalogue,
     Message,
     core_catalogue,
+    placeholders,
 )
 from seagarden_dst.params import DEFAULT_PARAM_ROOT, default_parameters
 
@@ -75,6 +76,17 @@ def _normalise(text: str) -> str:
 
 def _pseudo_mark(keys) -> dict[str, str]:
     return {k: f"⟦{k}⟧" for k in keys}
+
+
+def _pseudo_mark_templates(messages: Mapping[str, str]) -> dict[str, str]:
+    """`⟦key⟧` plus one ` {name}` per placeholder of the English template, names sorted
+    for determinism - so a parameter that bypasses `tr` still shows up in the pseudo
+    render instead of being swallowed by a template with no `{...}` of its own."""
+    out: dict[str, str] = {}
+    for key, template in messages.items():
+        names = sorted(placeholders(template))
+        out[key] = f"⟦{key}⟧" + "".join(f" {{{name}}}" for name in names)
+    return out
 
 
 @dataclass(frozen=True)
@@ -131,15 +143,16 @@ class Translator:
 
     @classmethod
     def pseudo(cls) -> Translator:
-        """Language `xx`: every value is `⟦key⟧`. The leak test renders with this."""
-        core_keys = core_catalogue(DEFAULT_LANGUAGE).keys()
-        app_keys = Catalogue.load(DEFAULT_LANGUAGE, APP_LOCALES).keys()
+        """Language `xx`: every value is ⟦key⟧ plus the English template's placeholders,
+        so an untranslated parameter leaks visibly. The leak test renders with this."""
+        core_messages = core_catalogue(DEFAULT_LANGUAGE).messages
+        app_messages = Catalogue.load(DEFAULT_LANGUAGE, APP_LOCALES).messages
         reference = params_reference_keys()
         sidecar = _pseudo_mark(reference)
         return cls(
             language="xx",
-            core=Catalogue("xx", "machine-draft", _pseudo_mark(core_keys)),
-            app=Catalogue("xx", "machine-draft", _pseudo_mark(app_keys)),
+            core=Catalogue("xx", "machine-draft", _pseudo_mark_templates(core_messages)),
+            app=Catalogue("xx", "machine-draft", _pseudo_mark_templates(app_messages)),
             sidecar=sidecar,
             text_index={_normalise(v): sidecar[k] for k, v in reference.items() if v},
             status="machine-draft",

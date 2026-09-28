@@ -68,6 +68,15 @@ def test_pseudo_translator_marks_every_value():
     assert xx.render(msg("calibration.tier.C.label")) == "⟦calibration.tier.C.label⟧"
     assert xx.species_name("ulva") == "⟦params.species.ulva.common_name⟧"
     assert xx.render(Message.literal("Raft")) == "⟦params.methods.raft.name⟧"
+    # A key whose English template carries placeholders keeps them: `app.report.option`
+    # is `"{species} - {method} ({ha} ha)"` in English, so the pseudo value is the bare
+    # marker plus one `{name}` per placeholder, names sorted (`ha`, `method`, `species`)
+    # for determinism - so a caller's own (untranslated) parameter still shows up in the
+    # rendered text instead of being discarded by a template with no `{...}` of its own.
+    assert (
+        xx("app.report.option", species="S", method="M", ha="1")
+        == "⟦app.report.option⟧ 1 M S"
+    )
 
 
 def test_language_for_prefers_query_then_header_then_english():
@@ -204,13 +213,20 @@ def test_the_pure_renderers_speak_the_translators_language():
     state = _assessed_state()
     xx = Translator.pseudo()
     assessment = state.assessment.get()
-    assert "⟦app.headline.best⟧" == headline_for(assessment, xx)[1]
-    assert "⟦app.banner.artifact⟧" == data_source_banner(state.forcing.get(), None, xx)
+    # `headline_for` passes `species=tr.species_name(...)` into the keyed template, and
+    # `Translator.pseudo()` now keeps that template's placeholders (I-a review round 1),
+    # so the rendered sentence is the marker followed by its (still pseudo-marked)
+    # parameters, not the bare marker alone - hence `startswith`, not `==`, and a second
+    # assertion that the species name actually made it into the text.
+    assert headline_for(assessment, xx)[1].startswith("⟦app.headline.best⟧")
+    assert "⟦params.species." in headline_for(assessment, xx)[1]
+    assert data_source_banner(state.forcing.get(), None, xx).startswith("⟦app.banner.artifact⟧")
     for tag in (
         render_ranking(assessment, xx), render_pressure(assessment, xx),
         render_conditions("LT-coastal", xx), render_position_note("LT-coastal", xx),
     ):
         assert "⟦app." in str(tag)
+    assert "⟦params.species." in str(render_ranking(assessment, xx))
     # `render_excluded` shows the raw species key, not a translated name (results.py
     # keeps the exclusion identifier literal by design), and here the only excluded
     # entry's reason is a core-level literal Message carrying params sidecar text - so
@@ -218,13 +234,18 @@ def test_the_pure_renderers_speak_the_translators_language():
     assert "⟦params." in str(render_excluded(assessment, xx))
     text = render_report(assessment, state.forcing.get(), today=date(2026, 9, 28), tr=xx)
     assert text.splitlines()[0] == "⟦app.report.heading⟧"
-    # Pseudo mode masks every app-key value to exactly `⟦key⟧` with no interpolation
-    # (Translator.pseudo's contract: "every value is ⟦key⟧" - see test above), so a
-    # species name or tier label passed as a PARAM into `app.report.option` /
-    # `app.report.calibration` is computed (via tr.species_name / tr.render) and then
-    # discarded by that outer masked template, same as `app.headline.best`'s params
-    # above. What pseudo mode CAN show is that both keyed lines executed and appear.
-    assert "⟦app.report.option⟧" in text and "⟦app.report.calibration⟧" in text
+    # `Translator.pseudo()` keeps every marked template's own placeholders: the pseudo
+    # value for a core/app key is `⟦key⟧` plus one ` {name}` per placeholder of its
+    # English template, names sorted (`app/i18n.py::_pseudo_mark_templates`). A species
+    # name or tier label passed as a PARAM into `app.report.option` /
+    # `app.report.calibration` is therefore no longer discarded by the outer template -
+    # it is formatted into the line, itself still pseudo-marked (`⟦params.species...⟧`,
+    # `⟦calibration.tier...⟧`) because `Translator.__call__` renders a `Message` param
+    # through this same Translator before formatting. This is the actual proof that
+    # species/tier routing goes through `tr`: an untranslated (raw English) parameter
+    # would show up here as plain text instead of a marker, which is exactly what the
+    # pseudo-locale leak test (Task 8) checks for.
+    assert "⟦params.species." in text and "⟦calibration.tier." in text
 
 
 def test_english_renderers_are_unchanged_from_before_the_seam():
