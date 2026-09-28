@@ -8,6 +8,8 @@ one site's numbers under another site's label.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from app.modules.report import render_report
@@ -255,7 +257,7 @@ def test_run_assessment_populates_the_assessment():
 def test_report_carries_the_site_label_and_the_caveats():
     state = _FakeState(SiteContext.from_region("LT-coastal", label="Melnrage"))
     run_assessment(state)
-    text = render_report(state.assessment.get())
+    text = render_report(state.assessment.get(), today=date.today())
     assert "Melnrage" in text
     assert "CAVEATS" in text
     assert "Sequestration is not reported" in text
@@ -263,14 +265,14 @@ def test_report_carries_the_site_label_and_the_caveats():
 
 
 def test_report_without_an_assessment_says_so():
-    assert "No assessment yet" in render_report(None)
+    assert "No assessment yet" in render_report(None, today=date.today())
 
 
 @pytest.mark.parametrize("region", ["LT-coastal", "DK-belt", "PL-lagoon"])
 def test_report_renders_for_every_shipped_region(region):
     state = _FakeState(SiteContext.from_region(region))
     run_assessment(state)
-    text = render_report(state.assessment.get())
+    text = render_report(state.assessment.get(), today=date.today())
     assert "SITE ASSESSMENT" in text
 
 
@@ -457,9 +459,11 @@ def test_the_report_line_takes_the_choice_and_falls_back_to_the_context_without_
 
     state = _FakeState(SiteContext.from_region("LT-coastal", label="Melnrage"))
     run_assessment(state)
-    with_choice = render_report(state.assessment.get(), placeholder_choice("no artifact at x"))
+    with_choice = render_report(
+        state.assessment.get(), placeholder_choice("no artifact at x"), today=date.today()
+    )
     assert "Data source: placeholder conditions (no artifact at x)" in with_choice
-    without = render_report(state.assessment.get())
+    without = render_report(state.assessment.get(), today=date.today())
     # Discriminating: without a choice, the fallback line names no reason at all - a
     # bare `in` check would also pass for "placeholder conditions (something)".
     assert "Data source: placeholder conditions" in without.splitlines()
@@ -468,7 +472,7 @@ def test_the_report_line_takes_the_choice_and_falls_back_to_the_context_without_
 def test_the_report_line_names_the_artifact_year_and_build_date():
     state = _FakeState(SiteContext.from_region("LT-coastal", label="Melnrage"))
     run_assessment(state)
-    text = render_report(state.assessment.get(), _artifact_choice())
+    text = render_report(state.assessment.get(), _artifact_choice(), today=date.today())
     assert "Data source: gridded forcing artifact, conditions for 2025, built 2026-09-22" in text
 
 

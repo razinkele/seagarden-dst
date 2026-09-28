@@ -1,0 +1,29 @@
+SEAGARDEN DECISION SUPPORT TOOL - SITE ASSESSMENT
+====================================================
+
+Site:        PL-lagoon golden
+Sub-region:  PL-lagoon
+Conditions:  salinity 2 psu, DIN 25 umol/L, depth 4 m
+Data confidence: low
+Data source: placeholder conditions (golden fixture)
+Generated:   2026-09-28 - core v*
+
+RANKED OPTIONS
+----------------------------------------------------
+No species could be assessed at this site.
+
+EXCLUDED
+----------------------------------------------------
+- chorda_filum: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.
+- fucus_vesiculosus: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.
+- mytilus: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.
+- saccharina_latissima: Salinity in the Szczecin Lagoon is far below the demonstrated tolerance for this species. Not cultivable.
+- ulva: Below 2.5 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.
+
+CAVEATS
+----------------------------------------------------
+- Carbon is reported as carbon in harvested biomass only. Sequestration is not reported: calcification releases CO2, so a sequestration claim would depend on shell being removed from the water and kept out of it.
+- Site conditions in this prototype are placeholders, not measurements.
+- Legal permissibility is unassessed until the regulatory records exist (A2.2, M12). An unknown legal status blocks the verdict rather than passing it.
+
+Prototype output. Indicative only; not a basis for permitting or consent.

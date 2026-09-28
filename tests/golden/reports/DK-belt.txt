@@ -1,0 +1,66 @@
+SEAGARDEN DECISION SUPPORT TOOL - SITE ASSESSMENT
+====================================================
+
+Site:        DK-belt golden
+Sub-region:  DK-belt
+Conditions:  salinity 18 psu, DIN 5 umol/L, depth 16 m
+Data confidence: low
+Data source: placeholder conditions (golden fixture)
+Generated:   2026-09-28 - core v*
+
+RANKED OPTIONS
+----------------------------------------------------
+
+Bladderwrack - Floating longline (0.1 ha)
+  Verdict:   unknown
+  Binding:   Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.
+  Harvest:   1.03e+03-9.3e+03 kg DW [C]
+  Nitrogen:  20.7-186 kg N [C]
+  Phosphorus:2.07-18.6 kg P [C]
+  Carbon:    320-2.88e+03 kg C [C]
+  Calibration: Literature prior - order-of-magnitude band, labelled indicative
+
+Blue mussel - Mussel socks on longline (0.1 ha)
+  Verdict:   unknown
+  Binding:   Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.
+  Harvest:   1.6e+03-1.8e+03 kg FW [B]
+  Nitrogen:  23.2-26.1 kg N [B]
+  Phosphorus:1.33-1.49 kg P [B]
+  Carbon:    73.8-83 kg C [B]
+  Calibration: Regionally extrapolated - value as a range, calibration region named
+
+Sea lettuce - Floating longline (0.1 ha)
+  Verdict:   unknown
+  Binding:   Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.
+  Harvest:   77.1-693 kg DW [C]
+  Nitrogen:  2.31-20.8 kg N [C]
+  Phosphorus:0.193-1.73 kg P [C]
+  Carbon:    23.1-208 kg C [C]
+  Calibration: Literature prior - order-of-magnitude band, labelled indicative
+
+Sea lace - Floating longline (0.1 ha)
+  Verdict:   unknown
+  Binding:   Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.
+  Harvest:   98-882 kg DW [C]
+  Nitrogen:  1.57-14.1 kg N [C]
+  Phosphorus:0.196-1.76 kg P [C]
+  Carbon:    30.4-273 kg C [C]
+  Calibration: Literature prior - order-of-magnitude band, labelled indicative
+
+Sugar kelp - Floating longline (0.1 ha)
+  Verdict:   unknown
+  Binding:   Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.
+  Harvest:   37.5-337 kg DW [C]
+  Nitrogen:  0.375-3.37 kg N [C]
+  Phosphorus:0.0637-0.573 kg P [C]
+  Carbon:    12-108 kg C [C]
+  Calibration: Literature prior - order-of-magnitude band, labelled indicative
+
+CAVEATS
+----------------------------------------------------
+- calibration: At least one option rests on literature priors with no local validation. Read the harvest figures as indicative bands.
+- Carbon is reported as carbon in harvested biomass only. Sequestration is not reported: calcification releases CO2, so a sequestration claim would depend on shell being removed from the water and kept out of it.
+- Site conditions in this prototype are placeholders, not measurements.
+- Legal permissibility is unassessed until the regulatory records exist (A2.2, M12). An unknown legal status blocks the verdict rather than passing it.
+
+Prototype output. Indicative only; not a basis for permitting or consent.
