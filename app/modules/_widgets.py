@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from shiny import ui
 
-from seagarden_dst import SiteAssessment, SiteContext, Tier
+from seagarden_dst import SiteAssessment, SiteContext, Tier, Verdict
 from seagarden_dst.calibration import Quantity, for_display
 from seagarden_dst.forcing import Coverage, ForcingChoice
 
@@ -43,7 +43,8 @@ def quantity(q: Quantity | None) -> ui.Tag:
 
 def verdict_pill(verdict: str) -> ui.Tag:
     kind = verdict if verdict in _VERDICTS else "unknown"
-    return ui.tags.span(verdict, class_=f"sg-verdict sg-verdict-{kind}")
+    shown = Verdict(verdict).label if verdict in _VERDICTS else verdict
+    return ui.tags.span(shown, class_=f"sg-verdict sg-verdict-{kind}")
 
 
 def headline_for(assessment: SiteAssessment) -> tuple[str, str]:
@@ -64,7 +65,7 @@ def headline_for(assessment: SiteAssessment) -> tuple[str, str]:
         return "warn", "No option is currently suitable; see Results for the constraints."
     tier = assessment.lowest_tier
     suffix = " (literature priors)" if tier is Tier.C else ""
-    return "ok", f"Best option: {best.species_name}, {best.verdict}{suffix}."
+    return "ok", f"Best option: {best.species_name}, {Verdict(best.verdict).label}{suffix}."
 
 
 def _unassessable_reason(assessment: SiteAssessment) -> str:

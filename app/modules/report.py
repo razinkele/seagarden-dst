@@ -11,7 +11,7 @@ from datetime import date
 
 from shiny import module, render, ui
 
-from seagarden_dst import CAVEAT_LABELS, __version__
+from seagarden_dst import CAVEAT_LABELS, Verdict, __version__
 from seagarden_dst.calibration import for_display
 from seagarden_dst.forcing import Coverage, ForcingChoice
 
@@ -55,7 +55,7 @@ def render_report(assessment, choice: ForcingChoice | None = None) -> str:
             "",
             f"{option.species_name} - {option.method_name} "
             f"({option.area_m2 / 10_000:.4g} ha)",
-            f"  Verdict:   {option.verdict}",
+            f"  Verdict:   {Verdict(option.verdict).label}",
             f"  Binding:   {option.binding_constraint}",
             f"  Harvest:   {harvest}",
         ]

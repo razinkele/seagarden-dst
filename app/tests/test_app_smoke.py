@@ -561,3 +561,12 @@ def test_no_app_module_hard_codes_a_colour_in_an_inline_style():
             if re.search(r"#[0-9a-fA-F]{3,8}\b", line) and "style" in line:
                 offenders.append(f"{path.relative_to(root)}:{i}")
     assert not offenders, f"inline colours: {offenders}"
+
+
+def test_the_verdict_pill_keeps_the_value_as_its_class_and_shows_the_label():
+    from app.modules._widgets import verdict_pill
+    from seagarden_dst import Verdict
+
+    pill = str(verdict_pill(Verdict.MARGINAL.value))
+    assert 'class="sg-verdict sg-verdict-marginal"' in pill
+    assert ">marginal<" in pill

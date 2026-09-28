@@ -49,6 +49,13 @@ class Verdict(StrEnum):
             Verdict.SUITABLE: 1.0,
         }[self]
 
+    @property
+    def label(self) -> str:
+        """What a user reads. Identical to the value in English; the identifier is the
+        value, which is also the CSS class (`sg-verdict-<value>`). Package I-a makes this
+        a `Message` so the pill can say 'geeignet' while the class stays 'suitable'."""
+        return self.value
+
 
 @dataclass(frozen=True)
 class Constraint:
