@@ -54,11 +54,13 @@ def test_printing_a_results_caveats_reads_as_english(capsys):
     from seagarden_dst import SiteContext, assess_site
 
     caveats = assess_site(SiteContext.from_region("LT-coastal")).caveats
+    assert caveats, "the spec's example needs a caveat to print"
     print(caveats)
     printed = capsys.readouterr().out
-    sentence = str(caveats["calibration"])
-    assert sentence.startswith("At least one option rests on literature priors")
-    assert repr(sentence) in printed and "'api.caveat.calibration'" in printed
+    for message in caveats.values():
+        english = str(message)
+        assert " " in english and english != message.key, "a sentence, not a key"
+        assert repr(english) in printed and repr(message.key) in printed
     assert "params=" not in printed, "the bare dataclass repr is back"
 
 

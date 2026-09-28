@@ -142,20 +142,29 @@ def test_in_i_a_only_english_is_enabled_on_disk():
 
 def test_catalogue_status_is_read_once_per_process_and_root(tmp_path):
     """The gate runs on every page load, so the three files are read once, not per
-    request; the roots are part of the cache key, so another tree is another entry."""
-    for owner in ("core", "app", "params"):
-        (tmp_path / owner).mkdir()
-        (tmp_path / owner / "de.yaml").write_text(
-            "language: de\nstatus: reviewed\ntranslated_by: t\nreviewed_by: r\n"
-            "reviewed_on: 2026-09-28\nmessages: {}\n",
-            encoding="utf-8",
-        )
-    roots = {f"{owner}_root": tmp_path / owner for owner in ("core", "app", "params")}
-    assert catalogue_status("de", **roots) == "reviewed"
+    request; the roots are part of the cache key, so another tree is another entry.
+    Two throwaway trees, so nothing here depends on which catalogues ship."""
+
+    def tree(name: str, header: str) -> dict:
+        roots = {}
+        for owner in ("core", "app", "params"):
+            root = tmp_path / name / owner
+            root.mkdir(parents=True)
+            (root / "de.yaml").write_text(header + "messages: {}\n", encoding="utf-8")
+            roots[f"{owner}_root"] = root
+        return roots
+
+    reviewed = tree(
+        "reviewed",
+        "language: de\nstatus: reviewed\ntranslated_by: t\nreviewed_by: r\n"
+        "reviewed_on: 2026-09-28\n",
+    )
+    draft = tree("draft", "language: de\nstatus: machine-draft\ntranslated_by: t\n")
+    assert catalogue_status("de", **reviewed) == "reviewed"
     hits = catalogue_status.cache_info().hits
-    assert catalogue_status("de", **roots) == "reviewed"
+    assert catalogue_status("de", **reviewed) == "reviewed"
     assert catalogue_status.cache_info().hits == hits + 1
-    assert catalogue_status("de") is None  # the packaged tree: its own entry, no German
+    assert catalogue_status("de", **draft) == "machine-draft"
 
 
 def test_language_names_cover_the_six_languages_as_endonyms():
@@ -192,12 +201,15 @@ def test_app_ui_takes_a_request_and_reads_lang_from_it():
     assert 'lang="en"' in str(app_ui(_request(b"", None)))
 
 
-def test_build_ui_draws_the_menu_from_the_enabled_set_it_is_given():
-    from app.app import build_ui
+def test_build_ui_draws_the_menu_from_the_enabled_set_it_is_given(monkeypatch):
+    import app.app as entry
 
-    html = str(build_ui("en", enabled=("en", "de")))
+    html = str(entry.build_ui("en", enabled=("en", "de")))
     assert 'href="?lang=de"' in html and "Deutsch" in html
-    assert 'href="?lang=de"' not in str(build_ui("en")), "left out, it is the deployment's"
+    # Left out, it is the deployment's own set, read at call time rather than at import.
+    monkeypatch.setattr(entry, "enabled_languages", lambda: ("en", "pl"))
+    html = str(entry.build_ui("en"))
+    assert 'href="?lang=pl"' in html and 'href="?lang=de"' not in html
 
 
 def test_app_ui_runs_the_gate_once_and_builds_the_menu_from_that_set(monkeypatch):
@@ -340,9 +352,10 @@ def test_the_position_note_names_its_provenance_through_its_own_key():
     for provenance in SiteProvenance:
         inline = en(f"app.site.provenance_inline.{provenance.value}")
         assert inline == str(provenance.label).lower()
+    xx = Translator.pseudo()
     for region, coordinate in SITE_COORDINATES.items():
         note = str(render_position_note(region, en))
         inline = str(coordinate.provenance.label).lower()
         assert f"{coordinate.lat:.4f}, {coordinate.lon:.4f} - {inline}. A result here" in note
-    pseudo = str(render_position_note("LT-lagoon", Translator.pseudo()))
-    assert "⟦app.site.provenance_inline.sited⟧" in pseudo
+        marker = f"⟦app.site.provenance_inline.{coordinate.provenance.value}⟧"
+        assert marker in str(render_position_note(region, xx))
