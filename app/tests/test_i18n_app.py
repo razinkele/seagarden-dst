@@ -327,3 +327,22 @@ def test_english_renderers_are_unchanged_from_before_the_seam():
     assert banner.startswith("Data source: placeholder conditions — plausible")
     assert window_label((10, 6), en) == "Oct–Jun (over winter)"
     assert window_label((4, 10), en) == "Apr–Oct"
+
+
+def test_the_position_note_names_its_provenance_through_its_own_key():
+    """Lower-casing a translated label mangles German nouns, so the note reads
+    `app.site.provenance_inline.<provenance>` - in English exactly the lower-cased
+    legend label it replaced, so the English note is unchanged (I-a final review)."""
+    from app.modules.site import render_position_note
+    from seagarden_dst.forcing import SITE_COORDINATES, SiteProvenance
+
+    en = Translator.for_language("en")
+    for provenance in SiteProvenance:
+        inline = en(f"app.site.provenance_inline.{provenance.value}")
+        assert inline == str(provenance.label).lower()
+    for region, coordinate in SITE_COORDINATES.items():
+        note = str(render_position_note(region, en))
+        inline = str(coordinate.provenance.label).lower()
+        assert f"{coordinate.lat:.4f}, {coordinate.lon:.4f} - {inline}. A result here" in note
+    pseudo = str(render_position_note("LT-lagoon", Translator.pseudo()))
+    assert "⟦app.site.provenance_inline.sited⟧" in pseudo

@@ -21,7 +21,7 @@ from app.modules.catalogue import method_table, species_table
 from app.modules.report import render_report
 from app.modules.results import render_excluded, render_pressure, render_ranking, run_assessment
 from app.modules.site import _legend, render_conditions, render_position_note, site_markers
-from app.modules.user_mode import mode_question_tag
+from app.modules.user_mode import mode_question_tag, user_mode_ui
 from app.shell import about_modal, feedback_modal, help_modal
 from app.tests.test_app_smoke import _FakeState
 from seagarden_dst import PLACEHOLDER_SITES, REGIONS, SiteContext, default_parameters
@@ -173,6 +173,11 @@ def _assessment(region: str):
     state = _FakeState(SiteContext.from_region(region, label="Melnrage"))
     state.forcing.set(_artifact_choice())
     state.bowtie_inference.set({"Low": 0.2, "Moderate": 0.3, "High": 0.5})
+    # A EUTROPY scenario with NO label and no box, so the adapter's note takes its
+    # unlabelled-run path - the one word in `adapters.eutropy.*` the core authors itself
+    # rather than copying from the scenario. The caveat reaches the ranking, the report
+    # and the JSON below, so every `adapters.eutropy.*` key renders under `xx`.
+    state.eutropy_scenario.set({"din_umol_l": 30.0, "dip_umol_l": 1.9})
     run_assessment(state)
     return state.assessment.get()
 
@@ -201,6 +206,9 @@ def test_6_every_render_has_no_untranslated_text(region):
         _html_text(render_position_note(region, XX)),
         _html_text(calibration_legend(XX)),
         _html_text(mode_question_tag("farm", XX)),
+        # The user-mode selector: served into the sidebar through `ui.output_ui`
+        # (`user_mode_slot`), so the whole-page scan never sees its label or choices.
+        _html_text(user_mode_ui("um", XX)),
         headline_for(assessment, XX)[1],
         data_source_banner(_artifact_choice(), assessment.context, XX),
         render_report(assessment, _artifact_choice(), today=date(2026, 9, 28), tr=XX),
@@ -224,6 +232,9 @@ def test_6_every_render_has_no_untranslated_text(region):
     # values under "text" keys are prose a user reads; see `_text_values`.
     payload = json.loads(json.dumps(assessment.to_dict(render=XX.render), default=str))
     rendered.extend(_text_values(payload))
+    # The scenario really took the unlabelled-run path and reached the renders; a
+    # scan that never sees the EUTROPY note would pass while proving nothing about it.
+    assert any("⟦adapters.eutropy.unlabelled_run⟧" in text for text in rendered)
     leaks = [leak for text in rendered for leak in _leaks(text)]
     assert not leaks, "\n".join(leaks)
 

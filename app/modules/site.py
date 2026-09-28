@@ -184,7 +184,8 @@ def absent_regions_note(tr: Translator) -> str:
     if not absent:
         return ""
     names = tr("app.site.and").join(tr.render(REGIONS[r]) for r in absent)
-    key = "app.site.help_absent_single" if len(absent) == 1 else "app.site.help_absent_many"
+    # Verb agreement for a subject that is one name or a list of names - not plural forms.
+    key = "app.site.help_absent_single" if len(absent) == 1 else "app.site.help_absent_list"
     return tr(key, regions=names)
 
 
@@ -197,7 +198,9 @@ def render_position_note(region: str, tr: Translator) -> ui.Tag:
             tr(
                 "app.site.position",
                 lat=f"{coordinate.lat:.4f}", lon=f"{coordinate.lon:.4f}",
-                provenance=tr.render(coordinate.provenance.label).lower(),
+                # Its own key, not the legend's label lower-cased: lower-casing a
+                # translated label mangles German nouns.
+                provenance=tr(f"app.site.provenance_inline.{coordinate.provenance.value}"),
                 presentation=coordinate.provenance.presentation,
             )
         )
@@ -279,10 +282,12 @@ def site_server(input, output, session, state) -> None:  # noqa: A002
     # `widget` is built once, synchronously, here - not inside a reactive effect: the
     # `_select_clicked_region` decorator below reads `widget.click_input_id` at
     # definition time, so the widget must already exist when this function body runs.
-    # That is also before the session's language is known (the Translator reactive.calc
-    # needs a reactive context to evaluate), so the tooltip template is fixed in
-    # English for the session's lifetime - a known limit of the deck.gl bridge, not a
-    # translation gap: every OTHER string this module renders follows `state.translator()`.
+    # That is before the session's language is known (the Translator reactive.calc needs
+    # a reactive context to evaluate), hence `english()`. This server-side widget only
+    # drives layer updates and click input - `update()` sends layers, never a tooltip -
+    # so its English tooltip template is never sent. The tooltip the browser shows is the
+    # page's own `data-tooltip`, built by `site_ui` through `_widget(tr)` in the request's
+    # language.
     widget = _widget(english()) if map_is_available() else None
 
     @reactive.effect
