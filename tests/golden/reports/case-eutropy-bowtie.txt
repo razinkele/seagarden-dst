@@ -1,0 +1,46 @@
+SEAGARDEN DECISION SUPPORT TOOL - SITE ASSESSMENT
+====================================================
+
+Site:        Curonian golden
+Sub-region:  LT-lagoon
+Conditions:  salinity 3.5 psu, DIN 30 umol/L, depth 3.1 m
+Data confidence: low
+Data source: placeholder conditions (golden fixture)
+Generated:   2026-09-28 - core v*
+
+RANKED OPTIONS
+----------------------------------------------------
+
+Sea lettuce - Floating modular pontoon (0.1 ha)
+  Verdict:   unknown
+  Binding:   Legal permissibility: No regulatory record loaded for this jurisdiction. The permitting layer is produced in-project by A2.2 (M12) and tested by WP3 A3.1.
+  Harvest:   341-3.07e+03 kg DW [C]
+  Nitrogen:  10.2-92.2 kg N [C]
+  Phosphorus:0.853-7.68 kg P [C]
+  Carbon:    102-922 kg C [C]
+  Calibration: Literature prior - order-of-magnitude band, labelled indicative
+
+EXCLUDED
+----------------------------------------------------
+- chorda_filum: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.
+- fucus_vesiculosus: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.
+- mytilus: Below 4 psu the model returns a positive yield, but the floor is assumed - no cultivation trial at this salinity is known to us. Treat as not cultivable here.
+- saccharina_latissima: Below 16 psu the model returns a positive yield, but cultivation failure has been observed at this salinity. Treat as not cultivable here.
+
+PRESSURE CONTEXT
+----------------------------------------------------
+- P(top event Low) = 0.200
+- P(top event Moderate) = 0.300
+- P(top event High) = 0.500
+  Eutrophication pressure from the MARBEFES bow-tie (bow-tie scenario). Reported beside the ranking and never folded into it: a yield weighted by a risk probability is neither a yield nor a risk.
+
+CAVEATS
+----------------------------------------------------
+- nutrient forcing: DIN and DIP from EUTROPY (golden scenario).
+- site conditions: Nutrient concentrations were overridden by a scenario; other conditions are unchanged.
+- calibration: At least one option rests on literature priors with no local validation. Read the harvest figures as indicative bands.
+- Carbon is reported as carbon in harvested biomass only. Sequestration is not reported: calcification releases CO2, so a sequestration claim would depend on shell being removed from the water and kept out of it.
+- Site conditions in this prototype are placeholders, not measurements.
+- Legal permissibility is unassessed until the regulatory records exist (A2.2, M12). An unknown legal status blocks the verdict rather than passing it.
+
+Prototype output. Indicative only; not a basis for permitting or consent.
