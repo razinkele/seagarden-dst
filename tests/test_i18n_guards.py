@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import ast
 import re
+import string
 from pathlib import Path
 
 import pytest
 import yaml
 
 from app.i18n import APP_LOCALES, PARAMS_LOCALES, params_reference_keys
-from seagarden_dst.i18n import CORE_LOCALES, LANGUAGES, placeholders
+from seagarden_dst.i18n import CORE_LOCALES, LANGUAGES
 
 REPO = Path(__file__).resolve().parents[1]
 OWNERS = {"core": CORE_LOCALES, "app": APP_LOCALES, "params": PARAMS_LOCALES}
@@ -66,10 +67,60 @@ def test_3_every_sidecar_covers_the_params_tree_and_nothing_stale():
         assert keys == set(reference), f"{path}: {sorted(keys ^ set(reference))}"
 
 
+_FORMATTER = string.Formatter()
+
+
+def _template_fields(value: str) -> frozenset[str]:
+    """The names `value.format(**params)` looks up, read by `str.format`'s own parser.
+
+    Raises `ValueError` for a value that would fail at render or bend a parameter: an
+    unbalanced brace (`"{depth} m}"`, `"{von {depth}"`, a trailing `{`), a field that is
+    not a bare name (`{}`, `{0}`, `{a.b}`, `{a[0]}`), a conversion (`{a!r}`) or a format
+    spec (`{a:>5}` - parameters arrive display-ready, I§4.1). `{{depth}}` is literal
+    text and yields no field, so it surfaces as a placeholder missing against English.
+    """
+    fields = set()
+    for _text, name, spec, conversion in _FORMATTER.parse(value):
+        if name is None:
+            continue
+        if not name.isidentifier():
+            raise ValueError(f"{{{name}}} is not a bare placeholder name")
+        if spec or conversion:
+            raise ValueError(
+                f"{{{name}}} carries conversion {conversion!r} / format spec {spec!r}"
+            )
+        fields.add(name)
+    return frozenset(fields)
+
+
+def _template_problem(value: str, english: str | None) -> str | None:
+    """Why test 4 refuses `value`, or None. `english` is the same key's reference value,
+    None for a key English lacks (test 1 reports that one)."""
+    try:
+        fields = _template_fields(value)
+    except ValueError as exc:
+        return f"not a valid template: {exc}"
+    if english is None:
+        return None
+    try:
+        expected = _template_fields(english)
+    except ValueError as exc:
+        return f"its English reference is not a valid template: {exc}"
+    if fields != expected:
+        return f"placeholders {sorted(fields)} differ from English {sorted(expected)}"
+    return None
+
+
 @pytest.mark.parametrize("owner", sorted(OWNERS))
 def test_4_catalogue_hygiene(owner):
+    """Every value renders: it parses the way `str.format` parses it, names exactly the
+    placeholders English names for that key, and carries no conversion or format spec.
+
+    English is parsed per key a file holds, not eagerly over the whole reference.
+    `params` values render verbatim today (`species_name`, the text index), but
+    `Translator.__call__` would format one, so they are held to the same rule.
+    """
     reference = _reference(owner)
-    ref_placeholders = {k: placeholders(v) for k, v in reference.items()}
     for path in _files(OWNERS[owner]):
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         assert data["language"] == path.stem
@@ -78,12 +129,8 @@ def test_4_catalogue_hygiene(owner):
             assert data.get("translated_by"), f"{path}: translated_by missing"
         for key, value in data["messages"].items():
             assert not key.endswith(("_one", "_other")), f"{key}: no plural forms (I§7)"
-            for name in placeholders(value):
-                assert ":" not in name and "!" not in name, f"{path}: {key} has a format spec"
-            if key in ref_placeholders:
-                assert placeholders(value) == ref_placeholders[key], (
-                    f"{path}: {key} placeholders differ from English"
-                )
+            problem = _template_problem(value, reference.get(key))
+            assert problem is None, f"{path}: {key}: {problem}"
 
 
 def test_4b_every_english_key_is_used_somewhere():
