@@ -30,7 +30,7 @@ Two optional variables govern languages (package I): `SEAGARDEN_LANGUAGES=en,de`
 the menu to those codes; `SEAGARDEN_SHOW_DRAFT_LANGUAGES=1` shows machine-draft catalogues
 under a bilingual notice — for a partner review round on a staging instance, never on the
 live one. Neither is set on laguna; the live instance shows English until a language is
-reviewed (`docs/runbooks/translations.md`).
+reviewed (`docs/runbooks/translations.md`, package I-b).
 
 `~/seagarden/deploy/README.md` §"SeaGarden DST on the laguna portal" explains *why* the app
 runs under its own unit rather than shiny-server, and why no `--root-path` is needed. Read it

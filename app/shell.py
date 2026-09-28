@@ -8,7 +8,7 @@ communication rules require to be visible.
 
 Every string here comes from the session's `Translator` (package I). The old `t()`
 passthrough is gone: `tr("app.shell.assess")` looks the key up in the language the
-request asked for, and the pseudo-locale test in app/tests/test_i18n_guards.py fails
+request asked for, and the pseudo-locale test in app/tests/test_i18n_leaks.py fails
 on any literal that slips past it.
 """
 
