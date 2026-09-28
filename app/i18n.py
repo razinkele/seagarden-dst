@@ -42,6 +42,8 @@ LANGUAGE_NAMES: dict[str, str] = {
 
 ENV_LANGUAGES = "SEAGARDEN_LANGUAGES"
 ENV_SHOW_DRAFTS = "SEAGARDEN_SHOW_DRAFT_LANGUAGES"
+#: The only values that turn `ENV_SHOW_DRAFTS` on, compared stripped and lower-cased.
+_SWITCH_ON = frozenset({"1", "true", "yes", "on"})
 
 _GROUPS = ("macroalga", "shellfish")
 _METHOD_FIELDS = ("name", "anchoring_unit", "cultivation_unit")
@@ -185,6 +187,11 @@ class Translator:
             return self._lookup(key).format(**rendered)
         except (KeyError, IndexError) as exc:
             raise KeyError(f"{key!r} in {self.language!r}: {exc}") from exc
+        except ValueError as exc:
+            # A malformed template (an unbalanced brace) - test 4 refuses it in a file.
+            raise ValueError(
+                f"{key!r} in {self.language!r} is not a valid template: {exc}"
+            ) from exc
 
     def render(self, message: Message) -> str:
         """Core prose. Literals resolve through the text index (I§5.4)."""
@@ -232,6 +239,7 @@ def english() -> Translator:
 # -- the gate ---------------------------------------------------------------------------
 
 
+@cache
 def catalogue_status(
     language: str,
     *,
@@ -239,7 +247,12 @@ def catalogue_status(
     app_root: Path = APP_LOCALES,
     params_root: Path = PARAMS_LOCALES,
 ) -> str | None:
-    """`reviewed` only if all three files say so; None if any is missing (I§6)."""
+    """`reviewed` only if all three files say so; None if any is missing (I§6).
+
+    Cached per process and per root: the gate runs on every page load and every
+    session, and the files change only with a deploy, which restarts the service. A
+    `status:` header flipped on disk therefore takes effect at the next restart.
+    """
     if language == DEFAULT_LANGUAGE:
         return "reference"
     statuses = []
@@ -257,10 +270,14 @@ def enabled_languages(
     """English, plus every reviewed language, plus drafts when the deployment says so.
 
     `SEAGARDEN_LANGUAGES` (comma list) restricts the candidates; English is always in.
+    `SEAGARDEN_SHOW_DRAFT_LANGUAGES` shows drafts only when it is `1`, `true`, `yes` or
+    `on` (any case): anything else, including a typo, keeps drafts hidden - the switch
+    fails closed. The environment is read on every call; the default `status`,
+    `catalogue_status`, is cached per process.
     """
     wanted = env.get(ENV_LANGUAGES)
     candidates = [c.strip().lower() for c in wanted.split(",")] if wanted else list(LANGUAGES)
-    show_drafts = env.get(ENV_SHOW_DRAFTS, "") not in ("", "0", "false", "no")
+    show_drafts = env.get(ENV_SHOW_DRAFTS, "").strip().lower() in _SWITCH_ON
     out = [DEFAULT_LANGUAGE]
     for language in LANGUAGES:
         if language == DEFAULT_LANGUAGE or language not in candidates:

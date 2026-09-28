@@ -15,6 +15,8 @@ uses on the websocket side, so the page and its renders cannot disagree.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from shiny import App, reactive, render, ui
 from starlette.requests import Request
 
@@ -31,8 +33,13 @@ from seagarden_dst import SCALE_LABELS
 from seagarden_dst.gridded import select_forcing
 
 
-def build_ui(language: str) -> ui.Tag:
-    """The whole page in one language. `app_ui` and the tests call this."""
+def build_ui(language: str, *, enabled: Sequence[str] | None = None) -> ui.Tag:
+    """The whole page in one language. `app_ui` and the tests call this.
+
+    `enabled` is the language menu; `app_ui` passes the set it already chose the
+    language from, so one page load runs the gate once. Left out (the tests calling
+    `build_ui(lang)`), it is the deployment's own `enabled_languages()`, read now.
+    """
     tr = Translator.pseudo() if language == "xx" else Translator.for_language(language)
     return app_shell(
         tr,
@@ -40,15 +47,14 @@ def build_ui(language: str) -> ui.Tag:
         ui.nav_panel(tr("app.nav.catalogue"), catalogue_ui("cat", tr)),
         ui.nav_panel(tr("app.nav.results"), results_ui("res", tr)),
         ui.nav_panel(tr("app.nav.report"), report_ui("rep", tr)),
-        enabled=enabled_languages(),
+        enabled=enabled_languages() if enabled is None else enabled,
     )
 
 
 def app_ui(request: Request) -> ui.Tag:
-    language = language_for(
-        request.url.query, request.headers.get("accept-language"), enabled_languages()
-    )
-    return build_ui(language)
+    enabled = enabled_languages()
+    language = language_for(request.url.query, request.headers.get("accept-language"), enabled)
+    return build_ui(language, enabled=enabled)
 
 
 def scale_sentence(*, label: str, count: int, scale_key: str, tr: Translator) -> str:

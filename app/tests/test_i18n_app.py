@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.i18n import (
     LANGUAGE_NAMES,
     Translator,
@@ -61,6 +63,20 @@ def test_a_sidecar_translates_yaml_text_and_literals_carrying_it(tmp_path):
     assert tr.render(Message.literal("  Raft ")) == "FLOSS"  # whitespace-normalised
 
 
+def test_a_malformed_app_value_is_a_value_error_naming_key_and_language(tmp_path):
+    (tmp_path / "xx.yaml").write_text(
+        "language: xx\nstatus: machine-draft\ntranslated_by: t\nmessages:\n"
+        "  app.shell.assess: 'Bewerten {'\n",
+        encoding="utf-8",
+    )
+    tr = Translator.load("xx", core_root=None, app_root=tmp_path, params_root=None)
+    with pytest.raises(ValueError, match=r"'app\.shell\.assess' in 'xx' is not a valid template"):
+        tr("app.shell.assess")
+    # A placeholder the caller does not supply stays a KeyError, as before.
+    with pytest.raises(KeyError, match=r"'app\.report\.option' in 'en'"):
+        Translator.for_language("en")("app.report.option", species="S")
+
+
 def test_pseudo_translator_marks_every_value():
     xx = Translator.pseudo()
     assert xx.language == "xx"
@@ -107,6 +123,14 @@ def test_enabled_languages_is_english_plus_reviewed_unless_drafts_are_shown():
     assert enabled_languages(
         env={"SEAGARDEN_LANGUAGES": "pl", "SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status
     ) == ("en", "pl")
+    # The switch fails closed: only 1/true/yes/on, in any case and stripped, show drafts.
+    # (It used to treat anything but ""/0/false/no as on, so "False" showed them.)
+    for off in ("", "0", " 0 ", "false", "False", "FALSE", "no", "No", "off", "yes please"):
+        shown = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": off}, status=status)
+        assert shown == ("en", "de"), f"{off!r} showed drafts"
+    for on in ("1", "true", "TRUE", " True ", "yes", "on", "ON"):
+        shown = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": on}, status=status)
+        assert shown == ("en", "de", "pl"), f"{on!r} hid drafts"
 
 
 def test_in_i_a_only_english_is_enabled_on_disk():
@@ -114,6 +138,24 @@ def test_in_i_a_only_english_is_enabled_on_disk():
     assert enabled_languages(env={}) == ("en",)
     assert catalogue_status("en") == "reference"
     assert catalogue_status("de") is None
+
+
+def test_catalogue_status_is_read_once_per_process_and_root(tmp_path):
+    """The gate runs on every page load, so the three files are read once, not per
+    request; the roots are part of the cache key, so another tree is another entry."""
+    for owner in ("core", "app", "params"):
+        (tmp_path / owner).mkdir()
+        (tmp_path / owner / "de.yaml").write_text(
+            "language: de\nstatus: reviewed\ntranslated_by: t\nreviewed_by: r\n"
+            "reviewed_on: 2026-09-28\nmessages: {}\n",
+            encoding="utf-8",
+        )
+    roots = {f"{owner}_root": tmp_path / owner for owner in ("core", "app", "params")}
+    assert catalogue_status("de", **roots) == "reviewed"
+    hits = catalogue_status.cache_info().hits
+    assert catalogue_status("de", **roots) == "reviewed"
+    assert catalogue_status.cache_info().hits == hits + 1
+    assert catalogue_status("de") is None  # the packaged tree: its own entry, no German
 
 
 def test_language_names_cover_the_six_languages_as_endonyms():
@@ -133,20 +175,45 @@ def test_the_page_builds_in_english_and_in_the_pseudo_locale():
     assert 'lang="xx"' in xx and "⟦app.shell.assess⟧" in xx and ">Assess<" not in xx
 
 
-def test_app_ui_takes_a_request_and_reads_lang_from_it():
+def _request(query: bytes, accept: bytes | None):
     from starlette.requests import Request
 
+    headers = [(b"accept-language", accept)] if accept else []
+    return Request({
+        "type": "http", "method": "GET", "scheme": "http", "path": "/",
+        "query_string": query, "headers": headers, "server": ("test", 80),
+    })
+
+
+def test_app_ui_takes_a_request_and_reads_lang_from_it():
     from app.app import app_ui
 
-    def request(query: bytes, accept: bytes | None) -> Request:
-        headers = [(b"accept-language", accept)] if accept else []
-        return Request({
-            "type": "http", "method": "GET", "scheme": "http", "path": "/",
-            "query_string": query, "headers": headers, "server": ("test", 80),
-        })
+    assert 'lang="en"' in str(app_ui(_request(b"lang=de", b"de")))  # de not enabled in I-a
+    assert 'lang="en"' in str(app_ui(_request(b"", None)))
 
-    assert 'lang="en"' in str(app_ui(request(b"lang=de", b"de")))  # de not enabled in I-a
-    assert 'lang="en"' in str(app_ui(request(b"", None)))
+
+def test_build_ui_draws_the_menu_from_the_enabled_set_it_is_given():
+    from app.app import build_ui
+
+    html = str(build_ui("en", enabled=("en", "de")))
+    assert 'href="?lang=de"' in html and "Deutsch" in html
+    assert 'href="?lang=de"' not in str(build_ui("en")), "left out, it is the deployment's"
+
+
+def test_app_ui_runs_the_gate_once_and_builds_the_menu_from_that_set(monkeypatch):
+    """The page's language and its menu come from one `enabled_languages()` call."""
+    import app.app as entry
+
+    calls = []
+
+    def gate():
+        calls.append(None)
+        return ("en", "de")
+
+    monkeypatch.setattr(entry, "enabled_languages", gate)
+    html = str(entry.app_ui(_request(b"", b"de")))
+    assert len(calls) == 1
+    assert 'lang="de"' in html and 'href="?lang=en"' in html
 
 
 def test_the_language_menu_lists_enabled_languages_as_relative_links():
