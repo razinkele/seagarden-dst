@@ -160,8 +160,13 @@ class Translator:
             return params_reference_keys()[key]
         return self.core.lookup(key)
 
-    def __call__(self, key: str, **params: object) -> str:
-        """App chrome by key. Params are display-ready strings; nested Messages render."""
+    def __call__(self, key: str, /, **params: object) -> str:
+        """App chrome by key. Params are display-ready strings; nested Messages render.
+
+        `key` is positional-only so a catalogue placeholder literally named `{key}`
+        (`app.report.excluded_line`, keyed by exclusion identifier) can still be passed
+        as `key=...` in `**params` without colliding with this method's own parameter.
+        """
         rendered = {k: (self.render(v) if isinstance(v, Message) else v) for k, v in params.items()}
         try:
             return self._lookup(key).format(**rendered)

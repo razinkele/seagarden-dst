@@ -198,7 +198,6 @@ messages:
   app.results.col.nitrogen: "Nitrogen"
   app.results.col.phosphorus: "Phosphorus"
   app.results.col.carbon: "Carbon"
-  app.results.all_pass: "All constraints pass"
   app.results.constraint_line: "{name}: {verdict} - {reason}"
   app.results.caveats: "Caveats"
   app.results.caveat_line: "{label}: {text}"

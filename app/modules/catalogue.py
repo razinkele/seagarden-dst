@@ -8,38 +8,114 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, ui
 
+from app.i18n import Translator
 from seagarden_dst import DEFAULT_SCALE, SCALE_LABELS, default_parameters
 
 from ._widgets import window_label
 
 PARAMS = default_parameters()
-SPECIES_CHOICES = {k: v.common_name for k, v in PARAMS.species.items()}
 AF_SPECIES = [k for k, v in PARAMS.species.items() if v.in_application_form]
 
 
+def species_choices(tr: Translator) -> dict[str, str]:
+    return {k: tr.species_name(k) for k in PARAMS.species}
+
+
+def scale_choices(tr: Translator) -> dict[str, str]:
+    return {k: tr.render(v) for k, v in SCALE_LABELS.items()}
+
+
 @module.ui
-def catalogue_ui() -> ui.Tag:
-    return ui.layout_sidebar(
+def catalogue_ui(tr: Translator) -> ui.TagList:
+    # `ui.layout_sidebar` returns a `CardItem`, which only tagifies nested inside a
+    # `ui.card()` or a page - wrapped in `ui.TagList` so this panel also renders
+    # standalone (the pure-render tests call it directly, outside `app_shell`).
+    return ui.TagList(ui.layout_sidebar(
         ui.sidebar(
             ui.input_checkbox_group(
                 "species",
-                "Species",
-                choices=SPECIES_CHOICES,
-                selected=list(SPECIES_CHOICES),
+                tr("app.catalogue.species"),
+                choices=species_choices(tr),
+                selected=list(PARAMS.species),
             ),
             ui.input_select(
                 "scale",
-                "Scale",
-                choices={k: str(v) for k, v in SCALE_LABELS.items()},
+                tr("app.catalogue.scale"),
+                choices=scale_choices(tr),
                 selected=DEFAULT_SCALE,
             ),
-            ui.input_action_link(
-                "only_af", "Select only the species named in the Application Form"
-            ),
+            ui.input_action_link("only_af", tr("app.catalogue.only_af")),
             width=340,
         ),
-        ui.card(ui.card_header("Species"), ui.output_ui("species_table")),
-        ui.card(ui.card_header("Cultivation methods"), ui.output_ui("method_table")),
+        ui.card(ui.card_header(tr("app.catalogue.species")), ui.output_ui("species_table")),
+        ui.card(ui.card_header(tr("app.catalogue.methods")), ui.output_ui("method_table")),
+    ))
+
+
+def species_table(tr: Translator) -> ui.TagList:
+    rows = []
+    for key, species in PARAMS.species.items():
+        named = tr("app.catalogue.yes" if species.in_application_form else "app.catalogue.no")
+        rows.append(
+            ui.tags.tr(
+                ui.tags.td(ui.tags.b(tr.species_name(key))),
+                ui.tags.td(ui.tags.em(species.scientific_name)),
+                ui.tags.td(tr.group_label(species.group)),
+                ui.tags.td(named),
+                ui.tags.td(window_label(species.cultivation_window, tr)),
+            )
+        )
+    headers = ("species", "scientific", "group", "in_af", "window")
+    return ui.TagList(
+        ui.tags.table(
+            ui.tags.thead(
+                ui.tags.tr(
+                    *[
+                        ui.tags.th(
+                            tr(f"app.catalogue.col.{h}"),
+                            style="text-align:left;padding-right:1rem;",
+                        )
+                        for h in headers
+                    ]
+                )
+            ),
+            ui.tags.tbody(*rows),
+            style="width:100%;font-size:.92em;",
+        ),
+        ui.p(ui.tags.small(tr("app.catalogue.species_note"))),
+    )
+
+
+def method_table(tr: Translator) -> ui.TagList:
+    rows = [
+        ui.tags.tr(
+            ui.tags.td(ui.tags.b(tr.method_name(key))),
+            ui.tags.td(tr.method_field(key, "anchoring_unit")),
+            ui.tags.td(tr.method_field(key, "cultivation_unit")),
+            ui.tags.td(f"{m.min_depth_m:g}-{m.max_depth_m:g} m"),
+            ui.tags.td(f"{m.max_significant_wave_m:g} m"),
+            ui.tags.td(f"{m.area_m2_per_unit:g} m²"),
+        )
+        for key, m in PARAMS.methods.items()
+    ]
+    headers = ("method", "anchoring", "cultivation", "depth", "max_wave", "unit_area")
+    return ui.TagList(
+        ui.tags.table(
+            ui.tags.thead(
+                ui.tags.tr(
+                    *[
+                        ui.tags.th(
+                            tr(f"app.catalogue.col.{h}"),
+                            style="text-align:left;padding-right:1rem;",
+                        )
+                        for h in headers
+                    ]
+                )
+            ),
+            ui.tags.tbody(*rows),
+            style="width:100%;font-size:.92em;",
+        ),
+        ui.p(ui.tags.small(tr("app.catalogue.methods_note"))),
     )
 
 
@@ -68,79 +144,16 @@ def catalogue_server(input, output, session, state) -> None:  # noqa: A002
     def _select_af():
         ui.update_checkbox_group("species", selected=AF_SPECIES)
 
-    @output
+    # Bound by explicit `id=`, not by function name: the pure functions above are
+    # also named `species_table`/`method_table` (the interface names them so), and a
+    # nested function definition of the same name would shadow them in this closure
+    # (Python resolves the reference to itself, not the module-level pure function).
+    @output(id="species_table")
     @render.ui
-    def species_table():
-        rows = []
-        for species in PARAMS.species.values():
-            named = "yes" if species.in_application_form else "no"
-            window = window_label(species.cultivation_window)
-            rows.append(
-                ui.tags.tr(
-                    ui.tags.td(ui.tags.b(species.common_name)),
-                    ui.tags.td(ui.tags.em(species.scientific_name)),
-                    ui.tags.td(species.group),
-                    ui.tags.td(named),
-                    ui.tags.td(window),
-                )
-            )
-        return ui.TagList(
-            ui.tags.table(
-                ui.tags.thead(
-                    ui.tags.tr(
-                        *[
-                            ui.tags.th(h, style="text-align:left;padding-right:1rem;")
-                            for h in ("Species", "Scientific name", "Group",
-                                      "In the AF", "Cultivation window")
-                        ]
-                    )
-                ),
-                ui.tags.tbody(*rows),
-                style="width:100%;font-size:.92em;",
-            ),
-            ui.p(
-                ui.tags.small(
-                    "Only Ulva and blue mussel are named in the Application Form. Fucus "
-                    "carries the OLAMUR low-salinity evidence, Chorda is what KU will "
-                    "actually cultivate in Lithuania (decision D1), and sugar kelp is "
-                    "carried for the Danish site and as the worked contraindication."
-                )
-            ),
-        )
+    def _species_table():
+        return species_table(state.translator())
 
-    @output
+    @output(id="method_table")
     @render.ui
-    def method_table():
-        rows = [
-            ui.tags.tr(
-                ui.tags.td(ui.tags.b(m.name)),
-                ui.tags.td(m.anchoring_unit),
-                ui.tags.td(m.cultivation_unit),
-                ui.tags.td(f"{m.min_depth_m:g}-{m.max_depth_m:g} m"),
-                ui.tags.td(f"{m.max_significant_wave_m:g} m"),
-                ui.tags.td(f"{m.area_m2_per_unit:g} m²"),
-            )
-            for m in PARAMS.methods.values()
-        ]
-        return ui.TagList(
-            ui.tags.table(
-                ui.tags.thead(
-                    ui.tags.tr(
-                        *[
-                            ui.tags.th(h, style="text-align:left;padding-right:1rem;")
-                            for h in ("Method", "Anchoring", "Cultivation",
-                                      "Depth", "Max wave", "Unit area")
-                        ]
-                    )
-                ),
-                ui.tags.tbody(*rows),
-                style="width:100%;font-size:.92em;",
-            ),
-            ui.p(
-                ui.tags.small(
-                    "Costs and labour are deliberately empty. They are filled from WP3's "
-                    "actual procurement records - the viability figures are only "
-                    "defensible if the coefficients are what the project really paid."
-                )
-            ),
-        )
+    def _method_table():
+        return method_table(state.translator())

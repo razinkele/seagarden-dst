@@ -110,3 +110,132 @@ def test_in_i_a_only_english_is_enabled_on_disk():
 def test_language_names_cover_the_six_languages_as_endonyms():
     assert set(LANGUAGE_NAMES) == set(LANGUAGES)
     assert LANGUAGE_NAMES["lt"] == "Lietuvių" and LANGUAGE_NAMES["en"] == "English"
+
+
+# --- Task 6: the shell and the entry point build per request, in a language -----------
+
+
+def test_the_page_builds_in_english_and_in_the_pseudo_locale():
+    from app.app import build_ui
+
+    en = str(build_ui("en"))
+    assert 'lang="en"' in en and ">Assess<" in en
+    xx = str(build_ui("xx"))
+    assert 'lang="xx"' in xx and "⟦app.shell.assess⟧" in xx and ">Assess<" not in xx
+
+
+def test_app_ui_takes_a_request_and_reads_lang_from_it():
+    from starlette.requests import Request
+
+    from app.app import app_ui
+
+    def request(query: bytes, accept: bytes | None) -> Request:
+        headers = [(b"accept-language", accept)] if accept else []
+        return Request({
+            "type": "http", "method": "GET", "scheme": "http", "path": "/",
+            "query_string": query, "headers": headers, "server": ("test", 80),
+        })
+
+    assert 'lang="en"' in str(app_ui(request(b"lang=de", b"de")))  # de not enabled in I-a
+    assert 'lang="en"' in str(app_ui(request(b"", None)))
+
+
+def test_the_language_menu_lists_enabled_languages_as_relative_links():
+    from app.shell import language_menu
+
+    html = str(language_menu(Translator.for_language("en"), ("en", "de")))
+    assert 'href="?lang=de"' in html and "Deutsch" in html
+    assert 'href="?lang=en"' not in html, "the current language is marked, not linked"
+    assert "English" in html
+
+
+def test_a_draft_language_shows_the_bilingual_banner_and_english_does_not():
+    from app.shell import draft_banner
+
+    assert draft_banner(Translator.for_language("en")) is None
+    banner = str(draft_banner(Translator.pseudo()))
+    assert "⟦app.shell.draft_banner⟧" in banner
+    assert "Machine translation, not yet reviewed." in banner
+
+
+def test_state_carries_a_translator_slot_unset_until_the_session_sets_it():
+    from app.state import AppState
+
+    assert AppState.defaults()["translator"] is None
+
+
+# --- Task 7: the five panels render through `tr`, as pure functions -------------------
+
+
+def _assessed_state(region: str = "LT-coastal"):
+    from app.modules.results import run_assessment
+    from app.tests.test_app_smoke import _FakeState
+    from seagarden_dst import SiteContext
+
+    state = _FakeState(SiteContext.from_region(region, label="Melnrage"))
+    run_assessment(state)
+    return state
+
+
+def test_every_panel_factory_takes_a_translator():
+    from app.modules.catalogue import catalogue_ui
+    from app.modules.report import report_ui
+    from app.modules.results import results_ui
+    from app.modules.site import site_ui
+    from app.modules.user_mode import user_mode_ui
+
+    xx = Translator.pseudo()
+    for factory, id_ in (
+        (site_ui, "site"), (catalogue_ui, "cat"), (results_ui, "res"), (report_ui, "rep"),
+        (user_mode_ui, "um"),
+    ):
+        html = str(factory(id_, xx))
+        assert "⟦app." in html, f"{factory.__name__} rendered nothing from the catalogue"
+
+
+def test_the_pure_renderers_speak_the_translators_language():
+    from datetime import date
+
+    from app.modules._widgets import data_source_banner, headline_for
+    from app.modules.report import render_report
+    from app.modules.results import render_excluded, render_pressure, render_ranking
+    from app.modules.site import render_conditions, render_position_note
+
+    state = _assessed_state()
+    xx = Translator.pseudo()
+    assessment = state.assessment.get()
+    assert "⟦app.headline.best⟧" == headline_for(assessment, xx)[1]
+    assert "⟦app.banner.artifact⟧" == data_source_banner(state.forcing.get(), None, xx)
+    for tag in (
+        render_ranking(assessment, xx), render_pressure(assessment, xx),
+        render_conditions("LT-coastal", xx), render_position_note("LT-coastal", xx),
+    ):
+        assert "⟦app." in str(tag)
+    # `render_excluded` shows the raw species key, not a translated name (results.py
+    # keeps the exclusion identifier literal by design), and here the only excluded
+    # entry's reason is a core-level literal Message carrying params sidecar text - so
+    # its pseudo-marked key is `params.*`, not `app.*`. Still routed through `tr`.
+    assert "⟦params." in str(render_excluded(assessment, xx))
+    text = render_report(assessment, state.forcing.get(), today=date(2026, 9, 28), tr=xx)
+    assert text.splitlines()[0] == "⟦app.report.heading⟧"
+    # Pseudo mode masks every app-key value to exactly `⟦key⟧` with no interpolation
+    # (Translator.pseudo's contract: "every value is ⟦key⟧" - see test above), so a
+    # species name or tier label passed as a PARAM into `app.report.option` /
+    # `app.report.calibration` is computed (via tr.species_name / tr.render) and then
+    # discarded by that outer masked template, same as `app.headline.best`'s params
+    # above. What pseudo mode CAN show is that both keyed lines executed and appear.
+    assert "⟦app.report.option⟧" in text and "⟦app.report.calibration⟧" in text
+
+
+def test_english_renderers_are_unchanged_from_before_the_seam():
+    """The pure functions in English say exactly what the closures said."""
+    from app.modules._widgets import data_source_banner, headline_for, window_label
+    from seagarden_dst.forcing import placeholder_choice
+
+    en = Translator.for_language("en")
+    state = _assessed_state()
+    assert headline_for(state.assessment.get(), en)[1].startswith("Best option: ")
+    banner = data_source_banner(placeholder_choice("no artifact at data/forcing"), None, en)
+    assert banner.startswith("Data source: placeholder conditions — plausible")
+    assert window_label((10, 6), en) == "Oct–Jun (over winter)"
+    assert window_label((4, 10), en) == "Apr–Oct"

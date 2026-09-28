@@ -12,6 +12,7 @@ from datetime import date
 
 import pytest
 
+from app.i18n import english
 from app.modules.report import render_report
 from app.modules.results import run_assessment
 from app.modules.user_mode import MODES
@@ -25,6 +26,7 @@ def test_app_object_builds():
 
     assert app is not None
     assert app_ui is not None
+    assert callable(app_ui)
 
 
 def test_every_panel_ui_renders():
@@ -39,7 +41,7 @@ def test_every_panel_ui_renders():
         (results_ui, "res"),
         (report_ui, "rep"),
     ):
-        assert factory(id_) is not None
+        assert factory(id_, english()) is not None
 
 
 def test_state_defaults_match_the_single_source_of_truth():
@@ -287,7 +289,7 @@ def test_every_positioned_region_gets_a_marker_and_no_other_does():
     from app.modules.site import site_markers
     from seagarden_dst.forcing import SITE_COORDINATES
 
-    marked = {m["region"] for m in site_markers()}
+    marked = {m["region"] for m in site_markers(english())}
     assert marked == set(SITE_COORDINATES)
 
 
@@ -363,7 +365,7 @@ def test_a_click_payload_without_a_region_moves_nothing():
 def _markers():
     from app.modules.site import site_markers
 
-    return site_markers()
+    return site_markers(english())
 
 
 def test_the_site_panel_renders_without_shiny_deckgl(monkeypatch):
@@ -376,7 +378,7 @@ def test_the_site_panel_renders_without_shiny_deckgl(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "shiny_deckgl", None)
     assert site.map_is_available() is False
-    assert site.site_ui("site") is not None
+    assert site.site_ui("site", english()) is not None
 
 
 def test_no_app_module_imports_shiny_deckgl_at_module_scope():
@@ -422,7 +424,7 @@ def test_an_unassessable_assessment_reads_as_unassessed_not_unsuitable():
         from_artifact=True,
     )
     result = assess_site(SiteContext.from_reading(blocked, label="Off-grid"))
-    _cls, text = headline_for(result)
+    _cls, text = headline_for(result, english())
     assert "unassess" in text.lower()
     assert "unsuitable" not in text.lower()
 
@@ -433,10 +435,12 @@ def test_the_banner_names_what_the_tool_is_running_on():
     from app.modules._widgets import data_source_banner
     from seagarden_dst.forcing import placeholder_choice
 
-    placeholder = data_source_banner(placeholder_choice("no artifact at data/forcing"))
+    placeholder = data_source_banner(
+        placeholder_choice("no artifact at data/forcing"), None, english()
+    )
     assert "placeholder" in placeholder.lower()
     assert "(no artifact at data/forcing)" in placeholder
-    artifact = data_source_banner(_artifact_choice())
+    artifact = data_source_banner(_artifact_choice(), None, english())
     assert "placeholder" not in artifact.lower()
     assert "conditions for 2025" in artifact and "built 2026-09-22" in artifact
 
@@ -448,7 +452,7 @@ def test_the_banner_appends_a_sites_own_fallback_note():
 
     context = SiteContext.from_region("LT-coastal", label="Melnrage")
     context.source_note = SOURCE_NOTE_NO_POSITION
-    text = data_source_banner(_artifact_choice(), context)
+    text = data_source_banner(_artifact_choice(), context, english())
     assert text.endswith(
         "This site: no confirmed position; conditions are the sub-region placeholder."
     )
@@ -492,9 +496,9 @@ def test_source_note_reaches_the_json_export():
 
 
 def _page_html() -> str:
-    from app.app import app_ui
+    from app.app import build_ui
 
-    return str(app_ui)
+    return str(build_ui("en"))
 
 
 def test_the_brand_stylesheet_is_inlined_into_the_page():
@@ -526,10 +530,10 @@ def test_tier_and_verdict_widgets_are_styled_by_class_not_inline_colour():
     from app.modules._widgets import tier_badge, verdict_pill
     from seagarden_dst import Tier
 
-    badge = str(tier_badge(Tier.D))
+    badge = str(tier_badge(Tier.D, english()))
     assert 'class="sg-tier sg-tier-d"' in badge
     assert "style=" not in badge
-    pill = str(verdict_pill("unsuitable"))
+    pill = str(verdict_pill("unsuitable", english()))
     assert 'class="sg-verdict sg-verdict-unsuitable"' in pill
     assert "style=" not in pill
 
@@ -546,7 +550,9 @@ def test_the_sidebar_status_shows_the_scale_label_never_the_slug():
     """`app.py` formats the scale into a sentence; after I-0 the state holds a slug."""
     from app.app import scale_sentence
 
-    text = scale_sentence(label="Melnrage", count=3, scale_key="community_farm_0_1_ha")
+    text = scale_sentence(
+        label="Melnrage", count=3, scale_key="community_farm_0_1_ha", tr=english()
+    )
     assert "community farm (0.1 ha)" in text
     assert "community_farm_0_1_ha" not in text
 
@@ -572,6 +578,6 @@ def test_the_verdict_pill_keeps_the_value_as_its_class_and_shows_the_label():
     from app.modules._widgets import verdict_pill
     from seagarden_dst import Verdict
 
-    pill = str(verdict_pill(Verdict.MARGINAL.value))
+    pill = str(verdict_pill(Verdict.MARGINAL.value, english()))
     assert 'class="sg-verdict sg-verdict-marginal"' in pill
     assert ">marginal<" in pill

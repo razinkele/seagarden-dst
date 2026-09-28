@@ -3,8 +3,9 @@
 The report carries the site label and the caveats, because a table of numbers that
 outlives the screen it was read on is exactly where a caveat gets lost.
 
-`render_report` takes `today` for the same reason `regulatory.py` makes it a
-parameter: the test suite must not turn red on a calendar boundary.
+`today` is a parameter for the same reason `regulatory.py` makes it one: the test suite
+must not turn red on a calendar boundary. `tr` defaults to English so the core-style
+call `render_report(assessment, today=...)` still reads as it always did.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from datetime import date
 
 from shiny import module, render, ui
 
+from app.i18n import Translator, english
 from seagarden_dst import CAVEAT_LABELS, Verdict, __version__
 from seagarden_dst.calibration import for_display
 from seagarden_dst.forcing import Coverage, ForcingChoice
@@ -21,132 +23,136 @@ from seagarden_dst.forcing import Coverage, ForcingChoice
 from ._widgets import artifact_source_text
 
 
-def render_report(assessment, choice: ForcingChoice | None = None, *, today: date) -> str:
+def render_report(
+    assessment, choice: ForcingChoice | None = None, *, today: date, tr: Translator | None = None
+) -> str:
+    tr = tr or english()
     if assessment is None:
-        return "No assessment yet. Pick a site and click Assess."
+        return tr("app.report.none")
 
     context = assessment.context
-    conditions_line = "Conditions:  unavailable — data layer could not assess this site"
-    if context.conditions is not None:
-        conditions_line = (
-            f"Conditions:  salinity {context.conditions.salinity_psu:g} psu, "
-            f"DIN {context.conditions.din_umol_l:g} umol/L, "
-            f"depth {context.conditions.depth_m:g} m"
+    if context.conditions is None:
+        conditions_line = tr("app.report.conditions_unavailable")
+    else:
+        c = context.conditions
+        conditions_line = tr(
+            "app.report.conditions",
+            salinity=f"{c.salinity_psu:g}", din=f"{c.din_umol_l:g}", depth=f"{c.depth_m:g}",
         )
     lines = [
-        "SEAGARDEN DECISION SUPPORT TOOL - SITE ASSESSMENT",
+        tr("app.report.heading"),
         "=" * 52,
         "",
-        f"Site:        {context.label or context.region}",
-        f"Sub-region:  {context.region}",
+        tr("app.report.site", site=context.label or context.region),
+        tr("app.report.subregion", region=context.region),
         conditions_line,
-        f"Data confidence: {context.confidence}",
-        _data_source_line(choice, context),
-        f"Generated:   {today.isoformat()} - core v{__version__}",
+        tr("app.report.confidence", confidence=tr.confidence_label(context.confidence)),
+        _data_source_line(choice, context, tr),
+        tr("app.report.generated", date=today.isoformat(), version=__version__),
         "",
-        "RANKED OPTIONS",
+        tr("app.report.ranked"),
         "-" * 52,
     ]
 
     if assessment.unassessable:
-        lines.append(f"UNASSESSED: {_unassessed_reason(assessment)}")
+        lines.append(tr("app.report.unassessed", reason=_unassessed_reason(assessment, tr)))
     elif not assessment.ranked:
-        lines.append("No species could be assessed at this site.")
+        lines.append(tr("app.report.none_assessed"))
     for option in assessment.ranked:
-        harvest = for_display(option.harvest)
         lines += [
             "",
-            f"{option.species_name} - {option.method_name} "
-            f"({option.area_m2 / 10_000:.4g} ha)",
-            f"  Verdict:   {Verdict(option.verdict).label}",
-            f"  Binding:   {option.binding_constraint}",
-            f"  Harvest:   {harvest}",
+            tr(
+                "app.report.option",
+                species=tr.species_name(option.species_key),
+                method=tr.method_name(option.method_key),
+                ha=f"{option.area_m2 / 10_000:.4g}",
+            ),
+            tr("app.report.verdict", verdict=Verdict(option.verdict).label),
+            tr("app.report.binding", binding=option.binding_constraint),
+            tr("app.report.harvest", harvest=tr.quantity(for_display(option.harvest))),
         ]
         if option.nitrogen is not None:
             lines += [
-                f"  Nitrogen:  {for_display(option.nitrogen)}",
-                f"  Phosphorus:{for_display(option.phosphorus)}",
-                f"  Carbon:    {for_display(option.carbon)}",
+                tr("app.report.nitrogen", value=tr.quantity(for_display(option.nitrogen))),
+                tr("app.report.phosphorus", value=tr.quantity(for_display(option.phosphorus))),
+                tr("app.report.carbon", value=tr.quantity(for_display(option.carbon))),
             ]
-        lines.append(f"  Calibration: {option.tier.label} - {option.tier.presentation}")
+        lines.append(
+            tr(
+                "app.report.calibration",
+                label=option.tier.label, presentation=option.tier.presentation,
+            )
+        )
 
     if assessment.excluded:
-        lines += ["", "EXCLUDED", "-" * 52]
-        lines += [f"- {k}: {v}" for k, v in assessment.excluded.items()]
+        lines += ["", tr("app.report.excluded"), "-" * 52]
+        lines += [
+            tr("app.report.excluded_line", key=k, reason=v) for k, v in assessment.excluded.items()
+        ]
 
     if assessment.pressure:
-        lines += ["", "PRESSURE CONTEXT", "-" * 52]
-        lines += [f"- P(top event {s}) = {p:.3f}" for s, p in assessment.pressure.items()]
-        if assessment.pressure_note:
-            lines.append(f"  {assessment.pressure_note}")
+        lines += ["", tr("app.report.pressure"), "-" * 52]
+        lines += [
+            tr("app.report.p_top", state=s, p=f"{p:.3f}") for s, p in assessment.pressure.items()
+        ]
+        if assessment.pressure_note is not None:
+            lines.append(tr("app.report.pressure_note", note=assessment.pressure_note))
 
-    lines += ["", "CAVEATS", "-" * 52]
+    lines += ["", tr("app.report.caveats"), "-" * 52]
     for key, value in assessment.caveats.items():
-        lines.append(f"- {CAVEAT_LABELS.get(key, key)}: {value}")
+        lines.append(tr("app.report.caveat_line", label=CAVEAT_LABELS.get(key, key), text=value))
     lines += [
-        "- Carbon is reported as carbon in harvested biomass only. Sequestration is "
-        "not reported: calcification releases CO2, so a sequestration claim would "
-        "depend on shell being removed from the water and kept out of it.",
-        _data_source_caveat(choice, context),
-        "- Legal permissibility is unassessed until the regulatory records exist "
-        "(A2.2, M12). An unknown legal status blocks the verdict rather than passing it.",
+        tr("app.report.carbon_caveat"),
+        _data_source_caveat(choice, context, tr),
+        tr("app.report.legal_caveat"),
         "",
-        "Prototype output. Indicative only; not a basis for permitting or consent.",
+        tr("app.report.footer"),
     ]
     return "\n".join(lines)
 
 
-def _unassessed_reason(assessment) -> str:
+def _unassessed_reason(assessment, tr: Translator) -> str:
     if assessment.coverage is Coverage.CELL_INVALID:
         if assessment.nearest_valid_km is not None:
-            return (
-                "No data at this cell; nearest valid cell is "
-                f"{assessment.nearest_valid_km:.2f} km away."
+            return tr(
+                "app.report.unassessed.cell_invalid_near", km=f"{assessment.nearest_valid_km:.2f}"
             )
-        return "No data at this cell."
+        return tr("app.report.unassessed.cell_invalid")
     if assessment.coverage is Coverage.YEAR_ABSENT:
-        return "The artifact does not carry the requested year."
-    return "The data layer could not provide conditions."
+        return tr("app.report.unassessed.year_absent")
+    return tr("app.report.unassessed.no_conditions")
 
 
-def _data_source_line(choice: ForcingChoice | None, context) -> str:
+def _data_source_line(choice: ForcingChoice | None, context, tr: Translator) -> str:
     if choice is not None:
         if choice.is_artifact:
-            text = f"Data source: {artifact_source_text(choice)}"
+            text = tr("app.report.source.artifact", source=artifact_source_text(choice, tr))
         else:
-            text = f"Data source: placeholder conditions ({choice.reason})"
+            text = tr("app.report.source.placeholder_reason", reason=choice.reason)
     elif context.from_artifact:
-        text = "Data source: gridded forcing artifact"
+        text = tr("app.report.source.artifact_bare")
     else:
-        text = "Data source: placeholder conditions"
+        text = tr("app.report.source.placeholder_bare")
     if context.source_note is not None:
-        text += f" — this site: {context.source_note}"
+        text += tr("app.report.source.this_site", note=context.source_note)
     return text
 
 
-def _data_source_caveat(choice: ForcingChoice | None, context) -> str:
-    if choice is not None:
-        text = (
-            "- Site conditions come from the gridded forcing artifact."
-            if choice.is_artifact
-            else "- Site conditions in this prototype are placeholders, not measurements."
-        )
-    elif context.from_artifact:
-        text = "- Site conditions come from the gridded forcing artifact."
-    else:
-        text = "- Site conditions in this prototype are placeholders, not measurements."
+def _data_source_caveat(choice: ForcingChoice | None, context, tr: Translator) -> str:
+    on_artifact = choice.is_artifact if choice is not None else context.from_artifact
+    text = tr("app.report.caveat.artifact" if on_artifact else "app.report.caveat.placeholder")
     if context.source_note is not None:
-        text += f" This site: {context.source_note}."
+        text += tr("app.report.caveat.this_site", note=context.source_note)
     return text
 
 
 @module.ui
-def report_ui() -> ui.Tag:
+def report_ui(tr: Translator) -> ui.Tag:
     return ui.TagList(
         ui.card(
-            ui.card_header("Assessment report"),
-            ui.download_button("download_txt", "Download report (.txt)", class_="btn-sm"),
-            ui.download_button("download_json", "Download data (.json)", class_="btn-sm"),
+            ui.card_header(tr("app.report.title")),
+            ui.download_button("download_txt", tr("app.report.download_txt"), class_="btn-sm"),
+            ui.download_button("download_json", tr("app.report.download_json"), class_="btn-sm"),
             ui.output_code("report_text"),
         ),
     )
@@ -157,14 +163,19 @@ def report_server(input, output, session, state) -> None:  # noqa: A002
     @output
     @render.code
     def report_text():
-        return render_report(state.assessment.get(), state.forcing.get(), today=date.today())
+        return render_report(
+            state.assessment.get(), state.forcing.get(), today=date.today(), tr=state.translator()
+        )
 
     @render.download(filename=lambda: f"seagarden-dst-{date.today().isoformat()}.txt")
     def download_txt():
-        yield render_report(state.assessment.get(), state.forcing.get(), today=date.today())
+        yield render_report(
+            state.assessment.get(), state.forcing.get(), today=date.today(), tr=state.translator()
+        )
 
     @render.download(filename=lambda: f"seagarden-dst-{date.today().isoformat()}.json")
     def download_json():
         assessment = state.assessment.get()
-        payload = {} if assessment is None else assessment.to_dict()
+        tr = state.translator()
+        payload = {} if assessment is None else assessment.to_dict(render=tr.render)
         yield json.dumps(payload, indent=2, default=str)

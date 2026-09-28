@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from shiny import module, reactive, render, ui
 
+from app.i18n import Translator, english
 from seagarden_dst import REGIONS, SiteContext
 from seagarden_dst.contracts import SOURCE_NOTE_NO_POSITION
 from seagarden_dst.forcing import SITE_COORDINATES, ForcingChoice, SiteProvenance, region_query
@@ -54,7 +55,7 @@ _PROVENANCE_COLOUR: dict[SiteProvenance, list[int]] = {
 }
 
 
-def site_markers() -> list[dict]:
+def site_markers(tr: Translator) -> list[dict]:
     """One marker per sub-region that has a coordinate, richest provenance last.
 
     Returned as plain dicts so the deck.gl accessors can read them and so this is
@@ -75,11 +76,15 @@ def site_markers() -> list[dict]:
             {
                 "position": [coordinate.lon, coordinate.lat],
                 "region": region,
-                "name": str(REGIONS[region]),
+                "name": tr.render(REGIONS[region]),
                 "provenance": coordinate.provenance.value,
-                "provenance_label": str(coordinate.provenance.label),
-                "presentation": str(coordinate.provenance.presentation),
-                "depth": "unknown" if coordinate.depth_m is None else f"{coordinate.depth_m:g} m",
+                "provenance_label": tr.render(coordinate.provenance.label),
+                "presentation": tr.render(coordinate.provenance.presentation),
+                "depth": (
+                    tr("app.site.depth_unknown")
+                    if coordinate.depth_m is None
+                    else f"{coordinate.depth_m:g} m"
+                ),
                 "colour": _PROVENANCE_COLOUR[coordinate.provenance],
             }
         )
@@ -131,16 +136,17 @@ def build_site_context(region: str, label: str, choice: ForcingChoice) -> SiteCo
     return context
 
 
-def _widget():
+def _widget(tr: Translator):
     from shiny_deckgl import MapWidget
 
     return MapWidget(
         _MAP_ID,
         view_state=_BALTIC_VIEW,
         tooltip={
+            # The doubled braces are deck.gl's runtime template, not Python's.
             "html": (
-                "<b>{name}</b><br/>{provenance_label}<br/>"
-                "Model depth {depth}<br/><i>{presentation}</i>"
+                f"<b>{{name}}</b><br/>{{provenance_label}}<br/>"
+                f"{tr('app.site.tooltip_depth')} {{depth}}<br/><i>{{presentation}}</i>"
             ),
             "style": {
                 "backgroundColor": "#1b2430",
@@ -154,7 +160,7 @@ def _widget():
     )
 
 
-def _legend() -> ui.Tag:
+def _legend(tr: Translator) -> ui.Tag:
     swatches = []
     for provenance in (SiteProvenance.SITED, SiteProvenance.SNAPPED, SiteProvenance.INDICATIVE):
         r, g, b, _a = _PROVENANCE_COLOUR[provenance]
@@ -166,75 +172,118 @@ def _legend() -> ui.Tag:
                         f"background:rgb({r},{g},{b});margin-right:.35rem;"
                     )
                 ),
-                ui.tags.small(str(provenance.label)),
+                ui.tags.small(tr.render(provenance.label)),
                 style="margin-right:1.1rem;white-space:nowrap;",
             )
         )
     return ui.div(*swatches, style="margin-top:.5rem;")
 
 
-@module.ui
-def site_ui() -> ui.Tag:
+def absent_regions_note(tr: Translator) -> str:
     absent = regions_without_a_position()
-    return ui.layout_sidebar(
-        ui.sidebar(
-            ui.input_select(
-                "region",
-                "Sub-region",
-                choices={k: str(v) for k, v in REGIONS.items()},
-                selected="LT-coastal",
+    if not absent:
+        return ""
+    names = tr("app.site.and").join(tr.render(REGIONS[r]) for r in absent)
+    key = "app.site.help_absent_one" if len(absent) == 1 else "app.site.help_absent_many"
+    return tr(key, regions=names)
+
+
+def render_position_note(region: str, tr: Translator) -> ui.Tag:
+    coordinate = SITE_COORDINATES.get(region)
+    if coordinate is None:
+        return ui.p(ui.tags.small(tr("app.site.no_position", region=REGIONS[region])))
+    return ui.p(
+        ui.tags.small(
+            tr(
+                "app.site.position",
+                lat=f"{coordinate.lat:.4f}", lon=f"{coordinate.lon:.4f}",
+                provenance=tr.render(coordinate.provenance.label).lower(),
+                presentation=coordinate.provenance.presentation,
+            )
+        )
+    )
+
+
+def render_conditions(region: str, tr: Translator) -> ui.TagList:
+    c = SiteContext.from_region(region).conditions
+    rows = [
+        (tr("app.site.cond.salinity"), f"{c.salinity_psu:g} psu"),
+        (tr("app.site.cond.mean_temp"), f"{c.mean_temp_c:g} °C"),
+        (tr("app.site.cond.summer_winter"), f"{c.summer_temp_c:g} / {c.winter_temp_c:g} °C"),
+        (tr("app.site.cond.din"), f"{c.din_umol_l:g} µmol/L"),
+        (tr("app.site.cond.dip"), f"{c.dip_umol_l:g} µmol/L"),
+        (tr("app.site.cond.depth"), f"{c.depth_m:g} m"),
+        (tr("app.site.cond.wave"), f"{c.significant_wave_m:g} m"),
+        (tr("app.site.cond.par"), f"{c.par_at_depth():.0f} µmol photons/m²/s"),
+    ]
+    return ui.TagList(
+        ui.tags.table(
+            ui.tags.tbody(
+                *[
+                    ui.tags.tr(
+                        ui.tags.td(k, style="padding:.15rem .9rem .15rem 0;opacity:.75;"),
+                        ui.tags.td(v, style="padding:.15rem 0;font-variant-numeric:tabular-nums;"),
+                    )
+                    for k, v in rows
+                ]
             ),
-            ui.help_text(
-                "Click a marker on the map, or choose here. "
-                + (
-                    f"{' and '.join(str(REGIONS[r]) for r in absent)} "
-                    f"{'have' if len(absent) != 1 else 'has'} no confirmed position yet "
-                    "and can only be chosen here."
-                    if absent
-                    else ""
-                )
-            ),
-            ui.input_text("label", "Site name (optional)", placeholder="e.g. Melnrage pilot"),
-            ui.input_action_button("set_site", "Use this site", class_="btn-outline-primary"),
-            width=340,
+            style="width:100%;",
         ),
-        ui.card(
-            ui.card_header("Where"),
-            *(
-                (_widget().ui(height="420px"), _legend())
-                if map_is_available()
-                else (
-                    ui.markdown(
-                        "*The map needs `shiny_deckgl`, which ships on a conda channel "
-                        "rather than PyPI and is not installed here:*\n\n"
-                        "    micromamba install -n shiny -c razinka shiny-deckgl\n\n"
-                        "*Choosing a sub-region in the sidebar works either way.*"
-                    ),
-                )
-            ),
-            ui.output_ui("position_note"),
-        ),
-        ui.card(ui.card_header("Site conditions"), ui.output_ui("conditions")),
-        ui.card(
-            ui.card_header("Where these numbers come from"),
-            ui.markdown(
-                "The map shows **where** a sub-region is. The numbers below are "
-                "**placeholder conditions**, one set per sub-region: plausible "
-                "order-of-magnitude values, not measurements, and not read from the "
-                "position. Every result derived from them is a literature prior.\n\n"
-                "In the delivered tool you draw a polygon and the conditions are read "
-                "from the curated layers - Copernicus Marine reanalysis for salinity, "
-                "temperature and nutrients, EMODnet for bathymetry and human use, "
-                "HELCOM for protected areas. The contract between this panel and the "
-                "model core does not change."
-            ),
+        ui.p(
+            ui.tags.small(
+                tr("app.site.confidence_line", confidence=tr.confidence_label("low"), region=region)
+            )
         ),
     )
 
 
+@module.ui
+def site_ui(tr: Translator) -> ui.TagList:
+    # `ui.layout_sidebar` returns a `CardItem`, which only tagifies nested inside a
+    # `ui.card()` or a page - wrapped in `ui.TagList` so this panel also renders
+    # standalone (the pure-render tests call it directly, outside `app_shell`).
+    return ui.TagList(ui.layout_sidebar(
+        ui.sidebar(
+            ui.input_select(
+                "region",
+                tr("app.site.region"),
+                choices={k: tr.render(v) for k, v in REGIONS.items()},
+                selected="LT-coastal",
+            ),
+            ui.help_text(tr("app.site.help") + absent_regions_note(tr)),
+            ui.input_text(
+                "label", tr("app.site.label"), placeholder=tr("app.site.label_placeholder")
+            ),
+            ui.input_action_button("set_site", tr("app.site.use"), class_="btn-outline-primary"),
+            width=340,
+        ),
+        ui.card(
+            ui.card_header(tr("app.site.where")),
+            *(
+                (_widget(tr).ui(height="420px"), _legend(tr))
+                if map_is_available()
+                else (ui.markdown(tr("app.site.no_map")),)
+            ),
+            ui.output_ui("position_note"),
+        ),
+        ui.card(ui.card_header(tr("app.site.conditions")), ui.output_ui("conditions")),
+        ui.card(
+            ui.card_header(tr("app.site.provenance_card")),
+            ui.markdown(tr("app.site.provenance_body")),
+        ),
+    ))
+
+
 @module.server
 def site_server(input, output, session, state) -> None:  # noqa: A002
-    widget = _widget() if map_is_available() else None
+    # `widget` is built once, synchronously, here - not inside a reactive effect: the
+    # `_select_clicked_region` decorator below reads `widget.click_input_id` at
+    # definition time, so the widget must already exist when this function body runs.
+    # That is also before the session's language is known (the Translator reactive.calc
+    # needs a reactive context to evaluate), so the tooltip template is fixed in
+    # English for the session's lifetime - a known limit of the deck.gl bridge, not a
+    # translation gap: every OTHER string this module renders follows `state.translator()`.
+    widget = _widget(english()) if map_is_available() else None
 
     @reactive.effect
     async def _draw_markers():
@@ -247,7 +296,7 @@ def site_server(input, output, session, state) -> None:  # noqa: A002
             [
                 scatterplot_layer(
                     "sites",
-                    data=site_markers(),
+                    data=site_markers(state.translator()),
                     getPosition="@@=d.position",
                     getFillColor="@@=d.colour",
                     radiusMinPixels=7,
@@ -285,68 +334,19 @@ def site_server(input, output, session, state) -> None:  # noqa: A002
     # a site the user never chose and put the app straight into 'Site ready'.
     def _set_site():
         region = input.region()
-        label = (input.label() or "").strip() or str(REGIONS[region])
+        label = (input.label() or "").strip() or state.translator().render(REGIONS[region])
         state.context.set(build_site_context(region, label, state.forcing.get()))
         state.site_label.set(label)
 
     @output
     @render.ui
     def position_note():
-        region = input.region()
-        coordinate = SITE_COORDINATES.get(region)
-        if coordinate is None:
-            return ui.p(
-                ui.tags.small(
-                    f"{REGIONS[region]} has no confirmed position. Its conditions are a "
-                    "sub-region summary, so nothing here is about a particular cell."
-                )
-            )
-        return ui.p(
-            ui.tags.small(
-                f"{coordinate.lat:.4f}, {coordinate.lon:.4f} - "
-                f"{str(coordinate.provenance.label).lower()}. "
-                f"A result here is a {coordinate.provenance.presentation}."
-            )
-        )
+        return render_position_note(input.region(), state.translator())
 
     @output
     @render.ui
     def conditions():
-        region = input.region()
-        context = SiteContext.from_region(region)
-        c = context.conditions
-        rows = [
-            ("Salinity", f"{c.salinity_psu:g} psu"),
-            ("Mean temperature", f"{c.mean_temp_c:g} °C"),
-            ("Summer / winter temperature", f"{c.summer_temp_c:g} / {c.winter_temp_c:g} °C"),
-            ("Dissolved inorganic nitrogen", f"{c.din_umol_l:g} µmol/L"),
-            ("Dissolved inorganic phosphorus", f"{c.dip_umol_l:g} µmol/L"),
-            ("Depth", f"{c.depth_m:g} m"),
-            ("Significant wave height", f"{c.significant_wave_m:g} m"),
-            ("PAR at cultivation depth", f"{c.par_at_depth():.0f} µmol photons/m²/s"),
-        ]
-        return ui.TagList(
-            ui.tags.table(
-                ui.tags.tbody(
-                    *[
-                        ui.tags.tr(
-                            ui.tags.td(k, style="padding:.15rem .9rem .15rem 0;opacity:.75;"),
-                            ui.tags.td(
-                                v,
-                                style="padding:.15rem 0;font-variant-numeric:tabular-nums;",
-                            ),
-                        )
-                        for k, v in rows
-                    ]
-                ),
-                style="width:100%;",
-            ),
-            ui.p(
-                ui.tags.small(
-                    f"Data confidence: low (placeholder). Calibration domain: {region}."
-                )
-            ),
-        )
+        return render_conditions(input.region(), state.translator())
 
 
 def _region_from_click(payload: object) -> str | None:

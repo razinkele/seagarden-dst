@@ -7,50 +7,45 @@ wants the nitrogen figure still gets it.
 
 The taxonomy is KU's hypothesis. Decision D9: validate it against the A2.2 stakeholder
 findings (D2.1, M12) before building it out further.
+
+`MODES` holds identifiers only; the words a door uses are catalogue keys
+`app.mode.<door>.{title,audience,question}` (package I).
 """
 
 from __future__ import annotations
 
 from shiny import module, reactive, render, ui
 
+from app.i18n import Translator
+
 MODES: dict[str, dict] = {
-    "plan": {
-        "title": "Plan",
-        "audience": "Authorities, spatial planners",
-        "question": "Where could regenerative farming go here, and what would it achieve?",
-        "scale": "community_farm_1_ha",
-        "register": "aggregate",
-    },
-    "farm": {
-        "title": "Farm",
-        "audience": "Farmers, SMEs, operators",
-        "question": "Can I farm this spot, what should I grow, and what will I get?",
-        "scale": "community_farm_0_1_ha",
-        "register": "operational",
-    },
-    "start": {
-        "title": "Start",
-        "audience": "Communities, NGOs, citizen science",
-        "question": "Could we run a small sea garden here, and what would it take?",
-        "scale": "mini_farm_kit",
-        "register": "plain",
-    },
-    "explore": {
-        "title": "Explore",
-        "audience": "Researchers, students, consultants",
-        "question": "What do the models say, and how confident are they?",
-        "scale": "community_farm_0_1_ha",
-        "register": "technical",
-    },
+    "plan": {"scale": "community_farm_1_ha", "register": "aggregate"},
+    "farm": {"scale": "community_farm_0_1_ha", "register": "operational"},
+    "start": {"scale": "mini_farm_kit", "register": "plain"},
+    "explore": {"scale": "community_farm_0_1_ha", "register": "technical"},
 }
 
-CHOICES = {k: f"{v['title']} - {v['audience']}" for k, v in MODES.items()}
+
+def mode_choices(tr: Translator) -> dict[str, str]:
+    return {
+        key: tr(
+            "app.mode.choice",
+            title=tr(f"app.mode.{key}.title"), audience=tr(f"app.mode.{key}.audience"),
+        )
+        for key in MODES
+    }
+
+
+def mode_question_tag(mode: str, tr: Translator) -> ui.Tag:
+    """Pure: the door's question. Named `_tag` because the render function below must be
+    called `mode_question` - Shiny binds an output by its function's name."""
+    return ui.help_text(ui.tags.em(tr(f"app.mode.{mode}.question")))
 
 
 @module.ui
-def user_mode_ui() -> ui.TagList:
+def user_mode_ui(tr: Translator) -> ui.TagList:
     return ui.TagList(
-        ui.input_select("mode", "I am here as", choices=CHOICES, selected="farm"),
+        ui.input_select("mode", tr("app.mode.label"), choices=mode_choices(tr), selected="farm"),
         ui.output_ui("mode_question"),
     )
 
@@ -69,4 +64,4 @@ def user_mode_server(input, output, session, state) -> None:  # noqa: A002
     @output
     @render.ui
     def mode_question():
-        return ui.help_text(ui.tags.em(MODES[state.user_mode.get()]["question"]))
+        return mode_question_tag(state.user_mode.get(), state.translator())

@@ -1,4 +1,4 @@
-"""Shared per-session reactive state."""
+"""Shared per-session reactive state, including the session's `Translator` slot."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ _DEFAULTS = {
     "bowtie_inference": None,     # dict | None, optional pressure context
     "forcing": None,              # ForcingChoice | None; set once per session by server(),
                                    # never reset
+    "translator": None,  # Callable[[], Translator]; set once per session by server(), never reset
 }
 
 
@@ -45,6 +46,7 @@ class AppState:
             _DEFAULTS["bowtie_inference"]
         )
         self.forcing: reactive.Value = reactive.Value(_DEFAULTS["forcing"])
+        self.translator = _DEFAULTS["translator"]
 
     @staticmethod
     def defaults() -> dict:
