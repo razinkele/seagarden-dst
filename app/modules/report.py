@@ -11,7 +11,7 @@ from datetime import date
 
 from shiny import module, render, ui
 
-from seagarden_dst import __version__
+from seagarden_dst import CAVEAT_LABELS, __version__
 from seagarden_dst.calibration import for_display
 from seagarden_dst.forcing import Coverage, ForcingChoice
 
@@ -79,7 +79,7 @@ def render_report(assessment, choice: ForcingChoice | None = None) -> str:
 
     lines += ["", "CAVEATS", "-" * 52]
     for key, value in assessment.caveats.items():
-        lines.append(f"- {key}: {value}")
+        lines.append(f"- {CAVEAT_LABELS.get(key, key)}: {value}")
     lines += [
         "- Carbon is reported as carbon in harvested biomass only. Sequestration is "
         "not reported: calcification releases CO2, so a sequestration claim would "

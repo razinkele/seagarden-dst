@@ -31,6 +31,14 @@ from .scenarios import DEFAULT_SCALE, SCALES
 from .shellfish import harvest as shellfish_harvest
 from .suitability import assess
 
+#: English label per caveat slug. `SiteAssessment.caveats` is keyed by the slug (I§3);
+#: the renderers look the label up here, and package I-a translates this table.
+CAVEAT_LABELS: dict[str, str] = {
+    "nutrient_forcing": "nutrient forcing",
+    "site_conditions": "site conditions",
+    "calibration": "calibration",
+}
+
 
 def select_method(
     species: SpeciesParams,
@@ -178,9 +186,9 @@ def assess_site(
         try:
             working, note = apply_nutrient_scenario(context, eutropy)
             if note:
-                caveats["nutrient forcing"] = note
+                caveats["nutrient_forcing"] = note
         except EutropyUnavailable as exc:
-            caveats["nutrient forcing"] = f"EUTROPY forcing not applied: {exc}"
+            caveats["nutrient_forcing"] = f"EUTROPY forcing not applied: {exc}"
 
     excluded: dict[str, str] = {}
     options: list[SpeciesOption] = []
@@ -234,7 +242,7 @@ def assess_site(
 
     if working.conditions is not context.conditions:
         caveats.setdefault(
-            "site conditions",
+            "site_conditions",
             "Nutrient concentrations were overridden by a scenario; other conditions "
             "are unchanged.",
         )

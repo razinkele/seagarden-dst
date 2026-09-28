@@ -96,3 +96,15 @@ def test_every_region_assesses_without_raising():
     for region in REGIONS:
         result = assess_site(SiteContext.from_region(region))
         assert result.ranked or result.excluded
+
+
+def test_caveat_keys_are_slugs_with_a_label_each(lithuania):
+    import re
+
+    from seagarden_dst import CAVEAT_LABELS
+
+    result = assess_site(lithuania, eutropy={"nonsense": True})
+    assert result.caveats, "expected at least the calibration and forcing caveats"
+    for key in result.caveats:
+        assert re.fullmatch(r"[a-z_]+", key), f"{key!r} is prose, not an identifier"
+        assert key in CAVEAT_LABELS, f"no label for caveat {key!r}"

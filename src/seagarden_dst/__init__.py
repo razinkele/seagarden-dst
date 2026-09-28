@@ -27,7 +27,7 @@ merged into it:
     bowtie_adapter   eutrophication pressure from the MARBEFES bowtiepy network
 """
 
-from .api import assess_site
+from .api import CAVEAT_LABELS, assess_site
 from .bowtie_adapter import BowtieUnavailable, removal_framing
 from .calibration import Calibration, Quantity, Tier
 from .contracts import SiteAssessment, SiteContext, SpeciesOption
@@ -64,6 +64,7 @@ __all__ = [
     "SCALE_LABELS",
     "SCALES",
     "BowtieUnavailable",
+    "CAVEAT_LABELS",
     "Calibration",
     "EutropyUnavailable",
     "ForcingSource",
