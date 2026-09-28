@@ -64,10 +64,11 @@ does not.
 `excluded` is already keyed by species key and needs no split. `SpeciesOption.constraints`
 tuples change type in I-a, not here.
 
-**The golden snapshot changes in I-0, and only in labels.** `scenarios.compare` embeds the
-scale name in `Scenario.label`, so the `"scenarios"` half of `tests/golden/assessments.json`
-is regenerated once, and the plan's task for it must show a diff in which every changed
-line is a label and no numeric cell moves. That is the whole visible surface of I-0.
+**The golden snapshot does not change in I-0.** `tests/test_golden_snapshot.py` labels
+its scenarios by species key, not by scale, so the rename touches no captured value; the
+plan asserts the golden passes without `--snapshot-update`. (An earlier draft of this
+section expected a label-only diff. The English *report* golden of test 10 is created in
+I-0.)
 
 ## I§4 The core module `seagarden_dst/i18n.py`
 
