@@ -168,12 +168,12 @@ def test_languages_are_the_six_the_spec_names():
     assert LANGUAGES == ("en", "de", "pl", "da", "lt", "sv")
 
 
-def test_a_non_english_core_catalogue_without_a_file_is_english_with_that_language_code():
-    """Package I-b adds the files. Until then `core_catalogue("de")` must not raise: the
-    app may be asked for German by a browser header before any German exists."""
-    de = core_catalogue("de")
-    assert de.language == "de"
-    assert de.render(msg("calibration.tier.A.label")) == "Locally calibrated"
+def test_a_catalogue_for_a_language_with_no_file_is_english_with_that_code():
+    """A browser may ask for a language nobody has translated; `core_catalogue` must not
+    raise. "xx" has no file under any locale root, now or later."""
+    xx = core_catalogue("xx")
+    assert xx.language == "xx"
+    assert xx.render(msg("calibration.tier.A.label")) == "Locally calibrated"
 
 
 def test_core_catalogue_reuses_the_cached_english_catalogue():

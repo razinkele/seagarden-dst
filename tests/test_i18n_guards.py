@@ -32,6 +32,15 @@ def _reference(owner: str) -> dict[str, str]:
     return _messages(OWNERS[owner] / "en.yaml")
 
 
+def _edges(text: str) -> tuple[str, str]:
+    """The leading and trailing whitespace of a value."""
+    body = text.strip()
+    if not body:
+        return text, ""
+    start = text.index(body)
+    return text[:start], text[start + len(body):]
+
+
 @pytest.mark.parametrize("owner", sorted(OWNERS))
 def test_1_every_language_file_has_exactly_the_english_keys(owner):
     reference = set(_reference(owner))
@@ -117,18 +126,27 @@ def test_4_catalogue_hygiene(owner):
     placeholders English names for that key, and carries no conversion or format spec.
 
     English is parsed per key a file holds, not eagerly over the whole reference.
-    `params` values render verbatim today (`species_name`, the text index), but
-    `Translator.__call__` would format one, so they are held to the same rule.
+    `params` values render verbatim (`species_name`, `method_name`, `method_field`,
+    `group_label`, and the text index substitute them for a literal's text) - never
+    through `str.format` - so they are exempt from the template rule below: an English
+    YAML note containing a brace must not fail every sidecar value. Each `params` value
+    is instead required to be a non-empty string.
     """
     reference = _reference(owner)
     for path in _files(OWNERS[owner]):
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         assert data["language"] == path.stem
         assert data["status"] in {"reference", "machine-draft", "reviewed"}
+        assert (data["status"] == "reference") == (path.stem == "en"), (
+            f"{path}: only English is the reference; every other language is a draft or reviewed"
+        )
         if data["status"] != "reference":
             assert data.get("translated_by"), f"{path}: translated_by missing"
         for key, value in data["messages"].items():
             assert not key.endswith(("_one", "_other")), f"{key}: no plural forms (I§7)"
+            if owner == "params":
+                assert isinstance(value, str) and value, f"{path}: {key} is not a non-empty string"
+                continue
             problem = _template_problem(value, reference.get(key))
             assert problem is None, f"{path}: {key}: {problem}"
 
@@ -150,6 +168,33 @@ def test_4b_every_english_key_is_used_somewhere():
             assert f'"{family}' in source or f"'{family}" in source, (
                 f"{owner} key {key!r}: nothing references the family {family!r}"
             )
+
+
+@pytest.mark.parametrize("owner", sorted(OWNERS))
+def test_4c_leading_and_trailing_whitespace_match_english(owner):
+    """A draft that trims `" and "` to `"and"` runs words together (inherited item 1)."""
+    reference = _reference(owner)
+    for path in _files(OWNERS[owner]):
+        if path.stem == "en":
+            continue
+        for key, value in _messages(path).items():
+            english = reference.get(key)
+            if english is None:
+                continue  # test 1 reports a key English lacks
+            assert _edges(value) == _edges(english), (
+                f"{path}: {key} has whitespace {_edges(value)!r}, English {_edges(english)!r}"
+            )
+            if english.strip():
+                assert value.strip(), f"{path}: {key} is empty where English is not"
+
+
+def test_4d_every_catalogue_file_on_disk_loads():
+    """A bad header fails CI, not a page (inherited item 2)."""
+    from seagarden_dst.i18n import Catalogue
+
+    for root in OWNERS.values():
+        for path in _files(root):
+            Catalogue.load(path.stem, path.parent)  # raises on a bad header or value
 
 
 def _owner(parents: dict[ast.AST, ast.AST], node: ast.AST) -> str:

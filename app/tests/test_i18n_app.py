@@ -133,11 +133,13 @@ def test_enabled_languages_is_english_plus_reviewed_unless_drafts_are_shown():
         assert shown == ("en", "de", "pl"), f"{on!r} hid drafts"
 
 
-def test_in_i_a_only_english_is_enabled_on_disk():
-    """No non-English catalogue ships in I-a; package I-b adds them."""
-    assert enabled_languages(env={}) == ("en",)
+def test_with_the_draft_switch_off_only_reviewed_languages_are_enabled():
+    """Holds whatever is on disk: a draft never shows without the switch."""
+    enabled = enabled_languages(env={})
+    assert enabled[0] == "en"
+    assert all(catalogue_status(language) == "reviewed" for language in enabled[1:])
     assert catalogue_status("en") == "reference"
-    assert catalogue_status("de") is None
+    assert catalogue_status("xx") is None
 
 
 def test_catalogue_status_is_read_once_per_process_and_root(tmp_path):
@@ -196,8 +198,11 @@ def _request(query: bytes, accept: bytes | None):
 
 def test_app_ui_takes_a_request_and_reads_lang_from_it():
     from app.app import app_ui
+    from app.i18n import language_for
 
-    assert 'lang="en"' in str(app_ui(_request(b"lang=de", b"de")))  # de not enabled in I-a
+    expected = language_for("?lang=de", "de", enabled_languages())
+    assert f'lang="{expected}"' in str(app_ui(_request(b"lang=de", b"de")))
+    assert 'lang="en"' in str(app_ui(_request(b"lang=zz", b"zz")))  # never a language
     assert 'lang="en"' in str(app_ui(_request(b"", None)))
 
 
