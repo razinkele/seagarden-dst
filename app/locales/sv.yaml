@@ -1,0 +1,259 @@
+# app/locales/sv.yaml
+# The Swedish catalogue for the app's own chrome (design I§4.3): a machine draft, not yet
+# reviewed. It carries exactly the keys of en.yaml, the reference. Placeholder NAMES only,
+# never format specs.
+language: sv
+status: machine-draft
+translated_by: "machine draft (Claude), 2026-09-29"
+reviewed_by: null
+reviewed_on: null
+messages:
+  # --- navbar and shell (shell.py, app.py) ------------------------------------
+  app.nav.site: "Plats"
+  app.nav.catalogue: "Katalog"
+  app.nav.results: "Resultat"
+  app.nav.report: "Rapport"
+  app.shell.about: "Om"
+  app.shell.help: "Hjälp"
+  app.shell.feedback: "Synpunkter"
+  app.shell.language: "Språk"
+  app.shell.title: "SeaGarden-beslutsstödsverktyg"
+  app.shell.window_title: "SeaGarden DST"
+  app.shell.setup: "Inställningar"
+  app.shell.workflow: "Arbetsgång: 1) välj en plats · 2) välj arter, metod och skala under ”Katalog” · 3) klicka på ”Bedöm” · 4) läs ”Resultat” och ”Rapport”."
+  app.shell.assess: "Bedöm"
+  app.shell.close: "Stäng"
+  app.shell.funding_alt: "SeaGarden - Interreg South Baltic, medfinansieras av Europeiska unionen"
+  app.shell.draft_banner: "Maskinöversättning, ännu inte granskad."
+  app.shell.about.title: "Om SeaGarden DST"
+  app.shell.about.body: |
+    **SeaGarden-beslutsstödsverktyget** (Decision Support Tool, DST) hjälper till att planera regenerativa havsodlingar som drivs av lokalsamhällen i södra Östersjön. Välj en plats, vad som ska odlas och i vilken skala, så ger verktyget en lämplighetsklassning av platsen, en förväntad skörd och de mängder kväve, fosfor och kol som skörden avlägsnar ur vattnet.
+
+    **Vad verktyget ger dig**
+
+    - En lämplighetsklassning av platsen, beräknad som **minimum** över begränsningsklasserna och med den avgörande begränsningen angiven. Inte ett viktat index: En plats med ett absolut rättsligt hinder får inte hamna på ”måttligt lämplig” bara för att vattnet är bra.
+    - En **kalibreringsnivå** vid varje siffra - lokalt kalibrerad, regionalt extrapolerad, litteraturvärde eller kontraindicerad. Innan pilotdata från WP3 finns tillgängliga är i stort sett varje siffra för södra Östersjön ett litteraturvärde, och verktyget anger det direkt vid siffran.
+    - **Övergödningsbelastning** från bow-tie-modellen i MARBEFES och valfria **drivdata för näringsämnen** från boxmodellen EUTROPY, båda redovisade vid sidan av rangordningen och aldrig inräknade i den.
+
+    - **Program** - Interreg South Baltic 2021-2027 · **SeaGarden** (STHB.02.02-IP.01-0006/25)
+    - **Arbetspaket / aktivitet** - WP2 / A2.3 · Leverans **D2.2**
+    - **Ansvarig** - Klaipeda University, Marine Research Institute
+    - **Status** - prototyp · modellkärna `v{version}`
+
+    Källkod och ärenden: [{repo_name}]({repo_url})
+
+    Tal skrivs med decimalpunkt och datum skrivs år-månad-dag på alla språk.
+
+    *Prototyp. Resultaten är vägledande och utgör inte grund för tillstånd eller medgivande. Medfinansieras av Europeiska unionen; de åsikter som uttrycks är endast författarnas egna.*
+  app.shell.help.title: "Så använder du SeaGarden DST"
+  app.shell.help.body: |
+    **Arbetsgång**
+
+    1. **Plats** - välj ett delområde. I det färdiga verktyget ritar du en polygon; prototypen använder platshållarvärden för varje delområde.
+    2. **Katalog** - välj arter, odlingsmetod och skala.
+    3. **Bedöm** - knappen i sidopanelen. ”Resultat” och ”Rapport” förblir tomma tills du trycker på den och töms igen så fort du väljer en annan plats.
+    4. **Resultat** - de rangordnade alternativen, den avgörande begränsningen för vart och ett och avlägsnandet av näringsämnen med dess kalibreringsnivå.
+    5. **Rapport** - bedömningen som text, inklusive förbehåll.
+
+    **Så läser du kalibreringsnivåerna**
+
+    | Nivå | Betydelse | Visning |
+    |---|---|---|
+    | A | Anpassad till pilotdata från SeaGarden | värde med konfidensintervall |
+    | B | Anpassad någon annanstans i Östersjön | värde som spann |
+    | C | Litteraturvärde, ingen lokal validering | storleksordningsintervall |
+    | D | Kontraindicerad - en lokal iakttagelse motsäger modellen | iakttagelsen, i stället för siffran |
+
+    Fallet på nivå D som är värt att känna till: sockertare under ungefär 16 psu. Salthaltsskalningen ger en liten positiv avkastning; pilotförsöket i OLAMUR konstaterade att odlingen misslyckades helt vid 5.5-6.5 psu. Verktyget visar iakttagelsen.
+  app.shell.feedback.title: "Lämna synpunkter"
+  app.shell.feedback.body: |
+    Det här är en samutvecklad prototyp för WP2 A2.3. Konkreta synpunkter - vilken panel, vilken plats, vad du förväntade dig - är mest användbara.
+
+    - **Öppna ett ärende** - [{repo_url}/issues/new]({repo_url}/issues/new)
+    - **E-post** - [{email}](mailto:{email}?subject=SeaGarden%20DST%20feedback)
+  # --- sidebar status (app.py, _widgets.py) -----------------------------------
+  app.status.no_site: "Ingen plats vald. Öppna ”Plats” och välj en."
+  app.status.site_ready: "Platsen är klar: {label}. Valda arter: {n}. Skala: {scale}. Klicka på ”Bedöm”."
+  app.headline.unassessed: "Platsen har inte bedömts: {reason}"
+  app.headline.none: "Ingen art kunde bedömas på den här platsen."
+  app.headline.nothing_reportable: "Inget att redovisa här - alla alternativ är kontraindicerade."
+  app.headline.none_suitable: "Inget alternativ är lämpligt för närvarande; se begränsningarna under ”Resultat”."
+  app.headline.best: "Bästa alternativet: {species}, {verdict}{suffix}."
+  app.headline.priors_suffix: " (litteraturvärden)"
+  app.headline.no_suffix: ""
+  app.unassessable.cell_invalid: "inga data i den här cellen.{distance}"
+  app.unassessable.nearest: " Närmaste giltiga cell ligger {km} km bort."
+  app.unassessable.no_distance: ""
+  app.unassessable.year_absent: "Datamängden innehåller inte det begärda året."
+  app.unassessable.no_conditions: "Dataskiktet kunde inte leverera några platsförhållanden."
+  app.source.artifact: "rutnätsbaserad datamängd med drivdata, förhållanden för {year}, skapad {built}"
+  app.source.unknown_date: "vid okänd tidpunkt"
+  app.banner.artifact: "Datakälla: {source}."
+  app.banner.placeholder: "Datakälla: platshållarvärden — rimliga värden i rätt storleksordning, inte mätningar ({reason})."
+  app.banner.this_site: " Den här platsen: {note}."
+  # --- widgets ------------------------------------------------------------------
+  app.tier.badge_title: "{label} - {presentation}"
+  app.quantity.none: "-"
+  app.quantity.range: "{low}-{high} {unit}"
+  app.quantity.value: "{value} {unit}"
+  app.quantity.range_tiered: "{low}-{high} {unit} [{tier}]"
+  app.quantity.value_tiered: "{value} {unit} [{tier}]"
+  app.quantity.not_applicable: "inte tillämpligt - {caveat}"
+  app.legend.title: "Kalibreringsnivåer"
+  app.legend.A: " anpassad till pilotdata från SeaGarden"
+  app.legend.B: " anpassad någon annanstans i Östersjön"
+  app.legend.C: " litteraturvärde, ingen lokal validering"
+  app.legend.D: " kontraindicerad - en iakttagelse motsäger modellen"
+  app.legend.note: "Innan pilotdata från WP3 finns tillgängliga (M12-30) ligger i stort sett alla resultat för södra Östersjön på nivå C. De bör läsas som vägledande intervall, inte som skattningar."
+  app.month.1: "jan."
+  app.month.2: "feb."
+  app.month.3: "mars"
+  app.month.4: "apr."
+  app.month.5: "maj"
+  app.month.6: "juni"
+  app.month.7: "juli"
+  app.month.8: "aug."
+  app.month.9: "sep."
+  app.month.10: "okt."
+  app.month.11: "nov."
+  app.month.12: "dec."
+  app.window.span: "{start}–{end}"
+  app.window.over_winter: "{span} (över vintern)"
+  # --- user mode ----------------------------------------------------------------
+  app.mode.label: "Jag är här för att"
+  app.mode.choice: "{title} - {audience}"
+  app.mode.plan.title: "Planera"
+  app.mode.plan.audience: "Myndigheter, fysiska planerare"
+  app.mode.plan.question: "Var skulle regenerativ odling kunna ligga här, och vad skulle den åstadkomma?"
+  app.mode.farm.title: "Odla"
+  app.mode.farm.audience: "Odlare, SMF, verksamhetsutövare"
+  app.mode.farm.question: "Kan jag använda den här platsen för odling, vad bör jag odla, och vad får jag ut av det?"
+  app.mode.start.title: "Komma igång"
+  app.mode.start.audience: "Lokalsamhällen, ideella organisationer, medborgarforskning"
+  app.mode.start.question: "Skulle vi kunna driva en liten havsträdgård här, och vad skulle det kräva?"
+  app.mode.explore.title: "Utforska"
+  app.mode.explore.audience: "Forskare, studenter, konsulter"
+  app.mode.explore.question: "Vad säger modellerna, och hur säkra är de?"
+  # --- site panel ---------------------------------------------------------------
+  app.site.region: "Delområde"
+  app.site.help: "Klicka på en markör på kartan eller välj här. "
+  app.site.help_absent_single: "Delområdet {regions} har ännu ingen bekräftad position och kan bara väljas här."
+  app.site.help_absent_list: "Delområdena {regions} har ännu inga bekräftade positioner och kan bara väljas här."
+  app.site.and: " och "
+  app.site.label: "Platsens namn (valfritt)"
+  app.site.label_placeholder: "t.ex. pilotplatsen Melnrage"
+  app.site.use: "Använd den här platsen"
+  app.site.where: "Placering"
+  app.site.no_map: |
+    *Kartan kräver paketet `shiny_deckgl`, som distribueras via en conda-kanal i stället för PyPI och inte är installerat här:*
+
+        micromamba install -n shiny -c razinka shiny-deckgl
+
+    *Val av delområde i sidopanelen fungerar i vilket fall som helst.*
+  app.site.tooltip_depth: "Modelldjup"
+  app.site.depth_unknown: "okänt"
+  app.site.no_position: "Delområdet {region} har ingen bekräftad position. Förhållandena är en sammanfattning för hela delområdet, så inget här gäller en viss cell."
+  app.site.position: "{lat}, {lon} - {provenance}. Ett resultat här är ett {presentation}."
+  app.site.provenance_inline.sited: "placerad"
+  app.site.provenance_inline.snapped: "flyttad till närmaste modellcell"
+  app.site.provenance_inline.indicative: "vägledande för vattenförekomsten"
+  app.site.conditions: "Platsförhållanden"
+  app.site.cond.salinity: "Salthalt"
+  app.site.cond.mean_temp: "Medeltemperatur"
+  app.site.cond.summer_winter: "Sommar-/vintertemperatur"
+  app.site.cond.din: "Löst oorganiskt kväve"
+  app.site.cond.dip: "Löst oorganiskt fosfor"
+  app.site.cond.depth: "Djup"
+  app.site.cond.wave: "Signifikant våghöjd"
+  app.site.cond.par: "PAR på odlingsdjup"
+  app.site.confidence_line: "Datatillförlitlighet: {confidence} (platshållare). Kalibreringsområde: {region}."
+  app.site.provenance_card: "Varifrån de här siffrorna kommer"
+  app.site.provenance_body: |
+    Kartan visar **var** ett delområde ligger. Siffrorna nedan är **platshållarvärden**, en uppsättning per delområde: rimliga värden i rätt storleksordning, inte mätningar och inte avlästa vid positionen. Alla resultat som härleds från dem är litteraturvärden.
+
+    I det färdiga verktyget ritar du en polygon, och förhållandena läses ut från de kuraterade dataskikten - Copernicus Marine-återanalys för salthalt, temperatur och näringsämnen, EMODnet för batymetri och mänskligt nyttjande, HELCOM för skyddade områden. Gränssnittet mellan den här panelen och modellkärnan ändras inte.
+  # --- catalogue panel ----------------------------------------------------------
+  app.catalogue.species: "Arter"
+  app.catalogue.scale: "Skala"
+  app.catalogue.only_af: "Välj bara de arter som nämns i projektansökan"
+  app.catalogue.methods: "Odlingsmetoder"
+  app.catalogue.col.species: "Art"
+  app.catalogue.col.scientific: "Vetenskapligt namn"
+  app.catalogue.col.group: "Grupp"
+  app.catalogue.col.in_af: "I ansökan"
+  app.catalogue.col.window: "Odlingsperiod"
+  app.catalogue.yes: "ja"
+  app.catalogue.no: "nej"
+  app.catalogue.species_note: "Endast Ulva och blåmussla nämns i projektansökan. För Fucus finns underlaget från OLAMUR om låg salthalt, Chorda är den art som KU faktiskt kommer att odla i Litauen (beslut D1), och sockertare finns med för den danska platsens skull och som genomarbetat exempel på en kontraindikation."
+  app.catalogue.col.method: "Metod"
+  app.catalogue.col.anchoring: "Förankring"
+  app.catalogue.col.cultivation: "Odling"
+  app.catalogue.col.depth: "Djup"
+  app.catalogue.col.max_wave: "Max. våghöjd"
+  app.catalogue.col.unit_area: "Yta per enhet"
+  app.catalogue.methods_note: "Kostnader och arbetsinsats lämnas avsiktligt tomma. De fylls i utifrån WP3:s faktiska upphandlingsunderlag - siffrorna för ekonomisk bärkraft går bara att försvara om koefficienterna motsvarar vad projektet faktiskt har betalat."
+  # --- results panel ------------------------------------------------------------
+  app.results.ranked: "Rangordnade alternativ"
+  app.results.excluded: "Uteslutna"
+  app.results.pressure: "Belastningskontext"
+  app.results.pick_site: "Välj en plats och klicka sedan på ”Bedöm”."
+  app.results.unassessed: "Den här platsen har inte bedömts eftersom dataskiktet inte kunde leverera några platsförhållanden. Se ”Rapport” för orsaken till den saknade täckningen."
+  app.results.none: "Ingen art kunde bedömas på den här platsen."
+  app.results.col.option: "Alternativ"
+  app.results.col.verdict: "Lämplighet"
+  app.results.col.harvest: "Skörd"
+  app.results.col.nitrogen: "Kväve"
+  app.results.col.phosphorus: "Fosfor"
+  app.results.col.carbon: "Kol"
+  app.results.constraint_line: "{name}: {verdict} - {reason}"
+  app.results.caveats: "Förbehåll"
+  app.results.caveat_line: "{label}: {text}"
+  app.results.dash: "-"
+  app.results.nothing_excluded: "Inget är uteslutet på den här platsen."
+  app.results.no_bowtie: "Ingen bow-tie-inferens har tillhandahållits. Avlägsnandet av näringsämnen redovisas för sig."
+  app.results.p_top: "P(topphändelse {state}) = {p}"
+  # --- report panel -------------------------------------------------------------
+  app.report.title: "Bedömningsrapport"
+  app.report.download_txt: "Ladda ned rapporten (.txt)"
+  app.report.download_json: "Ladda ned data (.json)"
+  app.report.none: "Ingen bedömning ännu. Välj en plats och klicka på ”Bedöm”."
+  app.report.heading: "SEAGARDEN-BESLUTSSTÖDSVERKTYG - PLATSBEDÖMNING"
+  app.report.site: "Plats:        {site}"
+  app.report.subregion: "Delområde:    {region}"
+  app.report.conditions_unavailable: "Förhållanden: inte tillgängliga — dataskiktet kunde inte bedöma den här platsen"
+  app.report.conditions: "Förhållanden: salthalt {salinity} psu, DIN {din} umol/L, djup {depth} m"
+  app.report.confidence: "Datatillförlitlighet: {confidence}"
+  app.report.generated: "Genererad:    {date} - modellkärna v{version}"
+  app.report.ranked: "RANGORDNADE ALTERNATIV"
+  app.report.unassessed: "INTE BEDÖMD: {reason}"
+  app.report.none_assessed: "Ingen art kunde bedömas på den här platsen."
+  app.report.option: "{species} - {method} ({ha} ha)"
+  app.report.verdict: "  Lämplighet:  {verdict}"
+  app.report.binding: "  Begränsning: {binding}"
+  app.report.harvest: "  Skörd:       {harvest}"
+  app.report.nitrogen: "  Kväve:       {value}"
+  app.report.phosphorus: "  Fosfor:      {value}"
+  app.report.carbon: "  Kol:         {value}"
+  app.report.calibration: "  Kalibrering: {label} - {presentation}"
+  app.report.excluded: "UTESLUTNA"
+  app.report.excluded_line: "- {key}: {reason}"
+  app.report.pressure: "BELASTNINGSKONTEXT"
+  app.report.p_top: "- P(topphändelse {state}) = {p}"
+  app.report.pressure_note: "  {note}"
+  app.report.caveats: "FÖRBEHÅLL"
+  app.report.caveat_line: "- {label}: {text}"
+  app.report.carbon_caveat: "- Kol redovisas endast som kol i den skördade biomassan. Kolinlagring redovisas inte: Kalcifiering frigör CO2, så ett påstående om kolinlagring skulle förutsätta att skalen avlägsnas ur vattnet och hålls borta från det."
+  app.report.legal_caveat: "- Den rättsliga tillåtligheten bedöms inte förrän de regulatoriska uppgifterna finns (A2.2, M12). En okänd rättslig status blockerar lämplighetsklassningen i stället för att låta den passera."
+  app.report.footer: "Prototyputdata. Endast vägledande; inte grund för tillstånd eller medgivande."
+  app.report.unassessed.cell_invalid_near: "Inga data i den här cellen; närmaste giltiga cell ligger {km} km bort."
+  app.report.unassessed.cell_invalid: "Inga data i den här cellen."
+  app.report.unassessed.year_absent: "Datamängden innehåller inte det begärda året."
+  app.report.unassessed.no_conditions: "Dataskiktet kunde inte leverera några platsförhållanden."
+  app.report.source.artifact: "Datakälla: {source}"
+  app.report.source.placeholder_reason: "Datakälla: platshållarvärden ({reason})"
+  app.report.source.artifact_bare: "Datakälla: rutnätsbaserad datamängd med drivdata"
+  app.report.source.placeholder_bare: "Datakälla: platshållarvärden"
+  app.report.source.this_site: " — den här platsen: {note}"
+  app.report.caveat.artifact: "- Platsförhållandena kommer från den rutnätsbaserade datamängden med drivdata."
+  app.report.caveat.placeholder: "- Platsförhållandena i den här prototypen är platshållarvärden, inte mätningar."
+  app.report.caveat.this_site: " Den här platsen: {note}."

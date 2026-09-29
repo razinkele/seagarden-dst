@@ -1,0 +1,43 @@
+# params/i18n/sv.yaml
+# The Swedish sidecar for text that lives in the parameter YAML (design I§5.4): species and
+# method names, calibration notes. A machine draft, not yet reviewed. There is no English
+# file beside it: the reference keys and texts are derived by params_reference_keys() in
+# app/i18n.py. Scientific names and calibration `source:` citations are not in it.
+language: sv
+status: machine-draft
+translated_by: "machine draft (Claude), 2026-09-29"
+reviewed_by: null
+reviewed_on: null
+messages:
+  params.species.chorda_filum.common_name: "Sudare"
+  params.species.chorda_filum.calibration.default.note: "Det finns ingen publicerad tillväxtmodell för denna art. Koefficienterna är antagna genom analogi, inte anpassade till data. Resultaten är vägledande för säsongskurvans form, inte för dess storlek. Modellen bör anpassas till skördedata från WP3 A3.4 innan någon siffra används i en leverans."
+  params.species.fucus_vesiculosus.common_name: "Blåstång"
+  params.species.fucus_vesiculosus.calibration.LT-coastal.note: "Överförd från ett estniskt pilotförsök vid jämförbar salthalt. Det finns ingen litauisk kalibrering; värdet bör uppgraderas till nivå A så snart data från WP3 A3.4 finns tillgängliga."
+  params.species.mytilus.common_name: "Blåmussla"
+  params.species.mytilus.calibration.LT-coastal.note: "Intervall för musselodling som miljöåtgärd, extrapolerat till litauiska salthalter. Musselbiomassan i östra Östersjön är låg i absoluta tal; koleffektiviteten per enhet biomassa är ändå hög (Vaher et al. 2024). Effektiviteten bör lyftas fram i stället för ett påstående om kolinlagring."
+  params.species.saccharina_latissima.common_name: "Sockertare"
+  params.species.saccharina_latissima.calibration.DK-belt.note: "Flyttad från nivå B till C: Ingen koefficient i denna fil är anpassad till danska data. 18.4 t FW/ha är en publicerad avkastningssiffra från danska platser, vilket gör den till ett litteraturvärde som tillämpas på den plats där den mättes, inte till en lokal kalibrering - ”lokal” skulle betyda anpassad till ett pilotförsök inom SeaGarden, och något sådant finns inte här."
+  params.species.saccharina_latissima.calibration.LT-coastal.note: "Odlingen av sockertare misslyckades vid 5.5-6.5 psu i OLAMUR:s estniska pilotförsök. Salthaltsskalningen skulle ge en liten positiv avkastning vid litauiska salthalter; den siffran visas inte, eftersom observationen motsäger den. Fucus, Chorda eller musslor odlade som miljöåtgärd är de rätta valen här."
+  params.species.saccharina_latissima.calibration.PL-lagoon.note: "Salthalten i Oderlagunen ligger långt under den påvisade toleransen för denna art. Inte odlingsbar."
+  params.species.ulva.common_name: "Havssallat"
+  params.species.ulva.calibration.default.note: "Ingen lokal kalibrering någonstans i södra Östersjön. WP3 A3.4 övervakar tillväxtförhållandena för Ulva vid pilotplatserna i LT och DE; dessa data är den planerade vägen till nivå A under perioden M24-30."
+  params.methods.mini_farm_kit.name: "Byggsats för miniodling (A3.5)"
+  params.methods.mini_farm_kit.anchoring_unit: "enpunktsförtöjning med ytboj"
+  params.methods.mini_farm_kit.cultivation_unit: "kort försådd lina"
+  params.methods.floating_longline.name: "Flytande långlina"
+  params.methods.floating_longline.anchoring_unit: "tvåpunktsförtöjning med markeringsbojar"
+  params.methods.floating_longline.cultivation_unit: "flytande försådda linor"
+  params.methods.sinking_longline.name: "Sänkt (nedsänkt) långlina"
+  params.methods.sinking_longline.anchoring_unit: "tvåpunktsförtöjning, nedsänkt bärlina"
+  params.methods.sinking_longline.cultivation_unit: "nedsänkta försådda linor"
+  params.methods.raft.name: "Flotte"
+  params.methods.raft.anchoring_unit: "flerpunktsförtöjning"
+  params.methods.raft.cultivation_unit: "hängande ramar"
+  params.methods.mussel_socks.name: "Musselstrumpor på långlina"
+  params.methods.mussel_socks.anchoring_unit: "tvåpunktsförtöjning med markeringsbojar"
+  params.methods.mussel_socks.cultivation_unit: "hängande musselstrumpor"
+  params.methods.modular_pontoon.name: "Flytande modulponton"
+  params.methods.modular_pontoon.anchoring_unit: "flerpunktsförtöjning, modulära flytelement"
+  params.methods.modular_pontoon.cultivation_unit: "kombinerade linor och strumpor"
+  params.group.macroalga: "makroalger"
+  params.group.shellfish: "musslor"
