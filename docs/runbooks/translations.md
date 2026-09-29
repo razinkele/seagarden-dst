@@ -196,5 +196,14 @@ broken and disabled: <ExceptionType>: <text>`. English is never a candidate for 
 check, so it can never be disabled this way. Either way - unfinished or actually broken -
 one language's trouble never takes the rest of the site down.
 
-Dry run by the author on 2026-09-29 against copies of the German files: both transitions
-behaved as written.
+Dry run on 2026-09-29 by the AI coding agent that wrote this runbook (Claude), in a
+throwaway copy of the repository (a `git archive` of the branch head, outside the
+repository): German's three headers flipped as above, with `reviewed_by: "dry run"`; the
+guard tests and the full suite passed. In a fresh process with no environment variable
+the menu showed English and Deutsch, and `?lang=de` rendered the German page without the
+draft banner - both as the tests render it and from a running `shiny run app.app` (the
+copy's `src` on `PYTHONPATH` standing in for the install); with
+`SEAGARDEN_SHOW_DRAFT_LANGUAGES=1` all six languages were enabled. One of the three files
+set back to `machine-draft` took German off again: English alone, guard tests passing.
+Polish, Danish, Lithuanian and Swedish, each flipped alone the same way, passed the four
+i18n test files.
