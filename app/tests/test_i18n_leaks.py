@@ -381,3 +381,40 @@ def test_8_a_draft_language_is_hidden_unless_the_deployment_shows_drafts():
     assert language_for("?lang=de", "de", hidden) == "en"
     shown = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
     assert "de" in shown and language_for("?lang=de", None, shown) == "de"
+
+
+def test_8_a_draft_language_renders_under_the_switch():
+    """The first rendered page in a real second language: shown only with the switch,
+    translated, and bannered in both languages."""
+    import html as htmllib
+
+    from app.app import build_ui
+    from app.i18n import enabled_languages, english, language_for
+
+    shown = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"})
+    assert "de" in shown and language_for("?lang=de", None, shown) == "de"
+    de = Translator.for_language("de")
+    assert de.is_draft
+    page = htmllib.unescape(str(build_ui("de", enabled=shown)))
+    assert 'lang="de"' in page
+    assert de("app.shell.assess") != english()("app.shell.assess")
+    assert de("app.shell.assess") in page
+    assert de("app.shell.draft_banner") in page
+    assert english()("app.shell.draft_banner") in page
+
+
+def test_8_a_draft_language_report_opens_with_the_bilingual_draft_line():
+    """The same for the report a user downloads: a placeholder site rendered in German
+    starts with the draft line in both languages and ends on the translated footer."""
+    from app.i18n import english
+    from seagarden_dst.api import assess_site
+
+    de = Translator.for_language("de")
+    assessment = assess_site(SiteContext.from_region("DE-coastal", label="Rostock"))
+    text = render_report(assessment, today=date(2026, 9, 28), tr=de)
+    banner = f"{de('app.shell.draft_banner')} {english()('app.shell.draft_banner')}"
+    assert text.startswith(banner + "\n")
+    assert de("app.report.source.placeholder_bare") in text  # a placeholder site
+    assert de("app.report.footer") != english()("app.report.footer")
+    assert de("app.report.footer") in text
+    assert english()("app.report.footer") not in text

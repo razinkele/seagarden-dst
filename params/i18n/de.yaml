@@ -1,0 +1,43 @@
+# params/i18n/de.yaml
+# The German sidecar for text that lives in the parameter YAML (design I§5.4): species and
+# method names, calibration notes. A machine draft, not yet reviewed. There is no English
+# file beside it: the reference keys and texts are derived by params_reference_keys() in
+# app/i18n.py. Scientific names and calibration `source:` citations are not in it.
+language: de
+status: machine-draft
+translated_by: "machine draft (Claude), 2026-09-29"
+reviewed_by: null
+reviewed_on: null
+messages:
+  params.species.chorda_filum.common_name: "Meersaite"
+  params.species.chorda_filum.calibration.default.note: "Für diese Art gibt es kein veröffentlichtes Wachstumsmodell. Die Koeffizienten sind per Analogie angenommen, nicht an Daten angepasst. Die Ergebnisse geben einen Hinweis auf die Form der saisonalen Kurve, nicht auf ihre absolute Höhe. Vor der Verwendung einer Zahl in einem Deliverable an die Erntedaten aus WP3 A3.4 anpassen."
+  params.species.fucus_vesiculosus.common_name: "Blasentang"
+  params.species.fucus_vesiculosus.calibration.LT-coastal.note: "Übertragen von einem estnischen Pilotversuch bei vergleichbarem Salzgehalt. Eine litauische Kalibrierung gibt es nicht; auf Stufe A heraufstufen, sobald Daten aus WP3 A3.4 vorliegen."
+  params.species.mytilus.common_name: "Miesmuschel"
+  params.species.mytilus.calibration.LT-coastal.note: "Bandbreite für Mitigationskulturen, auf litauische Salzgehalte extrapoliert. Die Muschelbiomasse in der östlichen Ostsee ist absolut gesehen gering; die Kohlenstoffeffizienz je Biomasseeinheit ist dennoch hoch (Vaher et al. 2024). Die Effizienz in den Vordergrund stellen, keine Aussage zur Sequestrierung treffen."
+  params.species.saccharina_latissima.common_name: "Zuckertang"
+  params.species.saccharina_latissima.calibration.DK-belt.note: "Von Stufe B auf C herabgestuft: Kein Koeffizient in dieser Datei ist an dänische Daten angepasst. 18.4 t FW/ha ist ein veröffentlichter Ertragswert von dänischen Standorten; damit ist er ein Literaturwert, angewendet an dem Standort, an dem er gemessen wurde, und keine lokale Kalibrierung - „lokal“ hieße an einen SeaGarden-Pilotversuch angepasst, den es hier nicht gibt."
+  params.species.saccharina_latissima.calibration.LT-coastal.note: "Der Anbau von Zuckertang ist im estnischen Pilotversuch von OLAMUR bei 5.5-6.5 psu gescheitert. Die Salzgehaltsskalierung würde bei litauischen Salzgehalten einen kleinen positiven Ertrag liefern; diese Zahl wird nicht angezeigt, weil die Beobachtung ihr widerspricht. Fucus, Chorda oder Miesmuscheln in Mitigationskultur sind hier die geeignete Wahl."
+  params.species.saccharina_latissima.calibration.PL-lagoon.note: "Der Salzgehalt im Stettiner Haff liegt weit unter der nachgewiesenen Toleranz dieser Art. Nicht kultivierbar."
+  params.species.ulva.common_name: "Meersalat"
+  params.species.ulva.calibration.default.note: "Nirgends in der südlichen Ostsee gibt es eine lokale Kalibrierung. WP3 A3.4 überwacht die Wachstumsbedingungen von Ulva an den Pilotstandorten LT und DE; diese Daten sind der vorgesehene Weg zu Stufe A im Zeitraum M24-30."
+  params.methods.mini_farm_kit.name: "Mini-Farm-Bausatz (A3.5)"
+  params.methods.mini_farm_kit.anchoring_unit: "Einzelverankerung mit Oberflächenboje"
+  params.methods.mini_farm_kit.cultivation_unit: "kurze beimpfte Leine"
+  params.methods.floating_longline.name: "Schwimmende Langleine"
+  params.methods.floating_longline.anchoring_unit: "Zweipunktverankerung mit Markierungsbojen"
+  params.methods.floating_longline.cultivation_unit: "schwimmende beimpfte Leinen"
+  params.methods.sinking_longline.name: "Abgesenkte (untergetauchte) Langleine"
+  params.methods.sinking_longline.anchoring_unit: "Zweipunktverankerung, abgesenkte Tragleine"
+  params.methods.sinking_longline.cultivation_unit: "abgesenkte beimpfte Leinen"
+  params.methods.raft.name: "Floß"
+  params.methods.raft.anchoring_unit: "Mehrpunktverankerung"
+  params.methods.raft.cultivation_unit: "abgehängte Rahmen"
+  params.methods.mussel_socks.name: "Muschelsocken an Langleine"
+  params.methods.mussel_socks.anchoring_unit: "Zweipunktverankerung mit Markierungsbojen"
+  params.methods.mussel_socks.cultivation_unit: "abgehängte Muschelsocken"
+  params.methods.modular_pontoon.name: "Schwimmender modularer Ponton"
+  params.methods.modular_pontoon.anchoring_unit: "Mehrpunktverankerung, modulare Schwimmkörper"
+  params.methods.modular_pontoon.cultivation_unit: "kombinierte Leinen und Socken"
+  params.group.macroalga: "Makroalge"
+  params.group.shellfish: "Muscheln"

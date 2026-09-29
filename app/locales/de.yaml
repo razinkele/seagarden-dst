@@ -1,0 +1,259 @@
+# app/locales/de.yaml
+# The German catalogue for the app's own chrome (design I§4.3): a machine draft, not yet
+# reviewed. It carries exactly the keys of en.yaml, the reference. Placeholder NAMES only,
+# never format specs.
+language: de
+status: machine-draft
+translated_by: "machine draft (Claude), 2026-09-29"
+reviewed_by: null
+reviewed_on: null
+messages:
+  # --- navbar and shell (shell.py, app.py) ------------------------------------
+  app.nav.site: "Standort"
+  app.nav.catalogue: "Katalog"
+  app.nav.results: "Ergebnisse"
+  app.nav.report: "Bericht"
+  app.shell.about: "Info"
+  app.shell.help: "Hilfe"
+  app.shell.feedback: "Feedback"
+  app.shell.language: "Sprache"
+  app.shell.title: "SeaGarden-Entscheidungshilfe"
+  app.shell.window_title: "SeaGarden DST"
+  app.shell.setup: "Einstellungen"
+  app.shell.workflow: "Ablauf: 1) einen Standort wählen · 2) im „Katalog“ Arten, Verfahren und Maßstab wählen · 3) auf „Bewerten“ klicken · 4) „Ergebnisse“ und „Bericht“ lesen."
+  app.shell.assess: "Bewerten"
+  app.shell.close: "Schließen"
+  app.shell.funding_alt: "SeaGarden - Interreg South Baltic, kofinanziert von der Europäischen Union"
+  app.shell.draft_banner: "Maschinelle Übersetzung, noch nicht geprüft."
+  app.shell.about.title: "Über SeaGarden DST"
+  app.shell.about.body: |
+    Die **SeaGarden-Entscheidungshilfe** (Decision Support Tool, DST) unterstützt die Planung gemeinschaftlich getragener regenerativer Meeresfarmen in der südlichen Ostsee. Einen Standort wählen, festlegen, was in welchem Maßstab kultiviert werden soll - und das Tool liefert eine Standorteinstufung, eine erwartete Ernte sowie die Mengen an Stickstoff, Phosphor und Kohlenstoff, die diese Ernte dem Wasser entzieht.
+
+    **Was das Tool liefert**
+
+    - Eine Standorteinstufung, berechnet als **Minimum** über die Einschränkungsklassen, mit Nennung der maßgeblichen Einschränkung. Kein gewichteter Index: Ein Standort mit einem zwingenden rechtlichen Ausschlussgrund darf nicht „mittel“ abschneiden, nur weil das Wasser gut ist.
+    - Eine **Kalibrierungsstufe** neben jeder Zahl - lokal kalibriert, regional extrapoliert, Literaturwert oder kontraindiziert. Bis die Pilotdaten aus WP3 vorliegen, ist praktisch jede Zahl für die südliche Ostsee ein Literaturwert, und das Tool weist direkt an der Zahl darauf hin.
+    - **Eutrophierungsbelastung** aus dem MARBEFES-Bow-Tie-Modell und optionaler **Nährstoffantrieb** aus dem EUTROPY-Boxmodell, beide neben der Rangfolge berichtet und nie in sie eingerechnet.
+
+    - **Programm** - Interreg South Baltic 2021-2027 · **SeaGarden** (STHB.02.02-IP.01-0006/25)
+    - **Arbeitspaket / Aktivität** - WP2 / A2.3 · Deliverable **D2.2**
+    - **Federführung** - Klaipeda University, Marine Research Institute
+    - **Status** - Prototyp · Modellkern `v{version}`
+
+    Quellcode & Fehlermeldungen: [{repo_name}]({repo_url})
+
+    Zahlen verwenden in jeder Sprache einen Dezimalpunkt, und Datumsangaben werden als Jahr-Monat-Tag geschrieben.
+
+    *Prototyp. Die Ergebnisse sind indikativ und keine Grundlage für Genehmigungen oder Zustimmungen. Kofinanziert von der Europäischen Union; die geäußerten Ansichten sind ausschließlich die der Autorinnen und Autoren.*
+  app.shell.help.title: "Arbeiten mit SeaGarden DST"
+  app.shell.help.body: |
+    **Ablauf**
+
+    1. **Standort** - ein Teilgebiet wählen. Im fertigen Tool wird ein Polygon gezeichnet; der Prototyp verwendet Platzhalterbedingungen je Teilgebiet.
+    2. **Katalog** - Arten, Kultivierungsverfahren und Maßstab wählen.
+    3. **Bewerten** - die Schaltfläche in der Seitenleiste. „Ergebnisse“ und „Bericht“ bleiben leer, bis die Schaltfläche gedrückt wird, und werden wieder geleert, sobald der Standort geändert wird.
+    4. **Ergebnisse** - die Optionen in Rangfolge, jeweils mit ihrer maßgeblichen Einschränkung, und die Nährstoffentnahme mit ihrer Kalibrierungsstufe.
+    5. **Bericht** - die Bewertung als Text, einschließlich der Vorbehalte.
+
+    **Die Kalibrierungsstufen lesen**
+
+    | Stufe | Bedeutung | Darstellung |
+    |---|---|---|
+    | A | An SeaGarden-Pilotdaten angepasst | Wert mit Intervall |
+    | B | An anderer Stelle in der Ostsee angepasst | Wert als Spanne |
+    | C | Literaturwert, keine lokale Validierung | Bandbreite der Größenordnung |
+    | D | Kontraindiziert - ein lokaler Befund widerspricht dem Modell | der Befund, anstelle der Zahl |
+
+    Der Fall der Stufe D, den man kennen sollte: Zuckertang unterhalb von etwa 16 psu. Die Salzgehaltsskalierung liefert einen kleinen positiven Ertrag; der OLAMUR-Pilotversuch stellte bei 5.5-6.5 psu ein vollständiges Scheitern der Kultivierung fest. Das Tool zeigt den Befund.
+  app.shell.feedback.title: "Feedback senden"
+  app.shell.feedback.body: |
+    Dies ist ein Prototyp für WP2 A2.3, der in Ko-Entwicklung entsteht. Konkretes Feedback - welches Panel, welcher Standort, was erwartet wurde - ist am hilfreichsten.
+
+    - **Ein Issue eröffnen** - [{repo_url}/issues/new]({repo_url}/issues/new)
+    - **E-Mail** - [{email}](mailto:{email}?subject=SeaGarden%20DST%20feedback)
+  # --- sidebar status (app.py, _widgets.py) -----------------------------------
+  app.status.no_site: "Kein Standort ausgewählt. „Standort“ öffnen und einen auswählen."
+  app.status.site_ready: "Standort bereit: {label}. Ausgewählte Arten: {n}. Maßstab: {scale}. Auf „Bewerten“ klicken."
+  app.headline.unassessed: "Standort nicht bewertet: {reason}"
+  app.headline.none: "An diesem Standort konnte keine Art bewertet werden."
+  app.headline.nothing_reportable: "Hier gibt es nichts auszuweisen - jede Option ist kontraindiziert."
+  app.headline.none_suitable: "Derzeit ist keine Option geeignet; die Einschränkungen stehen unter „Ergebnisse“."
+  app.headline.best: "Beste Option: {species}, {verdict}{suffix}."
+  app.headline.priors_suffix: " (Literaturwerte)"
+  app.headline.no_suffix: ""
+  app.unassessable.cell_invalid: "keine Daten in dieser Zelle.{distance}"
+  app.unassessable.nearest: " Die nächste gültige Zelle ist {km} km entfernt."
+  app.unassessable.no_distance: ""
+  app.unassessable.year_absent: "der Antriebsdatensatz enthält das angefragte Jahr nicht."
+  app.unassessable.no_conditions: "die Datenebene konnte keine Bedingungen liefern."
+  app.source.artifact: "gerasterter Antriebsdatensatz, Bedingungen für {year}, Stand {built}"
+  app.source.unknown_date: "unbekannt"
+  app.banner.artifact: "Datenquelle: {source}."
+  app.banner.placeholder: "Datenquelle: Platzhalterbedingungen — plausible Werte in der richtigen Größenordnung, keine Messungen ({reason})."
+  app.banner.this_site: " Dieser Standort: {note}."
+  # --- widgets ------------------------------------------------------------------
+  app.tier.badge_title: "{label} - {presentation}"
+  app.quantity.none: "-"
+  app.quantity.range: "{low}-{high} {unit}"
+  app.quantity.value: "{value} {unit}"
+  app.quantity.range_tiered: "{low}-{high} {unit} [{tier}]"
+  app.quantity.value_tiered: "{value} {unit} [{tier}]"
+  app.quantity.not_applicable: "nicht anwendbar - {caveat}"
+  app.legend.title: "Kalibrierungsstufen"
+  app.legend.A: " an SeaGarden-Pilotdaten angepasst"
+  app.legend.B: " an anderer Stelle in der Ostsee angepasst"
+  app.legend.C: " Literaturwert, keine lokale Validierung"
+  app.legend.D: " kontraindiziert - ein Befund widerspricht dem Modell"
+  app.legend.note: "Bis Pilotdaten aus WP3 vorliegen (M12-30), fällt praktisch jedes Ergebnis für die südliche Ostsee in Stufe C. Diese als indikative Bandbreiten lesen, nicht als Schätzungen."
+  app.month.1: "Jan"
+  app.month.2: "Feb"
+  app.month.3: "Mär"
+  app.month.4: "Apr"
+  app.month.5: "Mai"
+  app.month.6: "Jun"
+  app.month.7: "Jul"
+  app.month.8: "Aug"
+  app.month.9: "Sep"
+  app.month.10: "Okt"
+  app.month.11: "Nov"
+  app.month.12: "Dez"
+  app.window.span: "{start}–{end}"
+  app.window.over_winter: "{span} (über den Winter)"
+  # --- user mode ----------------------------------------------------------------
+  app.mode.label: "Ich bin hier als"
+  app.mode.choice: "{title} - {audience}"
+  app.mode.plan.title: "Planen"
+  app.mode.plan.audience: "Behörden, Raumplanung"
+  app.mode.plan.question: "Wo könnte hier regenerative Aquakultur stattfinden, und was würde sie bewirken?"
+  app.mode.farm.title: "Bewirtschaften"
+  app.mode.farm.audience: "Erzeuger, KMU, Betreiber"
+  app.mode.farm.question: "Kann ich diesen Platz bewirtschaften, was soll ich anbauen, und was ernte ich?"
+  app.mode.start.title: "Starten"
+  app.mode.start.audience: "Gemeinschaften, NGOs, Bürgerwissenschaft"
+  app.mode.start.question: "Könnten wir hier einen kleinen Meeresgarten betreiben, und was bräuchte es dafür?"
+  app.mode.explore.title: "Erkunden"
+  app.mode.explore.audience: "Forschende, Studierende, Beratende"
+  app.mode.explore.question: "Was sagen die Modelle, und wie verlässlich sind sie?"
+  # --- site panel ---------------------------------------------------------------
+  app.site.region: "Teilgebiet"
+  app.site.help: "Eine Markierung auf der Karte anklicken oder hier auswählen. "
+  app.site.help_absent_single: "Für {regions} liegt noch keine bestätigte Position vor; die Auswahl ist nur hier möglich."
+  app.site.help_absent_list: "Für {regions} liegen noch keine bestätigten Positionen vor; die Auswahl ist nur hier möglich."
+  app.site.and: " und "
+  app.site.label: "Standortname (optional)"
+  app.site.label_placeholder: "z. B. Pilotstandort Melnrage"
+  app.site.use: "Diesen Standort verwenden"
+  app.site.where: "Lage"
+  app.site.no_map: |
+    *Die Karte benötigt `shiny_deckgl`, das über einen conda-Kanal statt über PyPI ausgeliefert wird und hier nicht installiert ist:*
+
+        micromamba install -n shiny -c razinka shiny-deckgl
+
+    *Die Auswahl eines Teilgebiets in der Seitenleiste funktioniert in jedem Fall.*
+  app.site.tooltip_depth: "Modelltiefe"
+  app.site.depth_unknown: "unbekannt"
+  app.site.no_position: "Für {region} gibt es keine bestätigte Position. Die Bedingungen sind eine Zusammenfassung für das Teilgebiet, daher bezieht sich nichts hier auf eine bestimmte Zelle."
+  app.site.position: "{lat}, {lon} - {provenance}. Ein Ergebnis hier ist ein {presentation}."
+  app.site.provenance_inline.sited: "verortet"
+  app.site.provenance_inline.snapped: "auf die nächstgelegene Modellzelle verschoben"
+  app.site.provenance_inline.indicative: "indikativ für den Wasserkörper"
+  app.site.conditions: "Standortbedingungen"
+  app.site.cond.salinity: "Salzgehalt"
+  app.site.cond.mean_temp: "Mittlere Temperatur"
+  app.site.cond.summer_winter: "Sommer- / Wintertemperatur"
+  app.site.cond.din: "Gelöster anorganischer Stickstoff"
+  app.site.cond.dip: "Gelöster anorganischer Phosphor"
+  app.site.cond.depth: "Tiefe"
+  app.site.cond.wave: "Signifikante Wellenhöhe"
+  app.site.cond.par: "PAR in Kultivierungstiefe"
+  app.site.confidence_line: "Datenzuverlässigkeit: {confidence} (Platzhalter). Kalibrierungsgebiet: {region}."
+  app.site.provenance_card: "Woher diese Zahlen stammen"
+  app.site.provenance_body: |
+    Die Karte zeigt, **wo** ein Teilgebiet liegt. Die Zahlen darunter sind **Platzhalterbedingungen**, ein Satz je Teilgebiet: plausible Werte in der richtigen Größenordnung, keine Messungen und nicht an der Position abgelesen. Jedes daraus abgeleitete Ergebnis ist ein Literaturwert.
+
+    Im fertigen Tool wird ein Polygon gezeichnet, und die Bedingungen werden aus den kuratierten Datenebenen gelesen - Copernicus-Marine-Reanalyse für Salzgehalt, Temperatur und Nährstoffe, EMODnet für Bathymetrie und menschliche Nutzung, HELCOM für Schutzgebiete. Die Schnittstelle zwischen diesem Panel und dem Modellkern ändert sich dabei nicht.
+  # --- catalogue panel ----------------------------------------------------------
+  app.catalogue.species: "Arten"
+  app.catalogue.scale: "Maßstab"
+  app.catalogue.only_af: "Nur die im Projektantrag genannten Arten auswählen"
+  app.catalogue.methods: "Kultivierungsverfahren"
+  app.catalogue.col.species: "Art"
+  app.catalogue.col.scientific: "Wissenschaftlicher Name"
+  app.catalogue.col.group: "Gruppe"
+  app.catalogue.col.in_af: "Im Antrag"
+  app.catalogue.col.window: "Kultivierungszeitraum"
+  app.catalogue.yes: "ja"
+  app.catalogue.no: "nein"
+  app.catalogue.species_note: "Nur Ulva und die Miesmuschel sind im Projektantrag genannt. Für Fucus liegen die Belege aus OLAMUR für niedrige Salzgehalte vor, Chorda ist die Art, die KU in Litauen tatsächlich kultivieren wird (Entscheidung D1), und Zuckertang ist für den dänischen Standort und als ausgearbeitetes Beispiel einer Kontraindikation enthalten."
+  app.catalogue.col.method: "Verfahren"
+  app.catalogue.col.anchoring: "Verankerung"
+  app.catalogue.col.cultivation: "Kultivierung"
+  app.catalogue.col.depth: "Tiefe"
+  app.catalogue.col.max_wave: "Max. Wellenhöhe"
+  app.catalogue.col.unit_area: "Fläche je Einheit"
+  app.catalogue.methods_note: "Kosten und Arbeitsaufwand sind bewusst leer. Sie werden aus den tatsächlichen Beschaffungsunterlagen von WP3 befüllt - die Wirtschaftlichkeitszahlen sind nur dann belastbar, wenn die Koeffizienten dem entsprechen, was das Projekt tatsächlich bezahlt hat."
+  # --- results panel ------------------------------------------------------------
+  app.results.ranked: "Optionen in Rangfolge"
+  app.results.excluded: "Ausgeschlossen"
+  app.results.pressure: "Belastungskontext"
+  app.results.pick_site: "Einen Standort wählen, dann auf „Bewerten“ klicken."
+  app.results.unassessed: "Dieser Standort ist nicht bewertet, weil die Datenebene keine Bedingungen liefern konnte. Der Grund für die fehlende Abdeckung steht im „Bericht“."
+  app.results.none: "An diesem Standort konnte keine Art bewertet werden."
+  app.results.col.option: "Option"
+  app.results.col.verdict: "Einstufung"
+  app.results.col.harvest: "Ernte"
+  app.results.col.nitrogen: "Stickstoff"
+  app.results.col.phosphorus: "Phosphor"
+  app.results.col.carbon: "Kohlenstoff"
+  app.results.constraint_line: "{name}: {verdict} - {reason}"
+  app.results.caveats: "Vorbehalte"
+  app.results.caveat_line: "{label}: {text}"
+  app.results.dash: "-"
+  app.results.nothing_excluded: "An diesem Standort ist nichts ausgeschlossen."
+  app.results.no_bowtie: "Keine Bow-Tie-Inferenz übergeben. Die Nährstoffentnahme wird für sich genommen berichtet."
+  app.results.p_top: "P(Top-Ereignis {state}) = {p}"
+  # --- report panel -------------------------------------------------------------
+  app.report.title: "Bewertungsbericht"
+  app.report.download_txt: "Bericht herunterladen (.txt)"
+  app.report.download_json: "Daten herunterladen (.json)"
+  app.report.none: "Noch keine Bewertung. Einen Standort wählen und auf „Bewerten“ klicken."
+  app.report.heading: "SEAGARDEN-ENTSCHEIDUNGSHILFE - STANDORTBEWERTUNG"
+  app.report.site: "Standort:    {site}"
+  app.report.subregion: "Teilgebiet:  {region}"
+  app.report.conditions_unavailable: "Bedingungen: nicht verfügbar — die Datenebene konnte diesen Standort nicht bewerten"
+  app.report.conditions: "Bedingungen: Salzgehalt {salinity} psu, DIN {din} umol/L, Tiefe {depth} m"
+  app.report.confidence: "Datenzuverlässigkeit: {confidence}"
+  app.report.generated: "Erstellt:    {date} - Modellkern v{version}"
+  app.report.ranked: "OPTIONEN IN RANGFOLGE"
+  app.report.unassessed: "NICHT BEWERTET: {reason}"
+  app.report.none_assessed: "An diesem Standort konnte keine Art bewertet werden."
+  app.report.option: "{species} - {method} ({ha} ha)"
+  app.report.verdict: "  Einstufung: {verdict}"
+  app.report.binding: "  Maßgeblich: {binding}"
+  app.report.harvest: "  Ernte:      {harvest}"
+  app.report.nitrogen: "  Stickstoff: {value}"
+  app.report.phosphorus: "  Phosphor:   {value}"
+  app.report.carbon: "  Kohlenstoff:{value}"
+  app.report.calibration: "  Kalibrierung: {label} - {presentation}"
+  app.report.excluded: "AUSGESCHLOSSEN"
+  app.report.excluded_line: "- {key}: {reason}"
+  app.report.pressure: "BELASTUNGSKONTEXT"
+  app.report.p_top: "- P(Top-Ereignis {state}) = {p}"
+  app.report.pressure_note: "  {note}"
+  app.report.caveats: "VORBEHALTE"
+  app.report.caveat_line: "- {label}: {text}"
+  app.report.carbon_caveat: "- Kohlenstoff wird nur als Kohlenstoff in der geernteten Biomasse berichtet. Eine Sequestrierung wird nicht berichtet: Bei der Kalkbildung wird CO2 freigesetzt, sodass eine Sequestrierungsaussage davon abhinge, dass die Schalen aus dem Wasser entfernt werden und dauerhaft außerhalb des Wassers bleiben."
+  app.report.legal_caveat: "- Die rechtliche Zulässigkeit bleibt unbewertet, bis die regulatorischen Datensätze vorliegen (A2.2, M12). Ein unbekannter Rechtsstatus blockiert die Einstufung, statt sie passieren zu lassen."
+  app.report.footer: "Prototyp-Ausgabe. Nur indikativ; keine Grundlage für Genehmigungen oder Zustimmungen."
+  app.report.unassessed.cell_invalid_near: "Keine Daten in dieser Zelle; die nächste gültige Zelle ist {km} km entfernt."
+  app.report.unassessed.cell_invalid: "Keine Daten in dieser Zelle."
+  app.report.unassessed.year_absent: "Der Antriebsdatensatz enthält das angefragte Jahr nicht."
+  app.report.unassessed.no_conditions: "Die Datenebene konnte keine Bedingungen liefern."
+  app.report.source.artifact: "Datenquelle: {source}"
+  app.report.source.placeholder_reason: "Datenquelle: Platzhalterbedingungen ({reason})"
+  app.report.source.artifact_bare: "Datenquelle: gerasterter Antriebsdatensatz"
+  app.report.source.placeholder_bare: "Datenquelle: Platzhalterbedingungen"
+  app.report.source.this_site: " — dieser Standort: {note}"
+  app.report.caveat.artifact: "- Die Standortbedingungen stammen aus dem gerasterten Antriebsdatensatz."
+  app.report.caveat.placeholder: "- Die Standortbedingungen sind in diesem Prototyp Platzhalter, keine Messungen."
+  app.report.caveat.this_site: " Dieser Standort: {note}."
