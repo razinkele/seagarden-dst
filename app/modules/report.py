@@ -27,6 +27,16 @@ def render_report(
     assessment, choice: ForcingChoice | None = None, *, today: date, tr: Translator | None = None
 ) -> str:
     tr = tr or english()
+    body = _report_body(assessment, choice, today=today, tr=tr)
+    if tr.is_draft:
+        banner = f"{tr('app.shell.draft_banner')} {english()('app.shell.draft_banner')}"
+        return f"{banner}\n{body}"
+    return body
+
+
+def _report_body(
+    assessment, choice: ForcingChoice | None, *, today: date, tr: Translator
+) -> str:
     if assessment is None:
         return tr("app.report.none")
 
@@ -146,6 +156,19 @@ def _data_source_caveat(choice: ForcingChoice | None, context, tr: Translator) -
     return text
 
 
+def export_json(assessment, tr: Translator) -> str:
+    """The JSON download's payload: every key `assessment.to_dict()` emits, plus the
+    language it was rendered in and whether that language is a draft (I§6) - so the
+    file says, on its own, what it is, without a reader having to notice which of five
+    machine-draft languages it came out in. With no assessment, just those two keys."""
+    payload = {
+        "language": tr.language,
+        "draft": tr.is_draft,
+        **(assessment.to_dict(render=tr.render) if assessment is not None else {}),
+    }
+    return json.dumps(payload, indent=2, default=str)
+
+
 @module.ui
 def report_ui(tr: Translator) -> ui.Tag:
     return ui.TagList(
@@ -175,7 +198,4 @@ def report_server(input, output, session, state) -> None:  # noqa: A002
 
     @render.download(filename=lambda: f"seagarden-dst-{date.today().isoformat()}.json")
     def download_json():
-        assessment = state.assessment.get()
-        tr = state.translator()
-        payload = {} if assessment is None else assessment.to_dict(render=tr.render)
-        yield json.dumps(payload, indent=2, default=str)
+        yield export_json(state.assessment.get(), state.translator())

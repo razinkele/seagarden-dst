@@ -11,6 +11,7 @@ sidecar exists. A `Translator` is passed explicitly into every UI builder and re
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections.abc import Callable, Mapping, Sequence
@@ -18,6 +19,8 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from urllib.parse import parse_qs
+
+import yaml
 
 from seagarden_dst.calibration import Quantity
 from seagarden_dst.i18n import (
@@ -263,6 +266,11 @@ def catalogue_status(
     return "reviewed" if all(s == "reviewed" for s in statuses) else "machine-draft"
 
 
+#: Distinct `catalogue_status` failure messages already logged this process, so a
+#: catalogue that stays broken across many requests warns once, not on every page load.
+_logged_catalogue_errors: set[str] = set()
+
+
 def enabled_languages(
     env: Mapping[str, str] = os.environ,
     status: Callable[[str], str | None] = catalogue_status,
@@ -274,6 +282,13 @@ def enabled_languages(
     `on` (any case): anything else, including a typo, keeps drafts hidden - the switch
     fails closed. The environment is read on every call; the default `status`,
     `catalogue_status`, is cached per process.
+
+    This function never raises because a catalogue is broken - a malformed header, a
+    bad status, an unreadable file, invalid YAML. English is never passed to `status`
+    (it is never a candidate), so it can never be disabled this way; a language whose
+    `status()` call fails is simply left out, as if its catalogues did not exist. Each
+    distinct error message is logged as a warning once per process (a module-level
+    set), so a catalogue that stays broken does not spam the log on every request.
     """
     wanted = env.get(ENV_LANGUAGES)
     candidates = [c.strip().lower() for c in wanted.split(",")] if wanted else list(LANGUAGES)
@@ -282,7 +297,14 @@ def enabled_languages(
     for language in LANGUAGES:
         if language == DEFAULT_LANGUAGE or language not in candidates:
             continue
-        s = status(language)
+        try:
+            s = status(language)
+        except (OSError, ValueError, yaml.YAMLError) as exc:
+            message = f"catalogue for language {language!r} is broken and disabled: {exc}"
+            if message not in _logged_catalogue_errors:
+                _logged_catalogue_errors.add(message)
+                logging.getLogger(__name__).warning(message)
+            continue
         if s == "reviewed" or (show_drafts and s is not None):
             out.append(language)
     return tuple(out)

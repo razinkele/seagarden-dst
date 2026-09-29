@@ -9,6 +9,7 @@ from app.i18n import (
     Translator,
     catalogue_status,
     enabled_languages,
+    english,
     language_for,
 )
 from seagarden_dst import Tier, default_parameters
@@ -317,7 +318,11 @@ def test_the_pure_renderers_speak_the_translators_language():
     # its pseudo-marked key is `params.*`, not `app.*`. Still routed through `tr`.
     assert "⟦params." in str(render_excluded(assessment, xx))
     text = render_report(assessment, state.forcing.get(), today=date(2026, 9, 28), tr=xx)
-    assert text.splitlines()[0] == "⟦app.report.heading⟧"
+    lines = text.splitlines()
+    # `xx` is a draft, so line 0 is the bilingual banner (Task 2, I§6) and the report
+    # itself - unchanged otherwise - starts one line later.
+    assert lines[0] == "⟦app.shell.draft_banner⟧ " + english()("app.shell.draft_banner")
+    assert lines[1] == "⟦app.report.heading⟧"
     # `Translator.pseudo()` keeps every marked template's own placeholders: the pseudo
     # value for a core/app key is `⟦key⟧` plus one ` {name}` per placeholder of its
     # English template, names sorted (`app/i18n.py::_pseudo_mark_templates`). A species
@@ -364,3 +369,68 @@ def test_the_position_note_names_its_provenance_through_its_own_key():
         assert f"{coordinate.lat:.4f}, {coordinate.lon:.4f} - {inline}. A result here" in note
         marker = f"⟦app.site.provenance_inline.{coordinate.provenance.value}⟧"
         assert marker in str(render_position_note(region, xx))
+
+
+# --- Task 2 (I-b): the gate fails safe; draft downloads say they are drafts -----------
+
+
+def test_a_broken_catalogue_disables_its_language_and_never_the_site(tmp_path, caplog):
+    """Inherited item 5: one malformed header used to 500 every page, English included."""
+    import logging
+
+    roots = {}
+    for owner in ("core", "app", "params"):
+        root = tmp_path / owner
+        root.mkdir()
+        # `reviewed` without reviewer fields: Catalogue.load raises ValueError
+        (root / "de.yaml").write_text(
+            "language: de\nstatus: reviewed\nmessages:\n  a.b: x\n", encoding="utf-8"
+        )
+        roots[owner] = root
+
+    def status(language):
+        return catalogue_status(
+            language, core_root=roots["core"], app_root=roots["app"], params_root=roots["params"]
+        )
+
+    with caplog.at_level(logging.WARNING, logger="app.i18n"):
+        enabled = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
+    assert enabled == ("en",)
+    assert "de" in caplog.text
+
+
+def test_a_draft_report_says_so_in_both_languages_and_english_does_not():
+    from datetime import date
+
+    from app.modules.report import render_report
+
+    today = date(2026, 9, 29)
+    draft = render_report(None, today=today, tr=Translator.pseudo())
+    assert draft.splitlines()[0] == (
+        "⟦app.shell.draft_banner⟧ " + english()("app.shell.draft_banner")
+    )
+    assert render_report(None, today=today, tr=english()) == english()("app.report.none")
+
+
+def test_the_json_export_names_its_language_and_draft_status():
+    import json
+
+    from app.modules.report import export_json
+
+    assert json.loads(export_json(None, english())) == {"language": "en", "draft": False}
+    marked = json.loads(export_json(None, Translator.pseudo()))
+    assert marked["language"] == "xx" and marked["draft"] is True
+
+
+def test_the_json_export_of_a_real_assessment_keeps_every_to_dict_key():
+    import json
+
+    from app.modules.report import export_json
+
+    state = _assessed_state()
+    assessment = state.assessment.get()
+    payload = json.loads(export_json(assessment, english()))
+    assert payload["language"] == "en" and payload["draft"] is False
+    # Every key `to_dict()` emits is still there, beside the two new ones - nothing
+    # dropped, nothing extra.
+    assert set(payload) == {"language", "draft", *assessment.to_dict()}

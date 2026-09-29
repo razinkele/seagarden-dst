@@ -115,10 +115,12 @@ FRAMEWORK_STRINGS = {
 #: The draft banner is bilingual BY DESIGN (I§6): the English sentence beside the
 #: translated one is required. Unlike every other allowance here, it is not stripped
 #: per chunk any more (that hid it from every render, not only the one place it
-#: belongs) - the whole-page scan below (`_whole_page`) checks it appears exactly once
-#: and removes only that one occurrence before scanning; no other render may contain
-#: it, and `_leaks` catches it there like any other plain-English leak (Task 2 adds the
-#: report, and extends this rule there).
+#: belongs). The rule, explicit rather than relying on none of its words happening to
+#: be allowlisted (I-b review): the whole page (`_whole_page`) and each draft report
+#: (`_report`, Task 2) must carry it exactly once - checked there, then removed before
+#: the rest of that render is scanned - and `_leaks` itself asserts, for every render it
+#: is handed, that the banner is not present: trivially true for the page/report texts
+#: it has already been stripped from, and a real check for everything else.
 ENGLISH_DRAFT_BANNER = Translator.for_language("en")("app.shell.draft_banner")
 
 #: Pre-existing defect, pinned byte-for-byte by tests/golden/reports/case-unassessable.txt
@@ -137,6 +139,13 @@ _MATCHED_TOKENS: set[str] = set()
 
 def _leaks(text: str) -> list[str]:
     out = []
+    # Explicit, not merely a side effect of no banner word being allowlisted (I-b
+    # review): the whole page and each draft report have already had their one
+    # required occurrence stripped by `_whole_page`/`_report` before reaching here, so
+    # this is trivially satisfied for them; every other render must never contain the
+    # banner sentence at all.
+    if ENGLISH_DRAFT_BANNER in text:
+        out.append(f"the English draft banner leaked outside the page/report: {text[:80]!r}")
     for chunk in text.split("\n"):
         body = chunk.strip()
         if body == _SUBREGION_NONE_LINE or body in FRAMEWORK_STRINGS:
@@ -213,14 +222,27 @@ def _whole_page() -> str:
 
     The bilingual draft banner (I§6) is required to appear exactly once - checked here -
     and removed after checking, so `_leaks` scans the rest of the page like any other
-    render: no other render may contain the banner text at all (see `ENGLISH_DRAFT_BANNER`
-    above).
+    render. A draft report's own banner is the same rule, applied by `_report` below;
+    no other render may contain the banner text at all (see `ENGLISH_DRAFT_BANNER`
+    above, and `_leaks`, which checks that for every render).
     """
     from app.app import build_ui
 
     text = _html_text(build_ui("xx", enabled=LANGUAGES))
     assert text.count(ENGLISH_DRAFT_BANNER) == 1, (
         "the bilingual draft banner (I§6) must appear exactly once on the page"
+    )
+    return text.replace(ENGLISH_DRAFT_BANNER, " ", 1)
+
+
+def _report(text: str) -> str:
+    """A `render_report` result in the draft pseudo-locale (Task 2, I§6): the bilingual
+    banner is required to appear exactly once, as its first line - checked here - and
+    removed after checking, the same way `_whole_page` handles the page's own banner.
+    Every render this test suite scans that is not the whole page or a report goes
+    straight to `_leaks`, which asserts the banner is not there at all."""
+    assert text.count(ENGLISH_DRAFT_BANNER) == 1, (
+        "a draft report must carry the English draft banner exactly once"
     )
     return text.replace(ENGLISH_DRAFT_BANNER, " ", 1)
 
@@ -246,7 +268,7 @@ def _region_renders(region: str) -> list[str]:
         _html_text(user_mode_ui("um", XX)),
         headline_for(assessment, XX)[1],
         data_source_banner(_artifact_choice(), assessment.context, XX),
-        render_report(assessment, _artifact_choice(), today=date(2026, 9, 28), tr=XX),
+        _report(render_report(assessment, _artifact_choice(), today=date(2026, 9, 28), tr=XX)),
         # The catalogue panel's two tables: `ui.output_ui`-served, so the whole-page
         # scan below never sees them (I§5.2 names the species table's yes/no and the
         # month words as exactly what this test exists to find).
@@ -284,10 +306,10 @@ def _empty_and_unassessable_renders() -> list[str]:
     return [
         _html_text(render_ranking(None, XX)), _html_text(render_excluded(None, XX)),
         _html_text(render_pressure(None, XX)),
-        render_report(None, today=date(2026, 9, 28), tr=XX),
+        _report(render_report(None, today=date(2026, 9, 28), tr=XX)),
         _html_text(render_ranking(unassessable, XX)),
         headline_for(unassessable, XX)[1],
-        render_report(unassessable, _artifact_choice(), today=date(2026, 9, 28), tr=XX),
+        _report(render_report(unassessable, _artifact_choice(), today=date(2026, 9, 28), tr=XX)),
     ]
 
 
