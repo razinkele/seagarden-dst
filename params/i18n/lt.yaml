@@ -1,0 +1,43 @@
+# params/i18n/lt.yaml
+# The Lithuanian sidecar for text that lives in the parameter YAML (design I§5.4): species and
+# method names, calibration notes. A machine draft, not yet reviewed. There is no English
+# file beside it: the reference keys and texts are derived by params_reference_keys() in
+# app/i18n.py. Scientific names and calibration `source:` citations are not in it.
+language: lt
+status: machine-draft
+translated_by: "machine draft (Claude), 2026-09-29"
+reviewed_by: null
+reviewed_on: null
+messages:
+  params.species.chorda_filum.common_name: "Siūlinė chorda"
+  params.species.chorda_filum.calibration.default.note: "Šiai rūšiai nėra paskelbto augimo modelio. Koeficientai nustatyti pagal analogiją, o ne pritaikyti pagal duomenis. Rezultatai orientaciniai tik sezoninės kreivės formos, bet ne jos dydžio atžvilgiu. Prieš naudodami bet kurį skaičių projekto produkte, pritaikykite modelį pagal WP3 A3.4 derliaus duomenis."
+  params.species.fucus_vesiculosus.common_name: "Pūslėtasis guveinis"
+  params.species.fucus_vesiculosus.calibration.LT-coastal.note: "Perkelta iš Estijos bandomosios vietos, kurioje druskingumas panašus. Kalibravimo Lietuvai nėra; kai bus gauti WP3 A3.4 duomenys, pakelkite iki A lygmens."
+  params.species.mytilus.common_name: "Valgomoji midija"
+  params.species.mytilus.calibration.LT-coastal.note: "Maistinėms medžiagoms šalinti skirto auginimo intervalas, ekstrapoliuotas Lietuvos vandenų druskingumui. Midijų biomasė rytinėje Baltijos jūros dalyje absoliučiais dydžiais yra maža; vis dėlto anglies efektyvumas biomasės vienetui yra didelis (Vaher et al. 2024). Akcentuokite efektyvumą, o ne teiginį apie sekvestraciją."
+  params.species.saccharina_latissima.common_name: "Cukrinė laminarija"
+  params.species.saccharina_latissima.calibration.DK-belt.note: "Perkelta iš B į C lygmenį: nė vienas šio failo koeficientas nepritaikytas pagal Danijos duomenis. 18.4 t FW/ha yra paskelbta Danijos vietų derliaus vertė, todėl tai literatūrinė vertė, taikoma toje vietoje, kurioje ji buvo išmatuota, o ne kalibravimas vietos duomenimis - „vietos“ reikštų pritaikymą pagal SeaGarden bandomosios vietos duomenis, o tokios bandomosios vietos čia nėra."
+  params.species.saccharina_latissima.calibration.LT-coastal.note: "OLAMUR bandomojoje vietoje Estijoje cukrinės laminarijos auginimas esant 5.5-6.5 psu nepavyko. Taikant druskingumo koeficientą, esant Lietuvos vandenų druskingumui būtų gautas nedidelis teigiamas derlius; šis skaičius nerodomas, nes jam prieštarauja stebėjimas. Čia tikslinga rinktis Fucus, Chorda arba maistinėms medžiagoms šalinti auginamas midijas."
+  params.species.saccharina_latissima.calibration.PL-lagoon.note: "Druskingumas Szczecino įlankoje yra gerokai mažesnis už įrodytą šios rūšies toleranciją. Auginti negalima."
+  params.species.ulva.common_name: "Jūros salotos"
+  params.species.ulva.calibration.default.note: "Niekur Pietų Baltijoje nėra kalibravimo vietos duomenimis. WP3 A3.4 stebi Ulva augimo sąlygas LT ir DE bandomosiose vietose; šie duomenys yra numatytas kelias į A lygmenį M24-30 laikotarpiu."
+  params.methods.mini_farm_kit.name: "Miniūkio rinkinys (A3.5)"
+  params.methods.mini_farm_kit.anchoring_unit: "vieno taško inkaravimas su paviršiniu plūduru"
+  params.methods.mini_farm_kit.cultivation_unit: "trumpa užsėta virvė"
+  params.methods.floating_longline.name: "Plūduriuojanti ilgoji virvė"
+  params.methods.floating_longline.anchoring_unit: "dviejų taškų inkaravimas su žymėjimo plūdurais"
+  params.methods.floating_longline.cultivation_unit: "plūduriuojančios užsėtos virvės"
+  params.methods.sinking_longline.name: "Skandinamoji (panardinta) ilgoji virvė"
+  params.methods.sinking_longline.anchoring_unit: "dviejų taškų inkaravimas, panardinta pagrindinė virvė"
+  params.methods.sinking_longline.cultivation_unit: "panardintos užsėtos virvės"
+  params.methods.raft.name: "Plaustas"
+  params.methods.raft.anchoring_unit: "kelių taškų inkaravimas"
+  params.methods.raft.cultivation_unit: "pakabinti rėmai"
+  params.methods.mussel_socks.name: "Midijų kojinės ant ilgosios virvės"
+  params.methods.mussel_socks.anchoring_unit: "dviejų taškų inkaravimas su žymėjimo plūdurais"
+  params.methods.mussel_socks.cultivation_unit: "pakabintos midijų kojinės"
+  params.methods.modular_pontoon.name: "Plūduriuojantis modulinis pontonas"
+  params.methods.modular_pontoon.anchoring_unit: "kelių taškų inkaravimas, modulinės plūdės"
+  params.methods.modular_pontoon.cultivation_unit: "virvių ir kojinių derinys"
+  params.group.macroalga: "makrodumbliai"
+  params.group.shellfish: "dvigeldžiai moliuskai"
