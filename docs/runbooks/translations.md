@@ -21,6 +21,13 @@ many values are fragments joined to others (`app.report.pressure_note`, one of t
 option lines, keeps two leading spaces in front of `{note}` in every language, English
 included).
 
+Every command below runs from the repository root, in a Python environment set up as
+README's "Run it" section describes (`pip install -e ".[app,dev]"`). They are written
+exactly as the maintainer runs them, inside the micromamba environment `shiny`:
+`micromamba run -n shiny` runs the rest of the line inside it, and
+`MKL_THREADING_LAYER=SEQUENTIAL` works around a numpy build quirk specific to that one
+environment. In any other environment, drop both prefixes and run what remains.
+
 Easiest way to read everything at once, English beside your language:
 
     micromamba run -n shiny python scripts/i18n_review_sheet.py <lang> > review-<lang>.md
@@ -58,27 +65,27 @@ Then edit the YAML files, not the sheet. The sheet is generated; the files are t
 
     MKL_THREADING_LAYER=SEQUENTIAL micromamba run -n shiny python -m pytest tests/test_i18n_guards.py -q
 
-Every message below is quoted exactly as pytest prints it, captured against a deliberately
-broken scratch copy of the German files (never the repository's own files - see this
-runbook's last line). pytest reports the file's *full* path on whatever machine runs it;
-these examples shorten that to the path from the repository root,
-`app/locales/de.yaml`, and leave the rest of each message untouched.
+Every message below keeps the exception class pytest reports and the message text exactly
+as printed, captured against a scratch copy of the German files broken on purpose for
+this runbook, never against the repository's own files. pytest reports the file's *full*
+path on whatever machine runs it; these examples shorten that to the path from the
+repository root, `app/locales/de.yaml`, and change nothing else.
 
 - **A placeholder mistyped or dropped** -
-  `app/locales/de.yaml: app.status.site_ready: placeholders ['label', 'n', 'scal'] differ from English ['label', 'n', 'scale']`.
+  `AssertionError: app/locales/de.yaml: app.status.site_ready: placeholders ['label', 'n', 'scal'] differ from English ['label', 'n', 'scale']`.
   Fix: spell the placeholder exactly as English does (`{scale}`, not `{scal}`) - move it
   in the sentence if you need to, never rename or drop it.
 - **A key deleted, renamed or added** -
-  `app/locales/de.yaml: missing ['app.shell.close'], extra ['app.shell.dismiss']`.
+  `AssertionError: app/locales/de.yaml: missing ['app.shell.close'], extra ['app.shell.dismiss']`.
   Fix: put the key back under its original name. The key set is fixed by the English
   file: a deleted key shows up as "missing", an invented one as "extra", and a rename -
   shown here - as one of each at once.
 - **A leading or trailing space lost** -
-  `app/locales/de.yaml: app.report.pressure_note has whitespace (' ', ''), English ('  ', '')`.
+  `AssertionError: app/locales/de.yaml: app.report.pressure_note has whitespace (' ', ''), English ('  ', '')`.
   Fix: restore the value's whitespace exactly, even where it looks like a stray space in
   the editor - here, two leading spaces and none trailing.
 - **A value emptied** -
-  `app/locales/de.yaml: app.report.caveats is empty where English is not`.
+  `AssertionError: app/locales/de.yaml: app.report.caveats is empty where English is not`.
   Fix: put the translated text back. An empty value is only allowed where English's own
   value is empty too.
 - **A plain `"` inside a value** - one stray quote breaks the YAML file, which fails
@@ -99,14 +106,17 @@ these examples shorten that to the path from the repository root,
   The first location (line 12) is just where the file's mapping began; ignore it. The
   second (line 243, column 28) is the actual stray quote. Fix: replace it with your
   language's own quotation marks (see "Rules that are not stylistic" above). Left
-  uncaught, this is also the shape of failure the last paragraph below is written for -
-  a broken file that never reaches a reader because it never reaches the loader either.
+  uncaught, this is also the shape of failure the last paragraph below is written for:
+  the stray quote fails inside the loader itself (`yaml.safe_load` in `Catalogue.load`,
+  `src/seagarden_dst/i18n.py:135`), not in some later rendering step, and in the running
+  app `enabled_languages` catches exactly that, disables the language, and logs the
+  warning described there.
 - **`status: reviewed` without `reviewed_by`/`reviewed_on`** -
   `ValueError: app/locales/de.yaml: status 'reviewed' needs reviewed_by and reviewed_on`.
   Fix: add both fields (see "Switching a language on" below for the exact lines), or set
   `status` back to `machine-draft` if the review is not actually finished.
 - **`status: reference`** -
-  `app/locales/de.yaml: only English is the reference; every other language is a draft or reviewed`.
+  `AssertionError: app/locales/de.yaml: only English is the reference; every other language is a draft or reviewed`.
   Fix: `reference` is reserved for `en.yaml`. Use `machine-draft` while reviewing, or
   `reviewed` once it is done.
 
