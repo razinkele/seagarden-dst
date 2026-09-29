@@ -399,6 +399,117 @@ def test_a_broken_catalogue_disables_its_language_and_never_the_site(tmp_path, c
     assert "de" in caplog.text
 
 
+def test_a_broken_catalogues_warning_is_logged_once_across_repeated_calls(
+    tmp_path, caplog, monkeypatch
+):
+    """I-b review (Important 2): the test above proves one call logs a warning; it
+    would still pass if a regression logged on every call instead of once per distinct
+    message. This calls the gate twice against the same broken catalogue and pins that
+    only one warning record is emitted.
+
+    Isolation: the dedup set (`app.i18n._logged_catalogue_errors`) is module-level and
+    process-wide, so this test resets it via `monkeypatch` rather than relying on this
+    test's `tmp_path`-embedded error message being distinct from every other test's -
+    that holds for a `ValueError` (whose text includes the failing file's path) but not
+    for the bare `AttributeError`s the next two tests trigger, whose text is the same
+    generic Python message regardless of which file caused it.
+    """
+    import logging
+
+    import app.i18n as app_i18n
+
+    monkeypatch.setattr(app_i18n, "_logged_catalogue_errors", set())
+
+    roots = {}
+    for owner in ("core", "app", "params"):
+        root = tmp_path / owner
+        root.mkdir()
+        (root / "de.yaml").write_text(
+            "language: de\nstatus: reviewed\nmessages:\n  a.b: x\n", encoding="utf-8"
+        )
+        roots[owner] = root
+
+    def status(language):
+        return catalogue_status(
+            language, core_root=roots["core"], app_root=roots["app"], params_root=roots["params"]
+        )
+
+    with caplog.at_level(logging.WARNING, logger="app.i18n"):
+        enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
+        enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "ValueError" in caplog.text  # the log line names the exception type too
+
+
+def test_a_catalogue_whose_top_level_is_a_list_disables_its_language_not_the_site(
+    tmp_path, caplog, monkeypatch
+):
+    """I-b review (Critical 1): `Catalogue.load` calls `data.get("language")` on
+    whatever `yaml.safe_load` returns. A file whose top level is a YAML list, not a
+    mapping, raises `AttributeError` - outside the original `(OSError, ValueError,
+    yaml.YAMLError)` tuple, which let this one raise out of `enabled_languages` and
+    take the whole site down, not just `de`. See the isolation note on the test above
+    for why the dedup set is reset here too."""
+    import logging
+
+    import app.i18n as app_i18n
+
+    monkeypatch.setattr(app_i18n, "_logged_catalogue_errors", set())
+
+    roots = {}
+    for owner in ("core", "app", "params"):
+        root = tmp_path / owner
+        root.mkdir()
+        (root / "de.yaml").write_text("- a\n- b\n", encoding="utf-8")
+        roots[owner] = root
+
+    def status(language):
+        return catalogue_status(
+            language, core_root=roots["core"], app_root=roots["app"], params_root=roots["params"]
+        )
+
+    with caplog.at_level(logging.WARNING, logger="app.i18n"):
+        enabled = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
+    assert enabled == ("en",)
+    assert "de" in caplog.text
+    assert "AttributeError" in caplog.text
+
+
+def test_a_catalogue_whose_messages_are_not_a_mapping_disables_its_language(
+    tmp_path, caplog, monkeypatch
+):
+    """I-b review (Critical 1): a `messages:` value that YAML parses as anything but a
+    mapping fails one level deeper in `Catalogue.load` (`.items()` on a string) - also
+    an `AttributeError` outside the original tuple, also just a disabled language."""
+    import logging
+
+    import app.i18n as app_i18n
+
+    monkeypatch.setattr(app_i18n, "_logged_catalogue_errors", set())
+
+    roots = {}
+    for owner in ("core", "app", "params"):
+        root = tmp_path / owner
+        root.mkdir()
+        (root / "de.yaml").write_text(
+            "language: de\nstatus: machine-draft\ntranslated_by: t\nmessages: nope\n",
+            encoding="utf-8",
+        )
+        roots[owner] = root
+
+    def status(language):
+        return catalogue_status(
+            language, core_root=roots["core"], app_root=roots["app"], params_root=roots["params"]
+        )
+
+    with caplog.at_level(logging.WARNING, logger="app.i18n"):
+        enabled = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
+    assert enabled == ("en",)
+    assert "de" in caplog.text
+    assert "AttributeError" in caplog.text
+
+
 def test_a_draft_report_says_so_in_both_languages_and_english_does_not():
     from datetime import date
 

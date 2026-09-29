@@ -20,8 +20,6 @@ from functools import cache
 from pathlib import Path
 from urllib.parse import parse_qs
 
-import yaml
-
 from seagarden_dst.calibration import Quantity
 from seagarden_dst.i18n import (
     CORE_LOCALES,
@@ -283,12 +281,15 @@ def enabled_languages(
     fails closed. The environment is read on every call; the default `status`,
     `catalogue_status`, is cached per process.
 
-    This function never raises because a catalogue is broken - a malformed header, a
-    bad status, an unreadable file, invalid YAML. English is never passed to `status`
-    (it is never a candidate), so it can never be disabled this way; a language whose
+    This function never raises because a catalogue is broken. Any failure to read a
+    language's catalogues - a malformed header, a bad status, an unreadable file,
+    invalid YAML, a YAML document that does not even parse to a mapping - disables
+    that language and that language alone; English is never passed to `status` (it is
+    never a candidate), so it can never be disabled this way. A language whose
     `status()` call fails is simply left out, as if its catalogues did not exist. Each
-    distinct error message is logged as a warning once per process (a module-level
-    set), so a catalogue that stays broken does not spam the log on every request.
+    distinct error message (naming the language, the exception type and its text) is
+    logged as a warning once per process (a module-level set), so a catalogue that
+    stays broken does not spam the log on every request.
     """
     wanted = env.get(ENV_LANGUAGES)
     candidates = [c.strip().lower() for c in wanted.split(",")] if wanted else list(LANGUAGES)
@@ -299,8 +300,18 @@ def enabled_languages(
             continue
         try:
             s = status(language)
-        except (OSError, ValueError, yaml.YAMLError) as exc:
-            message = f"catalogue for language {language!r} is broken and disabled: {exc}"
+        except Exception as exc:
+            # Deliberately broad (I-b review, Critical 1): `catalogue_status` and
+            # `Catalogue.load` can fail in more ways than `OSError`/`ValueError`/
+            # `yaml.YAMLError` cover - a catalogue YAML that parses to a list or a
+            # scalar instead of a mapping raises `AttributeError` from `data.get(...)`,
+            # for one - and every one of them must disable this language, never the
+            # site. `KeyboardInterrupt`/`SystemExit` are not `Exception` subclasses, so
+            # they still propagate.
+            message = (
+                f"catalogue for language {language!r} is broken and disabled: "
+                f"{type(exc).__name__}: {exc}"
+            )
             if message not in _logged_catalogue_errors:
                 _logged_catalogue_errors.add(message)
                 logging.getLogger(__name__).warning(message)
