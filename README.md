@@ -174,7 +174,8 @@ language when all three say `reviewed`, naming the reviewer and the date. Until 
 deployment can show drafts for a review round with `SEAGARDEN_SHOW_DRAFT_LANGUAGES=1`, under
 a bilingual "machine translation, not yet reviewed" banner; `SEAGARDEN_LANGUAGES=en,de`
 restricts the set. Numbers keep the decimal point and dates are ISO in every language.
-How to review and enable a language: `docs/runbooks/translations.md` (package I-b).
+Machine-draft catalogues exist for all five languages; none is reviewed yet, so the live
+instance shows English. How to review and enable one: `docs/runbooks/translations.md`.
 
 The core stays readable from a notebook: every sentence it produces is a `Message`, and
 `str(message)` is English. The JSON export writes each message as `{key, params, text}`.
