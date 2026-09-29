@@ -17,16 +17,21 @@ Three files per language, `<lang>` one of `de`, `pl`, `da`, `lt`, `sv`:
 Every value is a sentence or label; `{words_in_braces}` are placeholders the tool fills in
 (a number, a name). **Leave the placeholder names exactly as they are** and put them where
 your language wants them in the sentence. Keep any space at the start or end of a value:
-many values are fragments joined to others (`app.report.pressure_note`, one of the report's
-option lines, keeps two leading spaces in front of `{note}` in every language, English
-included).
+many values are fragments joined to others (`app.report.pressure_note`, the report's
+pressure-context note line, keeps two leading spaces in front of `{note}` in every
+language, English included).
 
 Every command below runs from the repository root, in a Python environment set up as
 README's "Run it" section describes (`pip install -e ".[app,dev]"`). They are written
-exactly as the maintainer runs them, inside the micromamba environment `shiny`:
-`micromamba run -n shiny` runs the rest of the line inside it, and
-`MKL_THREADING_LAYER=SEQUENTIAL` works around a numpy build quirk specific to that one
-environment. In any other environment, drop both prefixes and run what remains.
+exactly as the maintainer runs them, in a bash-style shell (on Windows, Git Bash) inside
+the micromamba environment `shiny`: `micromamba run -n shiny` runs the rest of the line
+inside it, and `MKL_THREADING_LAYER=SEQUENTIAL` works around a numpy build quirk specific
+to that one environment. In any other environment, drop those two prefixes and run what
+remains. A leading `NAME=value` sets an environment variable for that one command, which
+only a bash-style shell understands: in PowerShell, set it on a line of its own first
+(`$env:NAME = "value"`) and then run the rest. The draft preview's
+`SEAGARDEN_SHOW_DRAFT_LANGUAGES=1` (below) is the one prefix never to drop - it is what
+shows the drafts.
 
 Easiest way to read everything at once, English beside your language:
 
@@ -123,6 +128,12 @@ repository root, `app/locales/de.yaml`, and change nothing else.
 To see your language in the running app before it is enabled:
 
     SEAGARDEN_SHOW_DRAFT_LANGUAGES=1 micromamba run -n shiny shiny run app.app
+
+or, in PowerShell, the same as two lines (the variable then stays set for the rest of
+that PowerShell window; `Remove-Item Env:SEAGARDEN_SHOW_DRAFT_LANGUAGES` clears it):
+
+    $env:SEAGARDEN_SHOW_DRAFT_LANGUAGES = "1"
+    micromamba run -n shiny shiny run app.app
 
 then open `http://127.0.0.1:8000/?lang=<lang>`. The switch accepts `1`, `true`, `yes` or
 `on` (any case); anything else, including a typo, leaves drafts hidden - it fails closed,

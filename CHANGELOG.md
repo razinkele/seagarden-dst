@@ -47,11 +47,16 @@ tool whose caveats live only in conversation is one whose caveats get lost.
   `status: machine-draft` and naming the machine as translator. **None is enabled**: the
   live instance shows English until a native speaker reviews a language and flips its
   three headers (`docs/runbooks/translations.md`). `SEAGARDEN_SHOW_DRAFT_LANGUAGES=1` shows
-  them on a staging instance under a bilingual notice, and a report downloaded in a draft
-  language now starts with the same notice while the JSON export carries `language` and
-  `draft` fields. A catalogue file the tool cannot read now disables that language and is
-  logged instead of failing every page. Functional specification Amendment 6 records the
-  requirement; the data-layer design §8 gains row I.
+  them on a staging instance under a bilingual notice, and a text report downloaded in a
+  draft language now starts with the same notice.
+  **JSON export schema change (additive), for every export, English included:** the
+  download gains two top-level keys at the head of the file, `language` (the language it
+  was rendered in) and `draft` (`true` for an unreviewed language), so an English export
+  now starts `"language": "en", "draft": false`, and the no-assessment export, `{}`
+  before, is now `{"language": "en", "draft": false}`. No existing key changes.
+  A catalogue file the tool cannot read now disables that language and is logged instead
+  of failing every page. Functional specification Amendment 6 records the requirement; the
+  data-layer design §8 gains row I.
   **Known limit:** the drafts have not been read by a speaker of any of the five languages;
   the legal-weight sentences in particular are unreviewed and must not be quoted from a
   draft.

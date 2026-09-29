@@ -549,7 +549,7 @@ containing **Tagalaht** — the only published anchor the parameterisation has �
 PL-lagoon with it. The anchor forces the grid, and the largest candidate artifact is
 50.7 MB, so nothing argues for coarsening anyway.
 
-Everything else is fixed here, because four of the eleven packages in §8 could not otherwise
+Everything else is fixed here, because four of the packages in §8 could not otherwise
 have their first failing test written.
 
 ### 6.1 Variables, and the statistic for each
