@@ -437,7 +437,9 @@ def test_a_broken_catalogues_warning_is_logged_once_across_repeated_calls(
     with caplog.at_level(logging.WARNING, logger="app.i18n"):
         enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
         enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
-    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    warnings = [
+        r for r in caplog.records if r.levelno == logging.WARNING and r.name == "app.i18n"
+    ]
     assert len(warnings) == 1
     assert "ValueError" in caplog.text  # the log line names the exception type too
 
@@ -545,3 +547,19 @@ def test_the_json_export_of_a_real_assessment_keeps_every_to_dict_key():
     # Every key `to_dict()` emits is still there, beside the two new ones - nothing
     # dropped, nothing extra.
     assert set(payload) == {"language", "draft", *assessment.to_dict()}
+
+
+def test_to_dict_never_emits_a_key_the_json_export_writes_itself():
+    """I-b final review: `export_json` writes `language` and `draft` first, where a
+    reader of the file sees them, and spreads `to_dict()` after them - so a `to_dict()`
+    key of either name would overwrite a marker without a sound, and a German download
+    could call itself English. The test above cannot see that (a set union hides the
+    collision); this one fails on it."""
+    import json
+
+    from app.modules.report import export_json
+
+    assessment = _assessed_state().assessment.get()
+    assert {"language", "draft"}.isdisjoint(assessment.to_dict())
+    payload = json.loads(export_json(assessment, Translator.pseudo()))
+    assert payload["language"] == "xx" and payload["draft"] is True

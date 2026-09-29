@@ -18,7 +18,7 @@ import pytest
 from app.i18n import LANGUAGE_NAMES, LANGUAGES, Translator, enabled_languages
 from app.modules._widgets import calibration_legend, data_source_banner, headline_for
 from app.modules.catalogue import method_table, species_table
-from app.modules.report import render_report
+from app.modules.report import export_json, render_report
 from app.modules.results import render_excluded, render_pressure, render_ranking, run_assessment
 from app.modules.site import _legend, render_conditions, render_position_note, site_markers
 from app.modules.user_mode import mode_question_tag, user_mode_ui
@@ -285,9 +285,13 @@ def _region_renders(region: str) -> list[str]:
     skip = ("position", "colour", "region", "provenance")
     for marker in site_markers(XX):
         rendered.append(" ".join(str(v) for k, v in marker.items() if k not in skip))
-    # The JSON download (report.py, `to_dict(render=tr.render)`, spec I§8.6): only the
-    # values under "text" keys are prose a user reads; see `_text_values`.
-    payload = json.loads(json.dumps(assessment.to_dict(render=XX.render), default=str))
+    # The JSON download itself - `export_json`, the bytes the Report panel serves (spec
+    # I§8.6) - so a download that stops rendering in the session's language fails here,
+    # not only a bare `to_dict` call (I-b final review). Only the values under "text"
+    # keys are prose a user reads; see `_text_values`, which never visits the two
+    # top-level markers - checked here instead, to name the session's language.
+    payload = json.loads(export_json(assessment, XX))
+    assert payload["language"] == "xx" and payload["draft"] is True
     rendered.extend(_text_values(payload))
     return rendered
 
@@ -383,38 +387,97 @@ def test_8_a_draft_language_is_hidden_unless_the_deployment_shows_drafts():
     assert "de" in shown and language_for("?lang=de", None, shown) == "de"
 
 
-def test_8_a_draft_language_renders_under_the_switch():
-    """The first rendered page in a real second language: shown only with the switch,
-    translated, and bannered in both languages."""
-    import html as htmllib
+#: Test 8 below runs for every language but English (first in `LANGUAGES`), whatever
+#: its catalogues say on disk (I-b final review): the pull request that flips a language
+#: to `reviewed` must pass it unchanged, so a banner is asserted present exactly when
+#: the language is a draft - never assumed because every language is a draft today.
+_TRANSLATED_LANGUAGES = LANGUAGES[1:]
 
+#: App-owned strings the page shows at load, each as a text node of its own: the
+#: sidebar's hidden title and its heading, the Assess button, the four panel tabs.
+_PAGE_APP_KEYS = (
+    "app.shell.title", "app.shell.setup", "app.shell.assess",
+    "app.nav.site", "app.nav.catalogue", "app.nav.results", "app.nav.report",
+)
+
+
+def _text_nodes(tag) -> list[str]:
+    """Every text node of a render (and the readable attributes `_Text` collects),
+    stripped. Test 8 matches a translated string against a WHOLE node, never as a
+    substring: German "Bewerten" (the Assess button) also sits inside the sidebar's
+    workflow sentence, and Swedish "Bedöm" inside "Bedömningsrapport"."""
+    parser = _Text()
+    parser.feed(str(tag))
+    return [chunk.strip() for chunk in parser.chunks if chunk.strip()]
+
+
+def _first_translated(pairs) -> str:
+    """The first `(translation, English)` pair whose sides differ: proof that an owner's
+    catalogue was read, not fallen back to English. Picked per language from everything
+    the render shows, so one value that happens to read as in English (a loan word, a
+    brand) cannot break the test for that language."""
+    for translated, source in pairs:
+        if translated != source:
+            return translated
+    raise AssertionError("every candidate renders exactly as its English source")
+
+
+@pytest.mark.parametrize("language", _TRANSLATED_LANGUAGES)
+def test_8_each_language_renders_under_the_switch_bannered_iff_a_draft(language):
+    """Spec I§8 test 8, for each language: with the switch set, the language is enabled
+    and its page renders in it - the app's chrome, the core's region names (the Site
+    panel's menu) and the sidecar's species names (the Catalogue panel's checkboxes) -
+    and the bilingual draft banner is on the page, once, exactly when the language is
+    still a draft. Reviewed, the same page must carry no banner at all."""
     from app.app import build_ui
-    from app.i18n import enabled_languages, english, language_for
+    from app.i18n import english, language_for
 
     shown = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"})
-    assert "de" in shown and language_for("?lang=de", None, shown) == "de"
-    de = Translator.for_language("de")
-    assert de.is_draft
-    page = htmllib.unescape(str(build_ui("de", enabled=shown)))
-    assert 'lang="de"' in page
-    assert de("app.shell.assess") != english()("app.shell.assess")
-    assert de("app.shell.assess") in page
-    assert de("app.shell.draft_banner") in page
-    assert english()("app.shell.draft_banner") in page
+    assert language in shown and language_for(f"?lang={language}", None, shown) == language
+    tr, en = Translator.for_language(language), english()
+    page = build_ui(language, enabled=shown)
+    assert f'lang="{language}"' in str(page)
+    nodes = _text_nodes(page)
+    owned = {
+        "app": _first_translated((tr(key), en(key)) for key in _PAGE_APP_KEYS),
+        "core": _first_translated((tr.render(name), en.render(name)) for name in REGIONS.values()),
+        "params": _first_translated(
+            (tr.species_name(key), en.species_name(key)) for key in PARAMS.species
+        ),
+    }
+    for owner, text in owned.items():
+        assert text in nodes, f"{owner}-owned {text!r} is not a text node of the page"
+    for half in (tr("app.shell.draft_banner"), ENGLISH_DRAFT_BANNER):
+        assert nodes.count(half) == (1 if tr.is_draft else 0), (half, tr.status)
 
 
-def test_8_a_draft_language_report_opens_with_the_bilingual_draft_line():
-    """The same for the report a user downloads: a placeholder site rendered in German
-    starts with the draft line in both languages and ends on the translated footer."""
+@pytest.mark.parametrize("language", _TRANSLATED_LANGUAGES)
+def test_8_each_languages_report_opens_with_the_draft_line_iff_a_draft(language):
+    """The same for the report a user downloads, at a placeholder site: its first line is
+    the bilingual draft line exactly when the language is a draft (the report's own
+    heading otherwise); the core's legal sentence and a sidecar species name appear
+    translated; and it ends on the translated footer."""
     from app.i18n import english
     from seagarden_dst.api import assess_site
+    from seagarden_dst.i18n import msg
 
-    de = Translator.for_language("de")
+    tr, en = Translator.for_language(language), english()
     assessment = assess_site(SiteContext.from_region("DE-coastal", label="Rostock"))
-    text = render_report(assessment, today=date(2026, 9, 28), tr=de)
-    banner = f"{de('app.shell.draft_banner')} {english()('app.shell.draft_banner')}"
-    assert text.startswith(banner + "\n")
-    assert de("app.report.source.placeholder_bare") in text  # a placeholder site
-    assert de("app.report.footer") != english()("app.report.footer")
-    assert de("app.report.footer") in text
-    assert english()("app.report.footer") not in text
+    text = render_report(assessment, today=date(2026, 9, 28), tr=tr)
+    lines = text.splitlines()
+    if tr.is_draft:
+        assert lines[0] == f"{tr('app.shell.draft_banner')} {ENGLISH_DRAFT_BANNER}"
+        assert lines[1] == tr("app.report.heading")
+    else:
+        assert lines[0] == tr("app.report.heading")
+    assert text.count(ENGLISH_DRAFT_BANNER) == (1 if tr.is_draft else 0), tr.status
+    assert tr("app.report.source.placeholder_bare") in text  # a placeholder site
+    legal = msg("suitability.legal.no_record")
+    assert tr.render(legal) != en.render(legal) and tr.render(legal) in text
+    species = _first_translated(
+        (tr.species_name(o.species_key), en.species_name(o.species_key))
+        for o in assessment.ranked
+    )
+    assert species in text
+    footer = tr("app.report.footer")
+    assert footer != en("app.report.footer") and text.endswith(footer)

@@ -160,7 +160,11 @@ def export_json(assessment, tr: Translator) -> str:
     """The JSON download's payload: every key `assessment.to_dict()` emits, plus the
     language it was rendered in and whether that language is a draft (I§6) - so the
     file says, on its own, what it is, without a reader having to notice which of five
-    machine-draft languages it came out in. With no assessment, just those two keys."""
+    machine-draft languages it came out in. With no assessment, just those two keys.
+
+    The markers come first, so they head the file; `to_dict()` never emits either key
+    (`test_to_dict_never_emits_a_key_the_json_export_writes_itself`), so its spread
+    below cannot overwrite them."""
     payload = {
         "language": tr.language,
         "draft": tr.is_draft,
