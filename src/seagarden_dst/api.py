@@ -25,18 +25,18 @@ from .forcing import (
     SiteConditions,
 )
 from .growth import contraindication, harvest_biomass
+from .i18n import Message, msg
 from .nutrients import from_harvest
 from .params import MethodParams, ParameterSet, SpeciesParams, default_parameters
 from .scenarios import DEFAULT_SCALE, SCALES
 from .shellfish import harvest as shellfish_harvest
 from .suitability import assess
 
-#: English label per caveat slug. `SiteAssessment.caveats` is keyed by the slug (I§3);
-#: the renderers look the label up here, and package I-a translates this table.
-CAVEAT_LABELS: dict[str, str] = {
-    "nutrient_forcing": "nutrient forcing",
-    "site_conditions": "site conditions",
-    "calibration": "calibration",
+#: Label per caveat slug. `SiteAssessment.caveats` is keyed by the slug (I§3); the
+#: renderers look the label up here.
+CAVEAT_LABELS: dict[str, Message] = {
+    slug: msg(f"api.caveat.label.{slug}")
+    for slug in ("nutrient_forcing", "site_conditions", "calibration")
 }
 
 
@@ -181,22 +181,22 @@ def assess_site(
     # Optional nutrient forcing. Applied BEFORE anything is assessed, so every option
     # in the ranking sees the same water.
     working = context
-    caveats: dict[str, str] = {}
+    caveats: dict[str, Message] = {}
     if eutropy is not None:
         try:
             working, note = apply_nutrient_scenario(context, eutropy)
             if note:
                 caveats["nutrient_forcing"] = note
         except EutropyUnavailable as exc:
-            caveats["nutrient_forcing"] = f"EUTROPY forcing not applied: {exc}"
+            caveats["nutrient_forcing"] = msg("api.caveat.eutropy_not_applied", error=str(exc))
 
-    excluded: dict[str, str] = {}
+    excluded: dict[str, Message] = {}
     options: list[SpeciesOption] = []
 
     for key in keys:
         species_params = params.species.get(key)
         if species_params is None:
-            excluded[key] = "No parameter file for this species."
+            excluded[key] = msg("api.excluded.no_parameter_file")
             continue
 
         method_key = methods.get(key)
@@ -206,14 +206,14 @@ def assess_site(
             else select_method(species_params, params, working.conditions, area_m2)
         )
         if method is None:
-            excluded[key] = "No cultivation method in the catalogue suits this species."
+            excluded[key] = msg("api.excluded.no_method")
             continue
 
         # Contraindication is an exclusion, not a low score. A tier D pairing is kept
         # visible with its reason rather than ranked last and scrolled past.
         contra = contraindication(species_params, working.conditions)
         if contra is not None:
-            excluded[key] = contra.note or "Contraindicated at this site."
+            excluded[key] = contra.caveat()
             continue
 
         try:
@@ -226,37 +226,29 @@ def assess_site(
             # excluded; the rest of the loop proceeds. Deliberately NOT a bare
             # ValueError: a missing growth parameter or a bug in a source is a defect
             # that must fail loudly, not appear as a quietly excluded species.
-            excluded[key] = str(exc)
+            excluded[key] = Message.literal(str(exc))  # literal: the reader's own message
             continue
 
     ranked = sorted(options, key=lambda o: o.nitrogen_value, reverse=True)
     best = next((o for o in ranked if o.is_reportable and o.verdict != "unsuitable"), None)
 
     pressure: dict[str, float] = {}
-    pressure_note = ""
+    pressure_note: Message | None = None
     if bowtie is not None:
         try:
             pressure, pressure_note = eutrophication_pressure(working, bowtie)
         except BowtieUnavailable as exc:
-            pressure_note = str(exc)
+            pressure_note = Message.literal(str(exc))  # literal: the engine's own message
 
     if working.conditions is not context.conditions:
-        caveats.setdefault(
-            "site_conditions",
-            "Nutrient concentrations were overridden by a scenario; other conditions "
-            "are unchanged.",
-        )
+        caveats.setdefault("site_conditions", msg("api.caveat.site_conditions"))
     weakest = None
     tiers = [o.tier for o in ranked if o.is_reportable]
     if tiers:
         order = [Tier.A, Tier.B, Tier.C]
         weakest = max(tiers, key=lambda t: order.index(t) if t in order else 99)
     if weakest is Tier.C:
-        caveats.setdefault(
-            "calibration",
-            "At least one option rests on literature priors with no local validation. "
-            "Read the harvest figures as indicative bands.",
-        )
+        caveats.setdefault("calibration", msg("api.caveat.calibration"))
 
     return SiteAssessment(
         context=working,

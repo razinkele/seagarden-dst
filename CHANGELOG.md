@@ -11,6 +11,36 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
+### Added
+
+- **Package I-a — the internationalisation seam.** The core's prose is `Message`-valued
+  (`seagarden_dst.i18n`), rendered from `locales/en.yaml`; the app builds its page per
+  request in the language `?lang=` or `Accept-Language` asks for, through one `Translator`
+  per language, and shows a language menu. English output is byte-identical (the report
+  golden proves it) except two sentences: the sidebar status line, now count-neutral, and
+  a new About-dialog sentence — numbers keep the decimal point and dates are year-month-day
+  in every language. **Only English ships**: no other catalogue exists yet (package I-b),
+  so the menu has one entry. **JSON export schema change:** every message field
+  (`binding_constraint`, `constraints`, `excluded`, `caveats`, `pressure_note`,
+  `site.source_note`) is now `{key, params, text}` rather than a string. `text` is
+  rendered by `to_dict`'s `render` (English by default; the Report panel's download
+  passes the session's `Translator.render`, so it is what the requesting user read), and a
+  nested message inside `params` is rendered the same way rather than kept as a key; any
+  other parameter is kept as given. Only a literal's `params.text` carries its raw source —
+  for text from `params/` (a calibration note), the English source, whatever the language
+  of `text`. Quantities are unchanged. **Python API change for notebook users:** these
+  are now `Message` values — use `str()` for the English; a printed dict of them shows
+  each key beside its English text: `Tier.label` and `.presentation`, `Verdict.label`,
+  `SiteProvenance.label` and `.presentation`, `Calibration.caveat()` (and the `note` of a
+  contraindication the core synthesises), the values of `REGIONS`, `SCALE_LABELS` and
+  `CAVEAT_LABELS`, the values of `SiteAssessment.caveats` and `.excluded`,
+  `Constraint.name` and `.reason` (so also the first and last item of each
+  `SpeciesOption.constraints` tuple), `Suitability.explain()` and
+  `SpeciesOption.binding_constraint`. An absent `pressure_note` or `source_note` is
+  `None`, and `removal_framing()` with no pressure returns `None`, where each was `""`;
+  `to_dict()` takes `render=`. New environment variables `SEAGARDEN_LANGUAGES` and
+  `SEAGARDEN_SHOW_DRAFT_LANGUAGES` (README, *Languages*).
+
 ### Changed
 
 - **Package I-0 — the identifier split.** `SCALES` is keyed by slug

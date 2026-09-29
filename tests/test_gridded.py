@@ -399,6 +399,6 @@ def test_a_nutrient_scenario_on_an_artifact_session_returns_rather_than_raising(
     assessment = assess_site(
         context, forcing=reader, year=2024, eutropy={"din_umol_l": 5.0, "dip_umol_l": 0.5}
     )
-    assert not any("GriddedForcing" in why for why in assessment.excluded.values())
+    assert not any("GriddedForcing" in why for why in map(str, assessment.excluded.values()))
     assert "saccharina_latissima" in assessment.excluded
-    assert "psu" in assessment.excluded["saccharina_latissima"]
+    assert "psu" in str(assessment.excluded["saccharina_latissima"])

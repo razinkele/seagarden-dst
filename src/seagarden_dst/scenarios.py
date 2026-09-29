@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from .calibration import Quantity, for_display
 from .forcing import DEFAULT_FORCING, ForcingSource, SiteConditions
 from .growth import harvest_biomass
+from .i18n import Message, msg
 from .nutrients import NutrientRemoval, from_harvest
 from .params import MethodParams, ParameterSet, SpeciesParams
 from .shellfish import harvest as shellfish_harvest
@@ -36,13 +37,8 @@ SCALES: dict[str, float] = {
     "small_commercial_5_ha": 50_000.0,
 }
 
-#: English label per scale key — the only place the sentence lives.
-SCALE_LABELS: dict[str, str] = {
-    "mini_farm_kit": "mini-farm kit",
-    "community_farm_0_1_ha": "community farm (0.1 ha)",
-    "community_farm_1_ha": "community farm (1 ha)",
-    "small_commercial_5_ha": "small commercial (5 ha)",
-}
+#: Label per scale key — the only place the sentence lives.
+SCALE_LABELS: dict[str, Message] = {key: msg(f"scenarios.scale.{key}") for key in SCALES}
 
 #: The scale `assess_site` and `default_scenarios` assume when none is asked for.
 DEFAULT_SCALE = "community_farm_0_1_ha"
@@ -136,9 +132,9 @@ def compare(
             "Method": scenario.method.name,
             "Area (ha)": round(scenario.area_ha, 4),
             "Verdict": result.suitability.verdict.value,
-            "Binding constraint": result.suitability.explain(),
+            "Binding constraint": str(result.suitability.explain()),
             "Harvest": str(for_display(result.harvest)),
-            "Calibration": result.harvest.calibration.tier.label,
+            "Calibration": str(result.harvest.calibration.tier.label),
         }
         if result.removal is not None:
             row["Nitrogen removed"] = str(for_display(result.removal.nitrogen))

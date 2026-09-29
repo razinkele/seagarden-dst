@@ -26,6 +26,7 @@
   --sg-muted:       #5b6b84;
   --sg-bg:          #eff4f8;   /* page background (pale blue-green)            */
   --sg-bg-2:        #f7fafc;
+  --sg-sand:        #f5efe3;   /* warm neutral — draft-language notice         */
   --sg-surface:     #ffffff;
   --sg-line:        rgba(20, 52, 92, 0.14);
   --sg-line-soft:   rgba(20, 52, 92, 0.08);
@@ -354,3 +355,7 @@ a:hover { color: var(--sg-navy-deep); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* Package I: language menu and the machine-draft notice. */
+.sg-lang-current { opacity: .7; }
+.sg-draft-banner { padding: .4rem 1rem; font-size: .9em; background: var(--sg-sand); }

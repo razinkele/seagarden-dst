@@ -30,6 +30,7 @@ from .forcing import (
     SiteConditions,
     require_finite_series,
 )
+from .i18n import msg
 from .params import SpeciesParams
 
 KELVIN = 273.15
@@ -251,20 +252,15 @@ def contraindication(species: SpeciesParams, site: SiteConditions) -> Calibratio
     if floor is not None:
         floor_psu, floor_basis = floor
         if site.salinity_psu < floor_psu:
-            if floor_basis == "observed":
-                detail = "cultivation failure has been observed at this salinity"
-            else:
-                detail = (
-                    "the floor is assumed - no cultivation trial at this salinity is "
-                    "known to us"
-                )
+            detail = msg(
+                "growth.contraindication.observed"
+                if floor_basis == "observed"
+                else "growth.contraindication.assumed"
+            )
             return Calibration(
                 tier=Tier.D,
                 region=site.region,
                 source=calibration.source,
-                note=(
-                    f"Below {floor_psu:g} psu the model returns a positive yield, but "
-                    f"{detail}. Treat as not cultivable here."
-                ),
+                note=msg("growth.contraindication.note", floor=f"{floor_psu:g}", detail=detail),
             )
     return None

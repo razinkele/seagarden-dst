@@ -25,6 +25,7 @@ adapter says so on the result.
 from __future__ import annotations
 
 from .contracts import SiteContext
+from .i18n import Message, msg
 
 #: Regions the published Curonian Lagoon bow-tie speaks for directly.
 LAGOON_REGIONS = {"PL-lagoon", "LT-lagoon", "curonian-lagoon"}
@@ -39,7 +40,7 @@ class BowtieUnavailable(RuntimeError):
 
 def eutrophication_pressure(
     context: SiteContext, inference: dict
-) -> tuple[dict[str, float], str]:
+) -> tuple[dict[str, float], Message]:
     """Normalise a bow-tie inference result into pressure context for the UI.
 
     Args:
@@ -83,37 +84,23 @@ def eutrophication_pressure(
         raise BowtieUnavailable("top-event marginal sums to zero")
     values = {k: v / total for k, v in values.items()}
 
-    label = inference.get("label") or "bow-tie scenario"
-    note = f"Eutrophication pressure from the MARBEFES bow-tie ({label})."
+    label = inference.get("label") or msg("adapters.bowtie.default_label")
+    parts = [msg("adapters.bowtie.pressure", label=label)]
     if context.region not in LAGOON_REGIONS:
-        note += (
-            f" The published bow-tie is parameterised for the Curonian Lagoon; this "
-            f"site is {context.region}. Read it as pressure context for the decision, "
-            f"not as a risk estimate for this water body."
-        )
-    note += (
-        " Reported beside the ranking and never folded into it: a yield weighted by a "
-        "risk probability is neither a yield nor a risk."
-    )
-    return values, note
+        parts.append(msg("adapters.bowtie.out_of_domain", region=context.region))
+    parts.append(msg("adapters.bowtie.beside"))
+    return values, Message.join(*parts)
 
 
-def removal_framing(pressure: dict[str, float], high_threshold: float = 0.4) -> str:
+def removal_framing(pressure: dict[str, float], high_threshold: float = 0.4) -> Message | None:
     """One sentence putting nutrient removal in the context of the pressure.
 
     This is the only place the two are allowed to meet, and they meet in prose where
     a reader can see the reasoning, not in arithmetic where they cannot.
     """
     if not pressure:
-        return ""
+        return None
     high = pressure.get("High", 0.0)
     if high >= high_threshold:
-        return (
-            f"P(top event High) = {high:.2f}. At this pressure, removal by farming is "
-            f"mitigation of an active problem, and the case for scale is stronger."
-        )
-    return (
-        f"P(top event High) = {high:.2f}. At this pressure, removal by farming is "
-        f"maintenance rather than mitigation; the ecological case rests less on "
-        f"nutrient figures and more on habitat and community outcomes."
-    )
+        return msg("adapters.bowtie.framing_high", p=f"{high:.2f}")
+    return msg("adapters.bowtie.framing_low", p=f"{high:.2f}")

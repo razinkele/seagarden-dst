@@ -64,7 +64,7 @@ def test_depth_is_no_longer_the_binding_constraint_at_a_normal_site():
     algae = [o for o in result.ranked if o.species_key != "mytilus"]
     assert algae
     assert not any(
-        "outside the workable window" in o.binding_constraint for o in algae
+        "outside the workable window" in str(o.binding_constraint) for o in algae
     ), "default method is fighting the site depth again"
 
 

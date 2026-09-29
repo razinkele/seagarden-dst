@@ -34,6 +34,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from .contracts import SiteContext
+from .i18n import Message, msg
 
 #: Regions for which an EUTROPY scenario is a defensible source of nutrient forcing.
 LAGOON_REGIONS = {"PL-lagoon", "LT-lagoon", "curonian-lagoon"}
@@ -54,7 +55,7 @@ def _require(mapping: dict, key: str) -> float:
 
 def apply_nutrient_scenario(
     context: SiteContext, scenario: dict
-) -> tuple[SiteContext, str]:
+) -> tuple[SiteContext, Message]:
     """Return a context whose DIN and DIP come from an EUTROPY scenario.
 
     Args:
@@ -90,21 +91,20 @@ def apply_nutrient_scenario(
         bits.append(f"box {scenario['box']}")
     if scenario.get("fN") is not None and scenario.get("fP") is not None:
         bits.append(f"fN={scenario['fN']}, fP={scenario['fP']}")
-    run = "; ".join(bits) or "unlabelled run"
+    # `run` is the scenario's own data ("L; box 19", "fN=0.5, fP=0.5") when it names
+    # itself, kept as a plain str. When it names nothing, `run` is the Message itself,
+    # not its English `str()`, so "unlabelled run" renders in the session's language.
+    run = "; ".join(bits) if bits else msg("adapters.eutropy.unlabelled_run")
 
     scenario_region = scenario.get("region")
-    note = f"DIN and DIP from EUTROPY ({run})."
+    parts = [msg("adapters.eutropy.applied", run=run)]
     if context.region not in LAGOON_REGIONS:
-        note += (
-            f" EUTROPY is a Curonian Lagoon box model and this site is "
-            f"{context.region}, an open-coast sub-region: the lagoon's salinity, "
-            f"residence time and nutrient regime differ materially. Treat the result "
-            f"as scenario reasoning, not as a prediction for this site."
-        )
+        parts.append(msg("adapters.eutropy.out_of_domain", region=context.region))
     elif scenario_region and scenario_region != context.region:
-        note += f" Scenario declared for {scenario_region}, applied to {context.region}."
-
-    return forced, note
+        parts.append(
+            msg("adapters.eutropy.region_mismatch", declared=scenario_region, region=context.region)
+        )
+    return forced, Message.join(*parts)
 
 
 def scenario_from_ensemble(

@@ -26,6 +26,12 @@ because that is a property of the app.
 | nginx | `laguna-seagarden-dst.location.conf`, included in the `nid4ocean` vhost | `~/seagarden/deploy/nginx/` |
 | Portal card | `/var/www/html/services.json`, id `seagarden-dst` | **not version-controlled anywhere** |
 
+Two optional variables govern languages (package I): `SEAGARDEN_LANGUAGES=en,de` restricts
+the menu to those codes; `SEAGARDEN_SHOW_DRAFT_LANGUAGES=1` shows machine-draft catalogues
+under a bilingual notice — for a partner review round on a staging instance, never on the
+live one. Neither is set on laguna; the live instance shows English until a language is
+reviewed (`docs/runbooks/translations.md`, package I-b).
+
 `~/seagarden/deploy/README.md` §"SeaGarden DST on the laguna portal" explains *why* the app
 runs under its own unit rather than shiny-server, and why no `--root-path` is needed. Read it
 once before your first deploy; do not duplicate it here.

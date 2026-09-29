@@ -125,3 +125,16 @@ def test_every_source_subpackage_is_declared():
     }
     missing = sorted(found - declared)
     assert not missing, f"not in [tool.setuptools] packages: {missing}"
+
+
+def test_every_core_locale_file_is_covered_by_a_package_data_glob():
+    """`str(Message)` reads locales/en.yaml; a wheel without it cannot print a caveat."""
+    import fnmatch
+
+    globs = _pyproject()["tool"]["setuptools"]["package-data"]["seagarden_dst"]
+    locales = REPO / "src" / "seagarden_dst" / "locales"
+    files = sorted(locales.glob("*.yaml"))
+    assert files, "no core catalogue committed"
+    for path in files:
+        rel = path.relative_to(locales.parent).as_posix()
+        assert any(fnmatch.fnmatch(rel, g) for g in globs), f"{rel} not shipped"

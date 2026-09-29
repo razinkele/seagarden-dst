@@ -121,7 +121,7 @@ def test_sugar_kelp_is_contraindicated_in_lithuania(params):
     harvest = harvest_biomass(kelp, site, area_m2=1000.0)
     assert not harvest.calibration.is_reportable
     assert harvest.value == 0.0
-    assert "not shown" in (harvest.calibration.note or "").lower()
+    assert "not shown" in str(harvest.calibration.note or "").lower()
 
 
 def test_sugar_kelp_is_fine_in_the_danish_belt(params):

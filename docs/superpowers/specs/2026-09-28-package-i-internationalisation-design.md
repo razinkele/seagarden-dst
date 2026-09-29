@@ -77,14 +77,16 @@ No Shiny import, no file IO beyond reading its own package data, no global mutab
 ### I§4.1 `Message`
 
 ```python
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class Message:
     key: str
     params: Mapping[str, object]      # display-ready scalars, or nested Messages
 
     def __str__(self) -> str: ...      # English, from the packaged reference catalogue
-    def to_dict(self, language: str = "en") -> dict: ...
-        # {"key": ..., "params": {...}, "text": ...}; nested Messages become their text
+    def __repr__(self) -> str: ...     # key beside English text, so print(caveats) reads
+    def to_dict(self, render: Callable[[Message], str] = str) -> dict: ...
+        # {"key": ..., "params": {...}, "text": render(self)}; nested Messages are
+        # rendered with the same `render` - English by default, Translator.render in the app
     @classmethod
     def literal(cls, text: str) -> Message: ...
         # key "literal", params {"text": text}: for prose that is DATA, not code
@@ -106,6 +108,9 @@ Rules the type enforces:
   unless the `Translator`'s text index (I§5.4) has a translation for that exact source
   string, which it does for every YAML-sourced string the sidecar covers and never for a
   reader diagnostic. Test 5 guards that `literal` appears only at allowlisted sites.
+- **`Message.join(*parts)`** composes optional sentences (the adapters' notes) as one
+  message with key `_join`; it renders its parts in the same language, separated by a
+  space.
 - **The app never constructs a `Message`.** `Message.__str__` reads the core's English
   catalogue, so an app-built `Message("app.…")` would raise on `str()`. App chrome goes
   through `Translator.__call__` with a key; core prose arrives as a `Message` and is
@@ -182,10 +187,11 @@ reviewer: *if the string would be wrong in German, it is a `Message`.*
 | `SpeciesParams.common_name`, `MethodParams.name`, `.anchoring_unit`, `.cultivation_unit` | `str` from YAML | unchanged type; the app translates through `Translator.species_name(key)`, `.method_name(key)` and the text index (I§5.4). `scientific_name` is never translated |
 | `ForcingChoice.reason`, reader refusals | `str` | **unchanged** — operator diagnostics, English by design (I§7); wrapping them would touch `forcing.py`, `gridded.py` and their tests for no translation |
 
-`to_dict()` on `SpeciesOption` and `SiteAssessment` gains a `language` argument and emits
-each `Message` as `{"key", "params", "text"}`. The structure is stable and machine-readable
-across languages; the text is what the requesting user read. This is a JSON export schema
-change and CHANGELOG says so.
+`to_dict()` on `SpeciesOption` and `SiteAssessment` gains a `render` argument — a callable
+from `Message` to `str`, `str` (English) by default; the app passes `Translator.render` —
+and emits each `Message` as `{"key", "params", "text"}`. The structure is stable and
+machine-readable across languages; the text is what the requesting user read. This is a
+JSON export schema change and CHANGELOG says so.
 
 ### I§5.2 In the app
 
@@ -226,12 +232,16 @@ reading them.
   default site label in `_set_site` (today `REGIONS[region]`) is rendered **at commit
   time in the session language**; `SiteContext.label` stays `str`, because it is what
   the user typed or accepted, not a message.
+- The map tooltip's label is keyed like every other string: the page's map, and with it
+  the tooltip template the browser uses, is built by `site_ui` with the request's `tr`.
+  The server's own widget exists before the session's language is known, so it is built
+  in English, but it only sends layers and reads clicks — never a tooltip.
 - The About, Help and Feedback modals are three keys each holding a whole markdown block,
   because a reviewer needs to read them as prose and a sentence-by-sentence split would
   produce German in English word order.
 - The plain-text report is rendered through `tr`: section headings, field labels,
   `tr.quantity()` for every number, `tr.render()` for every message. The JSON download
-  calls `assessment.to_dict(language=tr.language)`.
+  calls `assessment.to_dict(render=tr.render)`.
 - The page carries `lang="<code>"` on the root element (accessibility, hyphenation,
   screen readers); `ui.page_navbar` takes `lang`.
 
@@ -374,10 +384,11 @@ wrapped in `str()`. New:
     signature change; I-a inherits it.
 11. **The catalogue is in the wheel.** `test_packaging.py` gains the locales glob.
 
-Tests 1–5 and 7–9 live in `tests/test_i18n.py` (core, default selection). Tests 6 and 8
-live in `app/tests/test_i18n_leaks.py`; test 10 lives in `tests/test_report_golden.py`,
-because `--snapshot-update` is registered in `tests/conftest.py`, and it `importorskip`s
-`shiny` so the spatial CI job can collect `tests/` without the app extra.
+Tests 1–5 and 7 live in `tests/test_i18n_guards.py`; test 9 lives in `tests/test_i18n.py`
+(both core, default selection). Tests 6 and 8 live in `app/tests/test_i18n_leaks.py`;
+test 10 lives in `tests/test_report_golden.py`, because `--snapshot-update` is registered
+in `tests/conftest.py`, and it `importorskip`s `shiny` so the spatial CI job can collect
+`tests/` without the app extra.
 
 ## I§9 Amendments this design requires
 

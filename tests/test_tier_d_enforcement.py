@@ -100,7 +100,7 @@ def test_an_assumed_floor_does_not_claim_an_observation(params):
     assert chorda.salinity is not None
     assert chorda.salinity.floor_basis == "assumed"
 
-    note = (contraindication(chorda, lagoon).note or "").lower()
+    note = str(contraindication(chorda, lagoon).note or "").lower()
     assert "observed" not in note
     assert "assumed" in note
 
@@ -113,7 +113,7 @@ def test_an_assumed_floor_does_not_claim_an_observation(params):
     kelp = params.species["saccharina_latissima"]
     de_coastal = PLACEHOLDER_SITES["DE-coastal"]
     assert kelp.salinity.floor_basis == "observed"
-    assert "observed" in (contraindication(kelp, de_coastal).note or "").lower()
+    assert "observed" in str(contraindication(kelp, de_coastal).note or "").lower()
 
 
 def test_a_curated_tier_d_entry_requires_an_observed_floor(params):

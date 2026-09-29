@@ -22,16 +22,17 @@ from typing import Literal, Protocol, runtime_checkable
 
 import numpy as np
 
+from .i18n import Message, msg
+
 # Sub-regions used for calibration lookup. These are coarse on purpose: they are
-# calibration domains, not a spatial index.
-REGIONS = {
-    "LT-coastal": "Lithuanian coastal waters",
-    "LT-lagoon": "Curonian Lagoon, Lithuanian side",
-    "PL-coastal": "Polish coastal waters",
-    "PL-lagoon": "Szczecin Lagoon",
-    "DE-coastal": "Mecklenburg-Vorpommern coastal waters",
-    "DK-belt": "Great Belt",
-    "EE-coastal": "Estonian coastal waters (OLAMUR pilot)",
+# calibration domains, not a spatial index. The key is the identifier; the value is what
+# a user reads, so it is a Message (package I) - `str(REGIONS[key])` is the English name.
+REGIONS: dict[str, Message] = {
+    key: msg(f"forcing.region.{key}")
+    for key in (
+        "LT-coastal", "LT-lagoon", "PL-coastal", "PL-lagoon", "DE-coastal", "DK-belt",
+        "EE-coastal",
+    )
 }
 
 
@@ -128,29 +129,17 @@ class SiteProvenance(StrEnum):
     INDICATIVE = "indicative"  # a representative cell of the right water, chosen not derived
 
     @property
-    def label(self) -> str:
-        return {
-            SiteProvenance.SITED: "Sited",
-            SiteProvenance.SNAPPED: "Snapped to the nearest modelled cell",
-            SiteProvenance.INDICATIVE: "Indicative of the water body",
-        }[self]
+    def label(self) -> Message:
+        return msg(f"forcing.provenance.{self.value}.label")
 
     @property
-    def presentation(self) -> str:
+    def presentation(self) -> Message:
         """What a result computed at this coordinate may claim to be about.
 
         Mirrors `Tier.presentation`, and for the same reason: the flag is only worth
         carrying if it tells a caller what it is allowed to say.
         """
-        return {
-            SiteProvenance.SITED: "result for the named site",
-            SiteProvenance.SNAPPED: (
-                "result for the nearest modelled cell, with its distance and depth named"
-            ),
-            SiteProvenance.INDICATIVE: (
-                "result labelled indicative of the water body, not of a site"
-            ),
-        }[self]
+        return msg(f"forcing.provenance.{self.value}.presentation")
 
     @property
     def is_sited(self) -> bool:

@@ -86,7 +86,7 @@ def test_a_context_carries_an_empty_source_note_by_default():
     from seagarden_dst.contracts import SOURCE_NOTE_NO_POSITION
 
     context = SiteContext.from_region("LT-lagoon")
-    assert context.source_note == ""
-    assert SOURCE_NOTE_NO_POSITION == (
+    assert context.source_note is None
+    assert str(SOURCE_NOTE_NO_POSITION) == (
         "no confirmed position; conditions are the sub-region placeholder"
     )

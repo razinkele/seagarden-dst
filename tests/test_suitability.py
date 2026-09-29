@@ -23,7 +23,7 @@ def test_missing_regulatory_layer_yields_unknown_not_suitable(params):
         permitting_layer=None,
     )
     assert result.verdict is Verdict.UNKNOWN
-    assert "Legal permissibility" in result.explain()
+    assert "Legal permissibility" in str(result.explain())
 
 
 def test_one_fatal_constraint_dominates_a_good_site(params):
@@ -34,7 +34,7 @@ def test_one_fatal_constraint_dominates_a_good_site(params):
         params.methods["floating_longline"],
     )
     assert result.verdict is Verdict.UNSUITABLE
-    assert "Environmental tolerance" in result.explain()
+    assert "Environmental tolerance" in str(result.explain())
 
 
 def test_depth_outside_the_method_window_is_fatal(params):
@@ -52,7 +52,7 @@ def test_depth_outside_the_method_window_is_fatal(params):
     )
     result = assess(shallow, params.species["ulva"], params.methods["floating_longline"])
     assert result.verdict is Verdict.UNSUITABLE
-    assert "Depth" in result.explain()
+    assert "Depth" in str(result.explain())
 
 
 def test_method_species_mismatch_is_rejected(params):
@@ -62,7 +62,7 @@ def test_method_species_mismatch_is_rejected(params):
         params.methods["floating_longline"],  # macroalgae only
     )
     assert result.verdict is Verdict.UNSUITABLE
-    assert "does not support" in result.explain()
+    assert "does not support" in str(result.explain())
 
 
 def test_binding_constraint_is_the_worst_one(params):
@@ -113,8 +113,10 @@ def test_comparison_panel_takes_at_most_four(params):
 
 
 def test_every_verdict_has_a_label_and_in_english_it_is_the_value():
-    """I-0 opens the seam; I-a fills it. Until then the label must not move the report."""
+    """I-0 opened the seam; I-a fills it: the label is a Message, English unchanged."""
     from seagarden_dst import Verdict
+    from seagarden_dst.i18n import Message
 
     for verdict in Verdict:
-        assert verdict.label == verdict.value
+        assert isinstance(verdict.label, Message)
+        assert str(verdict.label) == verdict.value
