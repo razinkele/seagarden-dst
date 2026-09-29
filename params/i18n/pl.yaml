@@ -1,0 +1,43 @@
+# params/i18n/pl.yaml
+# The Polish sidecar for text that lives in the parameter YAML (design I§5.4): species and
+# method names, calibration notes. A machine draft, not yet reviewed. There is no English
+# file beside it: the reference keys and texts are derived by params_reference_keys() in
+# app/i18n.py. Scientific names and calibration `source:` citations are not in it.
+language: pl
+status: machine-draft
+translated_by: "machine draft (Claude), 2026-09-29"
+reviewed_by: null
+reviewed_on: null
+messages:
+  params.species.chorda_filum.common_name: "Strunka witkowata"
+  params.species.chorda_filum.calibration.default.note: "Dla tego gatunku nie istnieje opublikowany model wzrostu. Współczynniki przyjęto przez analogię, a nie dopasowano do danych. Wyniki dają orientacyjny obraz kształtu krzywej sezonowej, ale nie jej poziomu bezwzględnego. Przed użyciem jakiejkolwiek wartości w produkcie projektu należy dopasować współczynniki do danych o zbiorach z WP3 A3.4."
+  params.species.fucus_vesiculosus.common_name: "Morszczyn pęcherzykowaty"
+  params.species.fucus_vesiculosus.calibration.LT-coastal.note: "Przeniesione z estońskiego pilotażu przy porównywalnym zasoleniu. Brak kalibracji dla Litwy; po udostępnieniu danych z WP3 A3.4 należy podnieść do poziomu A."
+  params.species.mytilus.common_name: "Omułek jadalny"
+  params.species.mytilus.calibration.LT-coastal.note: "Pasmo dla hodowli mitygacyjnej ekstrapolowane na zasolenia litewskie. Biomasa małży we wschodniej części Bałtyku jest niska w wartościach bezwzględnych; efektywność węglowa na jednostkę biomasy jest jednak wysoka (Vaher et al. 2024). Należy mówić o efektywności, a nie formułować twierdzeń o sekwestracji."
+  params.species.saccharina_latissima.common_name: "Listownica cukrowa"
+  params.species.saccharina_latissima.calibration.DK-belt.note: "Zmieniono poziom z B na C: żaden współczynnik w tym pliku nie jest dopasowany do danych duńskich. 18.4 t FW/ha to opublikowana wartość plonu z duńskich lokalizacji, co czyni ją wartością literaturową zastosowaną w miejscu, w którym ją zmierzono, a nie lokalną kalibracją - „lokalna” oznaczałaby dopasowanie do pilotażu SeaGarden, którego tu nie ma."
+  params.species.saccharina_latissima.calibration.LT-coastal.note: "Hodowla listownicy cukrowej zakończyła się niepowodzeniem przy 5.5-6.5 psu w estońskim pilotażu OLAMUR. Skalowanie według zasolenia dałoby niewielki dodatni plon przy zasoleniach litewskich; ta liczba nie jest pokazywana, ponieważ przeczy jej obserwacja. Właściwym wyborem są tu Fucus, Chorda lub małże w hodowli mitygacyjnej."
+  params.species.saccharina_latissima.calibration.PL-lagoon.note: "Zasolenie w Zalewie Szczecińskim jest znacznie niższe od wykazanej tolerancji tego gatunku. Hodowla nie jest możliwa."
+  params.species.ulva.common_name: "Sałata morska"
+  params.species.ulva.calibration.default.note: "Brak lokalnej kalibracji gdziekolwiek na Południowym Bałtyku. W ramach WP3 A3.4 monitorowane są warunki wzrostu Ulva w pilotażach LT i DE; te dane mają być drogą do osiągnięcia poziomu A w okresie M24-30."
+  params.methods.mini_farm_kit.name: "Zestaw minifarmy (A3.5)"
+  params.methods.mini_farm_kit.anchoring_unit: "pojedyncze kotwiczenie z boją powierzchniową"
+  params.methods.mini_farm_kit.cultivation_unit: "krótka obsadzona lina"
+  params.methods.floating_longline.name: "Pływająca długa lina"
+  params.methods.floating_longline.anchoring_unit: "kotwiczenie dwupunktowe z bojami oznakowania"
+  params.methods.floating_longline.cultivation_unit: "pływające obsadzone liny"
+  params.methods.sinking_longline.name: "Zatapiana (zanurzona) długa lina"
+  params.methods.sinking_longline.anchoring_unit: "kotwiczenie dwupunktowe, zanurzona lina nośna"
+  params.methods.sinking_longline.cultivation_unit: "zanurzone obsadzone liny"
+  params.methods.raft.name: "Tratwa"
+  params.methods.raft.anchoring_unit: "kotwiczenie wielopunktowe"
+  params.methods.raft.cultivation_unit: "podwieszone ramy"
+  params.methods.mussel_socks.name: "Rękawy na omułki na linie"
+  params.methods.mussel_socks.anchoring_unit: "kotwiczenie dwupunktowe z bojami oznakowania"
+  params.methods.mussel_socks.cultivation_unit: "podwieszone rękawy na omułki"
+  params.methods.modular_pontoon.name: "Pływający ponton modułowy"
+  params.methods.modular_pontoon.anchoring_unit: "kotwiczenie wielopunktowe, pływaki modułowe"
+  params.methods.modular_pontoon.cultivation_unit: "połączenie lin i rękawów"
+  params.group.macroalga: "Makroglony"
+  params.group.shellfish: "Małże"
