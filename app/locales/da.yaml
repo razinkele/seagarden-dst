@@ -1,0 +1,259 @@
+# app/locales/da.yaml
+# The Danish catalogue for the app's own chrome (design I§4.3): a machine draft, not yet
+# reviewed. It carries exactly the keys of en.yaml, the reference. Placeholder NAMES only,
+# never format specs.
+language: da
+status: machine-draft
+translated_by: "machine draft (Claude), 2026-09-29"
+reviewed_by: null
+reviewed_on: null
+messages:
+  # --- navbar and shell (shell.py, app.py) ------------------------------------
+  app.nav.site: "Lokalitet"
+  app.nav.catalogue: "Katalog"
+  app.nav.results: "Resultater"
+  app.nav.report: "Rapport"
+  app.shell.about: "Om"
+  app.shell.help: "Hjælp"
+  app.shell.feedback: "Feedback"
+  app.shell.language: "Sprog"
+  app.shell.title: "SeaGarden-beslutningsstøtteværktøj"
+  app.shell.window_title: "SeaGarden DST"
+  app.shell.setup: "Opsætning"
+  app.shell.workflow: "Arbejdsgang: 1) vælg en lokalitet · 2) vælg arter, metode og skala under »Katalog« · 3) klik på »Vurdér« · 4) læs »Resultater« og »Rapport«."
+  app.shell.assess: "Vurdér"
+  app.shell.close: "Luk"
+  app.shell.funding_alt: "SeaGarden - Interreg South Baltic, medfinansieret af Den Europæiske Union"
+  app.shell.draft_banner: "Maskinoversættelse, endnu ikke gennemgået."
+  app.shell.about.title: "Om SeaGarden DST"
+  app.shell.about.body: |
+    **SeaGarden-beslutningsstøtteværktøjet** (Decision Support Tool, DST) hjælper med at planlægge fællesskabsdrevne, regenerative havfarme i den sydlige Østersø. Vælg en lokalitet, hvad der skal dyrkes, og i hvilken skala, så giver værktøjet en egnethedsklassificering af lokaliteten, en forventet høst og de mængder kvælstof, fosfor og kulstof, som høsten fjerner fra vandet.
+
+    **Hvad værktøjet giver dig**
+
+    - En egnethedsklassificering af lokaliteten, beregnet som **minimum** på tværs af begrænsningsklasserne og med angivelse af den afgørende begrænsning. Ikke et vægtet indeks: En lokalitet med en ubetinget juridisk udelukkelse må ikke ende som »moderat«, blot fordi vandet er godt.
+    - Et **kalibreringsniveau** ved hvert tal - lokalt kalibreret, regionalt ekstrapoleret, litteraturværdi eller kontraindiceret. Indtil pilotdataene fra WP3 foreligger, er stort set alle tal for den sydlige Østersø litteraturværdier, og det angiver værktøjet direkte ved tallet.
+    - **Eutrofieringsbelastning** fra MARBEFES' bow-tie-model og valgfri **næringsstofforcering** fra EUTROPY-boksmodellen, begge rapporteret ved siden af rangordningen og aldrig indregnet i den.
+
+    - **Program** - Interreg South Baltic 2021-2027 · **SeaGarden** (STHB.02.02-IP.01-0006/25)
+    - **Arbejdspakke / aktivitet** - WP2 / A2.3 · Leverance **D2.2**
+    - **Ledende partner** - Klaipeda University, Marine Research Institute
+    - **Status** - prototype · modelkerne `v{version}`
+
+    Kildekode og issues: [{repo_name}]({repo_url})
+
+    Tal skrives med decimalpunktum, og datoer skrives år-måned-dag på alle sprog.
+
+    *Prototype. Resultaterne er vejledende og udgør ikke et grundlag for tilladelse eller godkendelse. Medfinansieret af Den Europæiske Union; de udtrykte synspunkter er udelukkende forfatternes egne.*
+  app.shell.help.title: "Sådan bruger du SeaGarden DST"
+  app.shell.help.body: |
+    **Arbejdsgang**
+
+    1. **Lokalitet** - vælg et delområde. I det færdige værktøj tegner du en polygon; prototypen bruger pladsholderværdier for hvert delområde.
+    2. **Katalog** - vælg arter, dyrkningsmetode og skala.
+    3. **Vurdér** - knappen i sidepanelet. »Resultater« og »Rapport« forbliver tomme, indtil du trykker på den, og ryddes igen, så snart du skifter lokalitet.
+    4. **Resultater** - de rangordnede muligheder, den afgørende begrænsning for hver af dem og næringsstoffjernelsen med dens kalibreringsniveau.
+    5. **Rapport** - vurderingen som tekst, inklusive forbehold.
+
+    **Sådan læses kalibreringsniveauerne**
+
+    | Niveau | Betydning | Visning |
+    |---|---|---|
+    | A | Tilpasset SeaGarden-pilotdata | værdi med et interval |
+    | B | Tilpasset et andet sted i Østersøen | værdi som et spænd |
+    | C | Litteraturværdi, ingen lokal validering | størrelsesordensbånd |
+    | D | Kontraindiceret - et lokalt fund modsiger modellen | fundet, i stedet for tallet |
+
+    Et tilfælde på niveau D, som er værd at kende: sukkertang under ca. 16 psu. Saltholdighedsskaleringen giver et lille positivt udbytte; OLAMUR-pilotforsøget konstaterede, at dyrkningen slog helt fejl ved 5.5-6.5 psu. Værktøjet viser fundet.
+  app.shell.feedback.title: "Send feedback"
+  app.shell.feedback.body: |
+    Dette er en samudviklet prototype til WP2 A2.3. Konkret feedback - hvilket panel, hvilken lokalitet, hvad du forventede - er den mest nyttige.
+
+    - **Opret et issue** - [{repo_url}/issues/new]({repo_url}/issues/new)
+    - **E-mail** - [{email}](mailto:{email}?subject=SeaGarden%20DST%20feedback)
+  # --- sidebar status (app.py, _widgets.py) -----------------------------------
+  app.status.no_site: "Ingen lokalitet valgt. Åbn »Lokalitet« og vælg en."
+  app.status.site_ready: "Lokalitet klar: {label}. Valgte arter: {n}. Skala: {scale}. Klik på »Vurdér«."
+  app.headline.unassessed: "Lokalitet ikke vurderet: {reason}"
+  app.headline.none: "Ingen arter kunne vurderes på denne lokalitet."
+  app.headline.nothing_reportable: "Intet at rapportere her - alle muligheder er kontraindicerede."
+  app.headline.none_suitable: "Ingen mulighed er egnet i øjeblikket; se begrænsningerne under »Resultater«."
+  app.headline.best: "Bedste mulighed: {species}, {verdict}{suffix}."
+  app.headline.priors_suffix: " (litteraturværdier)"
+  app.headline.no_suffix: ""
+  app.unassessable.cell_invalid: "ingen data i denne celle.{distance}"
+  app.unassessable.nearest: " Nærmeste gyldige celle ligger {km} km væk."
+  app.unassessable.no_distance: ""
+  app.unassessable.year_absent: "Forceringsdatasættet indeholder ikke det ønskede år."
+  app.unassessable.no_conditions: "Datalaget kunne ikke levere lokalitetsforhold."
+  app.source.artifact: "gitterbaseret forceringsdatasæt, forhold for {year}, oprettet {built}"
+  app.source.unknown_date: "på ukendt dato"
+  app.banner.artifact: "Datakilde: {source}."
+  app.banner.placeholder: "Datakilde: pladsholderværdier — plausible værdier i den rigtige størrelsesorden, ikke målinger ({reason})."
+  app.banner.this_site: " Denne lokalitet: {note}."
+  # --- widgets ------------------------------------------------------------------
+  app.tier.badge_title: "{label} - {presentation}"
+  app.quantity.none: "-"
+  app.quantity.range: "{low}-{high} {unit}"
+  app.quantity.value: "{value} {unit}"
+  app.quantity.range_tiered: "{low}-{high} {unit} [{tier}]"
+  app.quantity.value_tiered: "{value} {unit} [{tier}]"
+  app.quantity.not_applicable: "ikke relevant - {caveat}"
+  app.legend.title: "Kalibreringsniveauer"
+  app.legend.A: " tilpasset SeaGarden-pilotdata"
+  app.legend.B: " tilpasset et andet sted i Østersøen"
+  app.legend.C: " litteraturværdi, ingen lokal validering"
+  app.legend.D: " kontraindiceret - et fund modsiger modellen"
+  app.legend.note: "Indtil pilotdata fra WP3 foreligger (M12-30), ligger stort set alle resultater for den sydlige Østersø på niveau C. De bør læses som vejledende bånd, ikke som estimater."
+  app.month.1: "jan"
+  app.month.2: "feb"
+  app.month.3: "mar"
+  app.month.4: "apr"
+  app.month.5: "maj"
+  app.month.6: "jun"
+  app.month.7: "jul"
+  app.month.8: "aug"
+  app.month.9: "sep"
+  app.month.10: "okt"
+  app.month.11: "nov"
+  app.month.12: "dec"
+  app.window.span: "{start}–{end}"
+  app.window.over_winter: "{span} (over vinteren)"
+  # --- user mode ----------------------------------------------------------------
+  app.mode.label: "Jeg er her for at"
+  app.mode.choice: "{title} - {audience}"
+  app.mode.plan.title: "Planlægge"
+  app.mode.plan.audience: "Myndigheder, fysiske planlæggere"
+  app.mode.plan.question: "Hvor kunne regenerativ dyrkning placeres her, og hvad ville den opnå?"
+  app.mode.farm.title: "Dyrke"
+  app.mode.farm.audience: "Dyrkere, SMV'er, operatører"
+  app.mode.farm.question: "Kan jeg bruge dette sted, hvad bør jeg dyrke, og hvad får jeg ud af det?"
+  app.mode.start.title: "Komme i gang"
+  app.mode.start.audience: "Lokalsamfund, NGO'er, borgervidenskab"
+  app.mode.start.question: "Kunne vi drive en lille havhave her, og hvad ville det kræve?"
+  app.mode.explore.title: "Udforske"
+  app.mode.explore.audience: "Forskere, studerende, konsulenter"
+  app.mode.explore.question: "Hvad siger modellerne, og hvor sikre er de?"
+  # --- site panel ---------------------------------------------------------------
+  app.site.region: "Delområde"
+  app.site.help: "Klik på en markør på kortet eller vælg her. "
+  app.site.help_absent_single: "Delområdet {regions} har endnu ingen bekræftet position og kan kun vælges her."
+  app.site.help_absent_list: "Delområderne {regions} har endnu ingen bekræftede positioner og kan kun vælges her."
+  app.site.and: " og "
+  app.site.label: "Navn på lokaliteten (valgfrit)"
+  app.site.label_placeholder: "f.eks. pilotlokaliteten Melnrage"
+  app.site.use: "Brug denne lokalitet"
+  app.site.where: "Placering"
+  app.site.no_map: |
+    *Kortet kræver `shiny_deckgl`, som distribueres via en conda-kanal i stedet for PyPI og ikke er installeret her:*
+
+        micromamba install -n shiny -c razinka shiny-deckgl
+
+    *Valg af delområde i sidepanelet fungerer under alle omstændigheder.*
+  app.site.tooltip_depth: "Modeldybde"
+  app.site.depth_unknown: "ukendt"
+  app.site.no_position: "Delområdet {region} har ingen bekræftet position. Forholdene er en opsummering for hele delområdet, så intet her handler om en bestemt celle."
+  app.site.position: "{lat}, {lon} - {provenance}. Et resultat her er et {presentation}."
+  app.site.provenance_inline.sited: "placeret"
+  app.site.provenance_inline.snapped: "flyttet til nærmeste modelcelle"
+  app.site.provenance_inline.indicative: "vejledende for vandområdet"
+  app.site.conditions: "Lokalitetsforhold"
+  app.site.cond.salinity: "Saltholdighed"
+  app.site.cond.mean_temp: "Middeltemperatur"
+  app.site.cond.summer_winter: "Sommer-/vintertemperatur"
+  app.site.cond.din: "Opløst uorganisk kvælstof"
+  app.site.cond.dip: "Opløst uorganisk fosfor"
+  app.site.cond.depth: "Dybde"
+  app.site.cond.wave: "Signifikant bølgehøjde"
+  app.site.cond.par: "PAR i dyrkningsdybde"
+  app.site.confidence_line: "Datapålidelighed: {confidence} (pladsholder). Kalibreringsområde: {region}."
+  app.site.provenance_card: "Hvor tallene kommer fra"
+  app.site.provenance_body: |
+    Kortet viser, **hvor** et delområde ligger. Tallene nedenfor er **pladsholderværdier**, ét sæt pr. delområde: plausible værdier i den rigtige størrelsesorden, ikke målinger og ikke aflæst ved positionen. Alle resultater, der er afledt af dem, er litteraturværdier.
+
+    I det færdige værktøj tegner du en polygon, og forholdene aflæses fra de kuraterede datalag - Copernicus Marine-reanalyse for saltholdighed, temperatur og næringsstoffer, EMODnet for bathymetri og menneskelig anvendelse, HELCOM for beskyttede områder. Grænsefladen mellem dette panel og modelkernen ændres ikke.
+  # --- catalogue panel ----------------------------------------------------------
+  app.catalogue.species: "Arter"
+  app.catalogue.scale: "Skala"
+  app.catalogue.only_af: "Vælg kun de arter, der er nævnt i projektansøgningen"
+  app.catalogue.methods: "Dyrkningsmetoder"
+  app.catalogue.col.species: "Art"
+  app.catalogue.col.scientific: "Videnskabeligt navn"
+  app.catalogue.col.group: "Gruppe"
+  app.catalogue.col.in_af: "I ansøgningen"
+  app.catalogue.col.window: "Dyrkningsperiode"
+  app.catalogue.yes: "ja"
+  app.catalogue.no: "nej"
+  app.catalogue.species_note: "Kun Ulva og blåmusling er nævnt i projektansøgningen. For Fucus foreligger OLAMUR-dokumentationen for lav saltholdighed, Chorda er den art, KU faktisk vil dyrke i Litauen (beslutning D1), og sukkertang er med af hensyn til den danske lokalitet og som gennemarbejdet eksempel på en kontraindikation."
+  app.catalogue.col.method: "Metode"
+  app.catalogue.col.anchoring: "Forankring"
+  app.catalogue.col.cultivation: "Dyrkning"
+  app.catalogue.col.depth: "Dybde"
+  app.catalogue.col.max_wave: "Maks. bølgehøjde"
+  app.catalogue.col.unit_area: "Areal pr. enhed"
+  app.catalogue.methods_note: "Omkostninger og arbejdsindsats er bevidst tomme. De udfyldes ud fra de faktiske indkøbsbilag fra WP3 - rentabilitetstallene kan kun forsvares, hvis koefficienterne svarer til det, projektet faktisk har betalt."
+  # --- results panel ------------------------------------------------------------
+  app.results.ranked: "Rangordnede muligheder"
+  app.results.excluded: "Udelukket"
+  app.results.pressure: "Belastningskontekst"
+  app.results.pick_site: "Vælg en lokalitet og klik derefter på »Vurdér«."
+  app.results.unassessed: "Denne lokalitet er ikke vurderet, fordi datalaget ikke kunne levere lokalitetsforhold. Se årsagen til den manglende dækning under »Rapport«."
+  app.results.none: "Ingen arter kunne vurderes på denne lokalitet."
+  app.results.col.option: "Mulighed"
+  app.results.col.verdict: "Egnethed"
+  app.results.col.harvest: "Høst"
+  app.results.col.nitrogen: "Kvælstof"
+  app.results.col.phosphorus: "Fosfor"
+  app.results.col.carbon: "Kulstof"
+  app.results.constraint_line: "{name}: {verdict} - {reason}"
+  app.results.caveats: "Forbehold"
+  app.results.caveat_line: "{label}: {text}"
+  app.results.dash: "-"
+  app.results.nothing_excluded: "Intet er udelukket på denne lokalitet."
+  app.results.no_bowtie: "Ingen bow-tie-inferens leveret. Næringsstoffjernelsen rapporteres på egne præmisser."
+  app.results.p_top: "P(tophændelse {state}) = {p}"
+  # --- report panel -------------------------------------------------------------
+  app.report.title: "Vurderingsrapport"
+  app.report.download_txt: "Hent rapport (.txt)"
+  app.report.download_json: "Hent data (.json)"
+  app.report.none: "Endnu ingen vurdering. Vælg en lokalitet og klik på »Vurdér«."
+  app.report.heading: "SEAGARDEN-BESLUTNINGSSTØTTE - LOKALITETSVURDERING"
+  app.report.site: "Lokalitet:   {site}"
+  app.report.subregion: "Delområde:   {region}"
+  app.report.conditions_unavailable: "Forhold:     ikke tilgængelige — datalaget kunne ikke vurdere denne lokalitet"
+  app.report.conditions: "Forhold:     saltholdighed {salinity} psu, DIN {din} umol/L, dybde {depth} m"
+  app.report.confidence: "Datapålidelighed: {confidence}"
+  app.report.generated: "Genereret:   {date} - modelkerne v{version}"
+  app.report.ranked: "RANGORDNEDE MULIGHEDER"
+  app.report.unassessed: "IKKE VURDERET: {reason}"
+  app.report.none_assessed: "Ingen arter kunne vurderes på denne lokalitet."
+  app.report.option: "{species} - {method} ({ha} ha)"
+  app.report.verdict: "  Egnethed:  {verdict}"
+  app.report.binding: "  Afgørende: {binding}"
+  app.report.harvest: "  Høst:      {harvest}"
+  app.report.nitrogen: "  Kvælstof:  {value}"
+  app.report.phosphorus: "  Fosfor:    {value}"
+  app.report.carbon: "  Kulstof:   {value}"
+  app.report.calibration: "  Kalibrering: {label} - {presentation}"
+  app.report.excluded: "UDELUKKET"
+  app.report.excluded_line: "- {key}: {reason}"
+  app.report.pressure: "BELASTNINGSKONTEKST"
+  app.report.p_top: "- P(tophændelse {state}) = {p}"
+  app.report.pressure_note: "  {note}"
+  app.report.caveats: "FORBEHOLD"
+  app.report.caveat_line: "- {label}: {text}"
+  app.report.carbon_caveat: "- Kulstof rapporteres kun som kulstof i den høstede biomasse. Sekvestrering rapporteres ikke: Kalkdannelse frigiver CO2, så en påstand om sekvestrering ville afhænge af, at skallerne fjernes fra vandet og holdes ude af det."
+  app.report.legal_caveat: "- Den juridiske tilladelighed vurderes ikke, før de regulatoriske data foreligger (A2.2, M12). En ukendt juridisk status blokerer egnethedsklassificeringen i stedet for at lade den passere."
+  app.report.footer: "Prototypeoutput. Kun vejledende; ikke grundlag for tilladelse eller godkendelse."
+  app.report.unassessed.cell_invalid_near: "Ingen data i denne celle; nærmeste gyldige celle ligger {km} km væk."
+  app.report.unassessed.cell_invalid: "Ingen data i denne celle."
+  app.report.unassessed.year_absent: "Forceringsdatasættet indeholder ikke det ønskede år."
+  app.report.unassessed.no_conditions: "Datalaget kunne ikke levere lokalitetsforhold."
+  app.report.source.artifact: "Datakilde: {source}"
+  app.report.source.placeholder_reason: "Datakilde: pladsholderværdier ({reason})"
+  app.report.source.artifact_bare: "Datakilde: gitterbaseret forceringsdatasæt"
+  app.report.source.placeholder_bare: "Datakilde: pladsholderværdier"
+  app.report.source.this_site: " — denne lokalitet: {note}"
+  app.report.caveat.artifact: "- Lokalitetsforholdene stammer fra det gitterbaserede forceringsdatasæt."
+  app.report.caveat.placeholder: "- Lokalitetsforholdene er i denne prototype pladsholderværdier, ikke målinger."
+  app.report.caveat.this_site: " Denne lokalitet: {note}."

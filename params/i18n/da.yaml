@@ -1,0 +1,43 @@
+# params/i18n/da.yaml
+# The Danish sidecar for text that lives in the parameter YAML (design I§5.4): species and
+# method names, calibration notes. A machine draft, not yet reviewed. There is no English
+# file beside it: the reference keys and texts are derived by params_reference_keys() in
+# app/i18n.py. Scientific names and calibration `source:` citations are not in it.
+language: da
+status: machine-draft
+translated_by: "machine draft (Claude), 2026-09-29"
+reviewed_by: null
+reviewed_on: null
+messages:
+  params.species.chorda_filum.common_name: "Strengetang"
+  params.species.chorda_filum.calibration.default.note: "Der findes ingen publiceret vækstmodel for denne art. Koefficienterne er antaget ud fra analogi, ikke tilpasset data. Resultaterne er vejledende for sæsonkurvens form, ikke for dens størrelse. Modellen bør tilpasses høstdata fra WP3 A3.4, før noget tal bruges i en leverance."
+  params.species.fucus_vesiculosus.common_name: "Blæretang"
+  params.species.fucus_vesiculosus.calibration.LT-coastal.note: "Overført fra et estisk pilotforsøg ved sammenlignelig saltholdighed. Der findes ingen litauisk kalibrering; værdien bør opgraderes til niveau A, så snart data fra WP3 A3.4 foreligger."
+  params.species.mytilus.common_name: "Blåmusling"
+  params.species.mytilus.calibration.LT-coastal.note: "Bånd for muslingedyrkning som virkemiddel, ekstrapoleret til litauiske saltholdigheder. Muslingebiomassen i den østlige Østersø er lav i absolutte tal; kulstofeffektiviteten pr. biomasseenhed er ikke desto mindre høj (Vaher et al. 2024). Effektiviteten bør fremhæves, ikke en påstand om sekvestrering."
+  params.species.saccharina_latissima.common_name: "Sukkertang"
+  params.species.saccharina_latissima.calibration.DK-belt.note: "Flyttet fra niveau B til C: Ingen koefficient i denne fil er tilpasset danske data. 18.4 t FW/ha er et publiceret udbyttetal fra danske lokaliteter, hvilket gør det til en litteraturværdi anvendt på den lokalitet, hvor det blev målt, og ikke til en lokal kalibrering - »lokal« ville betyde tilpasset et SeaGarden-pilotforsøg, og et sådant findes ikke her."
+  params.species.saccharina_latissima.calibration.LT-coastal.note: "Dyrkning af sukkertang mislykkedes ved 5.5-6.5 psu i det estiske pilotforsøg under OLAMUR. Saltholdighedsskaleringen ville give et lille positivt udbytte ved litauiske saltholdigheder; det tal vises ikke, fordi observationen modsiger det. Fucus, Chorda eller muslinger dyrket som virkemiddel er de rette valg her."
+  params.species.saccharina_latissima.calibration.PL-lagoon.note: "Saltholdigheden i Stettiner Haff ligger langt under den påviste tolerance for denne art. Kan ikke dyrkes."
+  params.species.ulva.common_name: "Søsalat"
+  params.species.ulva.calibration.default.note: "Ingen lokal kalibrering nogen steder i den sydlige Østersø. WP3 A3.4 overvåger vækstforholdene for Ulva ved pilotlokaliteterne i LT og DE; disse data er den planlagte vej til niveau A i perioden M24-30."
+  params.methods.mini_farm_kit.name: "Minifarm-sæt (A3.5)"
+  params.methods.mini_farm_kit.anchoring_unit: "enkelt fortøjning med overfladebøje"
+  params.methods.mini_farm_kit.cultivation_unit: "kort tilsået line"
+  params.methods.floating_longline.name: "Flydende langline"
+  params.methods.floating_longline.anchoring_unit: "topunktsfortøjning med markeringsbøjer"
+  params.methods.floating_longline.cultivation_unit: "flydende tilsåede liner"
+  params.methods.sinking_longline.name: "Sænket (neddykket) langline"
+  params.methods.sinking_longline.anchoring_unit: "topunktsfortøjning, neddykket bæreline"
+  params.methods.sinking_longline.cultivation_unit: "neddykkede tilsåede liner"
+  params.methods.raft.name: "Flåde"
+  params.methods.raft.anchoring_unit: "flerpunktsfortøjning"
+  params.methods.raft.cultivation_unit: "ophængte rammer"
+  params.methods.mussel_socks.name: "Muslingestrømper på langline"
+  params.methods.mussel_socks.anchoring_unit: "topunktsfortøjning med markeringsbøjer"
+  params.methods.mussel_socks.cultivation_unit: "ophængte muslingestrømper"
+  params.methods.modular_pontoon.name: "Flydende modulponton"
+  params.methods.modular_pontoon.anchoring_unit: "flerpunktsfortøjning, modulære flydeelementer"
+  params.methods.modular_pontoon.cultivation_unit: "kombinerede liner og strømper"
+  params.group.macroalga: "makroalger"
+  params.group.shellfish: "skaldyr"
