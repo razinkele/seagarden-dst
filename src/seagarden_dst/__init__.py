@@ -53,7 +53,7 @@ from .regulatory import (
 from .scenarios import DEFAULT_SCALE, SCALE_LABELS, SCALES, Scenario, compare, evaluate
 from .suitability import Suitability, Verdict, assess
 
-__version__ = "0.11.2"
+__version__ = "0.12.0"
 
 __all__ = [
     "DEFAULT_FORCING",

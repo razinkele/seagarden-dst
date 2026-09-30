@@ -11,6 +11,29 @@ tool whose caveats live only in conversation is one whose caveats get lost.
 
 ## [Unreleased]
 
+Changes land here, not in the published sections below. When you cut the next
+release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
+open a section for it — `tests/test_version.py` asserts the literals agree with each other
+and with a matching heading here, but it cannot tell you that a merged change went
+unreleased.
+
+---
+
+## [0.12.0] — 2026-09-30
+
+**The tool is ready for six languages; until a native speaker signs one off, it speaks English.**
+
+664 tests (536 at 0.11.2): 535 in the default selection, 129 needing the `spatial` extra.
+CI on Python 3.11 and 3.13 across two install states.
+
+Package I, in three parts. I-0 separated what the code keys on from what a user reads; I-a
+made every sentence the tool shows a message looked up in a per-language catalogue, chosen
+per request from `?lang=` or the browser; I-b added machine drafts for German, Polish,
+Danish, Lithuanian and Swedish. **None of the five is enabled**: the live instance shows
+English, byte for byte as before except two sentences, until a native speaker reviews a
+language and signs its three catalogue headers (`docs/runbooks/translations.md`). Nothing
+the model computes changes. The JSON download's shape does — three entries below say how.
+
 ### Added
 
 - **Package I-a — the internationalisation seam.** The core's prose is `Message`-valued
@@ -84,12 +107,6 @@ tool whose caveats live only in conversation is one whose caveats get lost.
   estimate is replaced by the measured figure, and the README's site-conditions and
   light-attenuation rows record what is now real and what is still placeholder —
   including that LT-lagoon's sited coordinate lands in a masked cell.
-
-Changes land here, not in the published sections below. When you cut the next
-release, bump the two literals in `pyproject.toml` and `src/seagarden_dst/__init__.py` and
-open a section for it — `tests/test_version.py` asserts the literals agree with each other
-and with a matching heading here, but it cannot tell you that a merged change went
-unreleased.
 
 ---
 
