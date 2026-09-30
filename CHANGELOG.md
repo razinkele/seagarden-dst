@@ -19,8 +19,9 @@ tool whose caveats live only in conversation is one whose caveats get lost.
   per language, and shows a language menu. English output is byte-identical (the report
   golden proves it) except two sentences: the sidebar status line, now count-neutral, and
   a new About-dialog sentence — numbers keep the decimal point and dates are year-month-day
-  in every language. **Only English ships**: no other catalogue exists yet (package I-b),
-  so the menu has one entry. **JSON export schema change:** every message field
+  in every language. **Only English is enabled**: the other five languages arrive as
+  unreviewed drafts in package I-b (below), so the live menu has one entry.
+  **JSON export schema change:** every message field
   (`binding_constraint`, `constraints`, `excluded`, `caveats`, `pressure_note`,
   `site.source_note`) is now `{key, params, text}` rather than a string. `text` is
   rendered by `to_dict`'s `render` (English by default; the Report panel's download
@@ -40,6 +41,25 @@ tool whose caveats live only in conversation is one whose caveats get lost.
   `None`, and `removal_framing()` with no pressure returns `None`, where each was `""`;
   `to_dict()` takes `render=`. New environment variables `SEAGARDEN_LANGUAGES` and
   `SEAGARDEN_SHOW_DRAFT_LANGUAGES` (README, *Languages*).
+
+- **Package I-b — five languages, as drafts.** Machine-draft catalogues for German, Polish,
+  Danish, Lithuanian and Swedish (three files each: core, app, params sidecar), every header
+  `status: machine-draft` and naming the machine as translator. **None is enabled**: the
+  live instance shows English until a native speaker reviews a language and flips its
+  three headers (`docs/runbooks/translations.md`). `SEAGARDEN_SHOW_DRAFT_LANGUAGES=1` shows
+  them on a staging instance under a bilingual notice, and a text report downloaded in a
+  draft language now starts with the same notice.
+  **JSON export schema change (additive), for every export, English included:** the
+  download gains two top-level keys at the head of the file, `language` (the language it
+  was rendered in) and `draft` (`true` for an unreviewed language), so an English export
+  now starts `"language": "en", "draft": false`, and the no-assessment export, `{}`
+  before, is now `{"language": "en", "draft": false}`. No existing key changes.
+  A catalogue file the tool cannot read now disables that language and is logged instead
+  of failing every page. Functional specification Amendment 6 records the requirement; the
+  data-layer design §8 gains row I.
+  **Known limit:** the drafts have not been read by a speaker of any of the five languages;
+  the legal-weight sentences in particular are unreviewed and must not be quoted from a
+  draft.
 
 ### Changed
 

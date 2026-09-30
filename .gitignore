@@ -67,3 +67,8 @@ SeaGarden_DST_proposal_extract.md
 
 # Playwright MCP screenshots and snapshots
 .playwright-mcp/
+
+# The review sheet a translation partner generates into the repository root
+# (`docs/runbooks/translations.md`: `... > review-<lang>.md`): a working copy, never a
+# deliverable. Root-anchored, so a tracked `review-*.md` anywhere else is untouched.
+/review-*.md

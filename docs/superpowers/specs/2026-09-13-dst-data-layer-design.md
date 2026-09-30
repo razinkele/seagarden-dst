@@ -549,7 +549,7 @@ containing **Tagalaht** — the only published anchor the parameterisation has �
 PL-lagoon with it. The anchor forces the grid, and the largest candidate artifact is
 50.7 MB, so nothing argues for coarsening anyway.
 
-Everything else is fixed here, because four of the eleven packages in §8 could not otherwise
+Everything else is fixed here, because four of the packages in §8 could not otherwise
 have their first failing test written.
 
 ### 6.1 Variables, and the statistic for each
@@ -744,17 +744,17 @@ critical path for AF item 2's "maps of suitable sites", and no data-layer work m
 
 ## 8. Work packages
 
-Effort is indicative, totalling **7.0 PM across eleven packages**. It is drawn against
+Effort is indicative, totalling **7.9 PM across fourteen packages**. It is drawn against
 spec §13's ~14.5 PM for the DST, itself funded from WP2 line 2.1 (€51,250) alongside KU's
 share of A2.1, A2.2, A2.4 and A2.5. Because §1's months are booked to A2.1/A2.2, these
 are a forward charge against A2.3's rows rather than a draw on them today.
 
-**The data-layer row is over-subscribed.** B + C + C1 + D's non-port share come to 2.5 PM
-against spec §13's 2 PM "data layer" row; the "terra port" row (0.5 PM) is exactly met by
-D's port sub-item. With A0 (0.8), F2 (0.3) and G (0.1) having no row at all, **the spec
-§13 amendment to propose is 1.7 PM**. Revision 3 said these rows were exhausted "in full"
-and understated the overrun; the convention everywhere else in this document is to
-surface rather than absorb, and this row is now surfaced.
+**The data-layer row is over-subscribed.** B + C + C1 + D-a2 + D's non-port share come to
+2.7 PM against spec §13's 2 PM "data layer" row; the "terra port" row (0.5 PM) is exactly
+met by D's port sub-item. With A0 (0.8), F2 (0.3), G (0.1) and I (0.9) having no row at
+all, **the spec §13 amendment to propose is 2.8 PM**. Revision 3 said these rows were
+exhausted "in full" and understated the overrun; the convention everywhere else in this
+document is to surface rather than absorb, and this row is now surfaced.
 
 | # | Package | Delivers | Depends on | Effort | Done when |
 |---|---|---|---|---|---|
@@ -771,6 +771,7 @@ surface rather than absorb, and this row is now surfaced.
 | **F1** | Human-use overlay | `assess_conflicts()` → overlap/adjacent/clear per named layer into `SiteContext.activities`/`.protection`. **Descriptive only; feeds no verdict** | **C1** | 0.5 PM *(spec §13 "siting module")* | `activities` populated for a **committed fixture polygon** (no placeholder site has geometry); test that it changes no verdict; the human-use README stub row removed |
 | **F2** | Hard legal exclusions | `assess_legal` per jurisdiction, each exclusion traceable to a named record and its "verified on" date | **G** + GMU M12 content | 0.3 PM *(no spec §13 row)* | Absent record set still blocks with the GeoPackage present |
 | **G** | Regulatory record schema | Pydantic model per spec §9.1; empty record set; staleness display | — | 0.1 PM *(no spec §13 row)* | Schema plus one worked example record round-tripping in a test |
+| **I** | Internationalisation (`docs/superpowers/specs/2026-09-28-package-i-internationalisation-design.md`) — I-0 identifier split, I-a the seam, I-b five machine-draft languages behind a review gate | `Message`-valued core prose; per-request `Translator`; `?lang=` menu; three catalogues per language; drafts for de/pl/da/lt/sv, none enabled until reviewed | — (not a data-layer concern; tracked here because every package is) | 0.9 PM *(no spec §13 row — propose amendment)* | I§11's fourteen clauses |
 
 **Critical path: §2 decisions → A0 → A → D → E-a → D-a2 → E-b**, with B → C feeding D in parallel.
 `GriddedForcing` implements the protocol package A creates, so D cannot precede A —

@@ -9,6 +9,7 @@ from app.i18n import (
     Translator,
     catalogue_status,
     enabled_languages,
+    english,
     language_for,
 )
 from seagarden_dst import Tier, default_parameters
@@ -133,11 +134,13 @@ def test_enabled_languages_is_english_plus_reviewed_unless_drafts_are_shown():
         assert shown == ("en", "de", "pl"), f"{on!r} hid drafts"
 
 
-def test_in_i_a_only_english_is_enabled_on_disk():
-    """No non-English catalogue ships in I-a; package I-b adds them."""
-    assert enabled_languages(env={}) == ("en",)
+def test_with_the_draft_switch_off_only_reviewed_languages_are_enabled():
+    """Holds whatever is on disk: a draft never shows without the switch."""
+    enabled = enabled_languages(env={})
+    assert enabled[0] == "en"
+    assert all(catalogue_status(language) == "reviewed" for language in enabled[1:])
     assert catalogue_status("en") == "reference"
-    assert catalogue_status("de") is None
+    assert catalogue_status("xx") is None
 
 
 def test_catalogue_status_is_read_once_per_process_and_root(tmp_path):
@@ -196,8 +199,11 @@ def _request(query: bytes, accept: bytes | None):
 
 def test_app_ui_takes_a_request_and_reads_lang_from_it():
     from app.app import app_ui
+    from app.i18n import language_for
 
-    assert 'lang="en"' in str(app_ui(_request(b"lang=de", b"de")))  # de not enabled in I-a
+    expected = language_for("?lang=de", "de", enabled_languages())
+    assert f'lang="{expected}"' in str(app_ui(_request(b"lang=de", b"de")))
+    assert 'lang="en"' in str(app_ui(_request(b"lang=zz", b"zz")))  # never a language
     assert 'lang="en"' in str(app_ui(_request(b"", None)))
 
 
@@ -312,7 +318,11 @@ def test_the_pure_renderers_speak_the_translators_language():
     # its pseudo-marked key is `params.*`, not `app.*`. Still routed through `tr`.
     assert "⟦params." in str(render_excluded(assessment, xx))
     text = render_report(assessment, state.forcing.get(), today=date(2026, 9, 28), tr=xx)
-    assert text.splitlines()[0] == "⟦app.report.heading⟧"
+    lines = text.splitlines()
+    # `xx` is a draft, so line 0 is the bilingual banner (Task 2, I§6) and the report
+    # itself - unchanged otherwise - starts one line later.
+    assert lines[0] == "⟦app.shell.draft_banner⟧ " + english()("app.shell.draft_banner")
+    assert lines[1] == "⟦app.report.heading⟧"
     # `Translator.pseudo()` keeps every marked template's own placeholders: the pseudo
     # value for a core/app key is `⟦key⟧` plus one ` {name}` per placeholder of its
     # English template, names sorted (`app/i18n.py::_pseudo_mark_templates`). A species
@@ -359,3 +369,197 @@ def test_the_position_note_names_its_provenance_through_its_own_key():
         assert f"{coordinate.lat:.4f}, {coordinate.lon:.4f} - {inline}. A result here" in note
         marker = f"⟦app.site.provenance_inline.{coordinate.provenance.value}⟧"
         assert marker in str(render_position_note(region, xx))
+
+
+# --- Task 2 (I-b): the gate fails safe; draft downloads say they are drafts -----------
+
+
+def test_a_broken_catalogue_disables_its_language_and_never_the_site(tmp_path, caplog):
+    """Inherited item 5: one malformed header used to 500 every page, English included."""
+    import logging
+
+    roots = {}
+    for owner in ("core", "app", "params"):
+        root = tmp_path / owner
+        root.mkdir()
+        # `reviewed` without reviewer fields: Catalogue.load raises ValueError
+        (root / "de.yaml").write_text(
+            "language: de\nstatus: reviewed\nmessages:\n  a.b: x\n", encoding="utf-8"
+        )
+        roots[owner] = root
+
+    def status(language):
+        return catalogue_status(
+            language, core_root=roots["core"], app_root=roots["app"], params_root=roots["params"]
+        )
+
+    with caplog.at_level(logging.WARNING, logger="app.i18n"):
+        enabled = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
+    assert enabled == ("en",)
+    assert "de" in caplog.text
+
+
+def test_a_broken_catalogues_warning_is_logged_once_across_repeated_calls(
+    tmp_path, caplog, monkeypatch
+):
+    """I-b review (Important 2): the test above proves one call logs a warning; it
+    would still pass if a regression logged on every call instead of once per distinct
+    message. This calls the gate twice against the same broken catalogue and pins that
+    only one warning record is emitted.
+
+    Isolation: the dedup set (`app.i18n._logged_catalogue_errors`) is module-level and
+    process-wide, so this test resets it via `monkeypatch` rather than relying on this
+    test's `tmp_path`-embedded error message being distinct from every other test's -
+    that holds for a `ValueError` (whose text includes the failing file's path) but not
+    for the bare `AttributeError`s the next two tests trigger, whose text is the same
+    generic Python message regardless of which file caused it.
+    """
+    import logging
+
+    import app.i18n as app_i18n
+
+    monkeypatch.setattr(app_i18n, "_logged_catalogue_errors", set())
+
+    roots = {}
+    for owner in ("core", "app", "params"):
+        root = tmp_path / owner
+        root.mkdir()
+        (root / "de.yaml").write_text(
+            "language: de\nstatus: reviewed\nmessages:\n  a.b: x\n", encoding="utf-8"
+        )
+        roots[owner] = root
+
+    def status(language):
+        return catalogue_status(
+            language, core_root=roots["core"], app_root=roots["app"], params_root=roots["params"]
+        )
+
+    with caplog.at_level(logging.WARNING, logger="app.i18n"):
+        enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
+        enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
+    warnings = [
+        r for r in caplog.records if r.levelno == logging.WARNING and r.name == "app.i18n"
+    ]
+    assert len(warnings) == 1
+    assert "ValueError" in caplog.text  # the log line names the exception type too
+
+
+def test_a_catalogue_whose_top_level_is_a_list_disables_its_language_not_the_site(
+    tmp_path, caplog, monkeypatch
+):
+    """I-b review (Critical 1): `Catalogue.load` calls `data.get("language")` on
+    whatever `yaml.safe_load` returns. A file whose top level is a YAML list, not a
+    mapping, raises `AttributeError` - outside the original `(OSError, ValueError,
+    yaml.YAMLError)` tuple, which let this one raise out of `enabled_languages` and
+    take the whole site down, not just `de`. See the isolation note on the test above
+    for why the dedup set is reset here too."""
+    import logging
+
+    import app.i18n as app_i18n
+
+    monkeypatch.setattr(app_i18n, "_logged_catalogue_errors", set())
+
+    roots = {}
+    for owner in ("core", "app", "params"):
+        root = tmp_path / owner
+        root.mkdir()
+        (root / "de.yaml").write_text("- a\n- b\n", encoding="utf-8")
+        roots[owner] = root
+
+    def status(language):
+        return catalogue_status(
+            language, core_root=roots["core"], app_root=roots["app"], params_root=roots["params"]
+        )
+
+    with caplog.at_level(logging.WARNING, logger="app.i18n"):
+        enabled = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
+    assert enabled == ("en",)
+    assert "de" in caplog.text
+    assert "AttributeError" in caplog.text
+
+
+def test_a_catalogue_whose_messages_are_not_a_mapping_disables_its_language(
+    tmp_path, caplog, monkeypatch
+):
+    """I-b review (Critical 1): a `messages:` value that YAML parses as anything but a
+    mapping fails one level deeper in `Catalogue.load` (`.items()` on a string) - also
+    an `AttributeError` outside the original tuple, also just a disabled language."""
+    import logging
+
+    import app.i18n as app_i18n
+
+    monkeypatch.setattr(app_i18n, "_logged_catalogue_errors", set())
+
+    roots = {}
+    for owner in ("core", "app", "params"):
+        root = tmp_path / owner
+        root.mkdir()
+        (root / "de.yaml").write_text(
+            "language: de\nstatus: machine-draft\ntranslated_by: t\nmessages: nope\n",
+            encoding="utf-8",
+        )
+        roots[owner] = root
+
+    def status(language):
+        return catalogue_status(
+            language, core_root=roots["core"], app_root=roots["app"], params_root=roots["params"]
+        )
+
+    with caplog.at_level(logging.WARNING, logger="app.i18n"):
+        enabled = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
+    assert enabled == ("en",)
+    assert "de" in caplog.text
+    assert "AttributeError" in caplog.text
+
+
+def test_a_draft_report_says_so_in_both_languages_and_english_does_not():
+    from datetime import date
+
+    from app.modules.report import render_report
+
+    today = date(2026, 9, 29)
+    draft = render_report(None, today=today, tr=Translator.pseudo())
+    assert draft.splitlines()[0] == (
+        "⟦app.shell.draft_banner⟧ " + english()("app.shell.draft_banner")
+    )
+    assert render_report(None, today=today, tr=english()) == english()("app.report.none")
+
+
+def test_the_json_export_names_its_language_and_draft_status():
+    import json
+
+    from app.modules.report import export_json
+
+    assert json.loads(export_json(None, english())) == {"language": "en", "draft": False}
+    marked = json.loads(export_json(None, Translator.pseudo()))
+    assert marked["language"] == "xx" and marked["draft"] is True
+
+
+def test_the_json_export_of_a_real_assessment_keeps_every_to_dict_key():
+    import json
+
+    from app.modules.report import export_json
+
+    state = _assessed_state()
+    assessment = state.assessment.get()
+    payload = json.loads(export_json(assessment, english()))
+    assert payload["language"] == "en" and payload["draft"] is False
+    # Every key `to_dict()` emits is still there, beside the two new ones - nothing
+    # dropped, nothing extra.
+    assert set(payload) == {"language", "draft", *assessment.to_dict()}
+
+
+def test_to_dict_never_emits_a_key_the_json_export_writes_itself():
+    """I-b final review: `export_json` writes `language` and `draft` first, where a
+    reader of the file sees them, and spreads `to_dict()` after them - so a `to_dict()`
+    key of either name would overwrite a marker without a sound, and a German download
+    could call itself English. The test above cannot see that (a set union hides the
+    collision); this one fails on it."""
+    import json
+
+    from app.modules.report import export_json
+
+    assessment = _assessed_state().assessment.get()
+    assert {"language", "draft"}.isdisjoint(assessment.to_dict())
+    payload = json.loads(export_json(assessment, Translator.pseudo()))
+    assert payload["language"] == "xx" and payload["draft"] is True

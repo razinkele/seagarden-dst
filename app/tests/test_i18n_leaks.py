@@ -15,10 +15,10 @@ from html.parser import HTMLParser
 
 import pytest
 
-from app.i18n import LANGUAGE_NAMES, Translator, enabled_languages
+from app.i18n import LANGUAGE_NAMES, LANGUAGES, Translator, enabled_languages
 from app.modules._widgets import calibration_legend, data_source_banner, headline_for
 from app.modules.catalogue import method_table, species_table
-from app.modules.report import render_report
+from app.modules.report import export_json, render_report
 from app.modules.results import render_excluded, render_pressure, render_ranking, run_assessment
 from app.modules.site import _legend, render_conditions, render_position_note, site_markers
 from app.modules.user_mode import mode_question_tag, user_mode_ui
@@ -42,24 +42,29 @@ URL = re.compile(r"https?://\S+|\S+@\S+\.\w+|mailto:\S+")
 #: token `_leaks` looks up, which has already had the same trailing punctuation
 #: stripped - see `_RAW_ALLOWED_TOKENS`'s Latin names, word by word, below.
 _STRIP = "().,;:[]*|"
+#: Pruned to what `test_every_allowlist_entry_is_needed` (below) actually matches, not
+#: aspirational (inherited item 7): measured with `shiny_deckgl` both hidden and
+#: present, 38 raw entries (including the whole `*PARAMS.methods` spread - a method's
+#: raw key never appears, only `tr.method_name(...)`'s translated text does) never
+#: matched either way and are gone; none matched only with the map. A future entry that
+#: test names as unused is dead weight, not insurance - remove it, don't keep it "just
+#: in case".
 _RAW_ALLOWED_TOKENS = {
     # units and symbols (I§7)
-    "psu", "m", "ha", "kg", "t", "DW", "FW", "N", "P", "C", "CO2", "km", "°C", "µmol/L",
-    "umol/L", "µmol", "photons/m²/s", "m²", "m2", "/", "-", "–", "—", "·", "=", "(", ")", "[", "]",
-    "|", ":", ";", ",", ".", "×", "x", "%", "&", "✓", "*",
+    "psu", "m", "kg", "DW", "FW", "N", "P", "C", "°C", "µmol/L",
+    "µmol", "photons/m²/s", "m²", "/", "(", ")", "[", "]",
+    "|", ":", ";", ",", ".", "*",
     # tiers, verdict identifiers (CSS class text never shows; the value does in the badge)
     # - "C" is already listed above as the carbon unit symbol
     "A", "B", "D",
     # brand and programme proper nouns
-    "Sea", "Garden", "SeaGarden", "DST", "Interreg", "South", "Baltic", "European", "Union",
-    "KU", "MRI", "OLAMUR", "EUTROPY", "MARBEFES", "WP2", "WP3", "A2.3", "D2.2",
-    "STHB.02.02-IP.01-0006/25",
+    "Sea", "Garden", "DST",
     # bow-tie states are engine data
     *TOP_EVENT_STATES,
     # language endonyms in the menu
     *LANGUAGE_NAMES.values(),
     # identifiers that are legitimately shown raw
-    *REGIONS, *PARAMS.species, *PARAMS.methods,
+    *REGIONS, *PARAMS.species,
     # Latin names, word by word - an abbreviation like "Mytilus spp." splits into
     # "Mytilus" and "spp.", the latter with its trailing dot; normalised below the
     # same way a found token is, or "spp." (kept) would never match "spp" (stripped).
@@ -69,11 +74,6 @@ _RAW_ALLOWED_TOKENS = {
     "github.com/razinkele/seagarden-dst",
     # site labels the tests themselves pass in (DATA, not catalogue prose)
     "Melnrage", "Off-grid",
-    # pre-existing defect, pinned byte-for-byte by tests/golden/reports/case-unassessable.txt:
-    # render_report prints "Sub-region:  None" for a site with no conditions and thus no
-    # region. Package I-a must keep English identical, so this stays allowlisted until a
-    # deliberate golden update fixes it.
-    "None",
 }
 ALLOWED_TOKENS = {token.strip(_STRIP) for token in _RAW_ALLOWED_TOKENS}
 
@@ -113,20 +113,52 @@ FRAMEWORK_STRINGS = {
                            # panel's own ui.layout_sidebar in site_ui/catalogue_ui)
 }
 #: The draft banner is bilingual BY DESIGN (I§6): the English sentence beside the
-#: translated one is required, so it is stripped before the leak scan, exactly once.
+#: translated one is required. Unlike every other allowance here, it is not stripped
+#: per chunk any more (that hid it from every render, not only the one place it
+#: belongs). The rule, explicit rather than relying on none of its words happening to
+#: be allowlisted (I-b review): the whole page (`_whole_page`) and each draft report
+#: (`_report`, Task 2) must carry it exactly once - checked there, then removed before
+#: the rest of that render is scanned - and `_leaks` itself asserts, for every render it
+#: is handed, that the banner is not present: trivially true for the page/report texts
+#: it has already been stripped from, and a real check for everything else.
 ENGLISH_DRAFT_BANNER = Translator.for_language("en")("app.shell.draft_banner")
+
+#: Pre-existing defect, pinned byte-for-byte by tests/golden/reports/case-unassessable.txt
+#: (inherited item 12, deferred to a later package): an unassessable site has no region,
+#: and `render_report` formats `None` into the sentence anyway. Blanked out as the one
+#: exact pseudo-rendered line it produces, not as a bare "None" anywhere, so a real leak
+#: that happens to say "None" is still caught.
+_SUBREGION_NONE_LINE = "⟦app.report.subregion⟧ None"
+
+#: Which normalised `ALLOWED_TOKENS` entries `_leaks` has actually matched, across
+#: however many renders it has scanned since the last `.clear()`. The only reader is
+#: `test_every_allowlist_entry_is_needed`, which clears this first so its own scan is
+#: what it measures.
+_MATCHED_TOKENS: set[str] = set()
 
 
 def _leaks(text: str) -> list[str]:
     out = []
+    # Explicit, not merely a side effect of no banner word being allowlisted (I-b
+    # review): the whole page and each draft report have already had their one
+    # required occurrence stripped by `_whole_page`/`_report` before reaching here, so
+    # this is trivially satisfied for them; every other render must never contain the
+    # banner sentence at all.
+    if ENGLISH_DRAFT_BANNER in text:
+        out.append(f"the English draft banner leaked outside the page/report: {text[:80]!r}")
     for chunk in text.split("\n"):
-        stripped = chunk.replace(ENGLISH_DRAFT_BANNER, " ")
-        if stripped.strip() in FRAMEWORK_STRINGS:
+        body = chunk.strip()
+        if body == _SUBREGION_NONE_LINE or body in FRAMEWORK_STRINGS:
             continue
+        stripped = chunk
         for pattern in (MARKER, URL, DATE, VERSION, NUMBER):
             stripped = pattern.sub(" ", stripped)
         for token in stripped.split():
-            if token.strip(_STRIP) in ALLOWED_TOKENS or not re.search(r"[A-Za-z]", token):
+            normalised = token.strip(_STRIP)
+            if normalised in ALLOWED_TOKENS:
+                _MATCHED_TOKENS.add(normalised)
+                continue
+            if not re.search(r"[A-Za-z]", token):
                 continue
             out.append(f"{token!r} in {chunk.strip()[:80]!r}")
     return out
@@ -182,19 +214,44 @@ def _assessment(region: str):
     return state.assessment.get()
 
 
-def test_6_the_whole_page_has_no_untranslated_text():
+def _whole_page() -> str:
+    """The whole page's text, in `xx`. `enabled=LANGUAGES` so the language menu is
+    exercised for all six endonyms, not only whichever the deployment happens to have
+    reviewed today (with no override, `build_ui`'s own default `enabled_languages()`
+    is English alone, and the other five would never be reached here).
+
+    The bilingual draft banner (I§6) is required to appear exactly once - checked here -
+    and removed after checking, so `_leaks` scans the rest of the page like any other
+    render. A draft report's own banner is the same rule, applied by `_report` below;
+    no other render may contain the banner text at all (see `ENGLISH_DRAFT_BANNER`
+    above, and `_leaks`, which checks that for every render).
+    """
     from app.app import build_ui
 
-    leaks = _leaks(_html_text(build_ui("xx")))
-    assert not leaks, "\n".join(leaks)
+    text = _html_text(build_ui("xx", enabled=LANGUAGES))
+    assert text.count(ENGLISH_DRAFT_BANNER) == 1, (
+        "the bilingual draft banner (I§6) must appear exactly once on the page"
+    )
+    return text.replace(ENGLISH_DRAFT_BANNER, " ", 1)
 
 
-@pytest.mark.parametrize("region", sorted(PLACEHOLDER_SITES))
-def test_6_every_render_has_no_untranslated_text(region):
+def _report(text: str) -> str:
+    """A `render_report` result in the draft pseudo-locale (Task 2, I§6): the bilingual
+    banner is required to appear exactly once, as its first line - checked here - and
+    removed after checking, the same way `_whole_page` handles the page's own banner.
+    Every render this test suite scans that is not the whole page or a report goes
+    straight to `_leaks`, which asserts the banner is not there at all."""
+    assert text.count(ENGLISH_DRAFT_BANNER) == 1, (
+        "a draft report must carry the English draft banner exactly once"
+    )
+    return text.replace(ENGLISH_DRAFT_BANNER, " ", 1)
+
+
+def _region_renders(region: str) -> list[str]:
+    """Every render `test_6_every_render_has_no_untranslated_text` scans for one region."""
     # Local import: `app.app` instantiates `App(app_ui, server)` at module scope, so
     # importing it at this file's top level would pay that cost for every test here,
-    # not only this one - the same reason `test_6_the_whole_page_has_no_untranslated_text`
-    # below imports `build_ui` locally instead.
+    # not only this one - the same reason `_whole_page` above imports `build_ui` locally.
     from app.app import scale_sentence
 
     assessment = _assessment(region)
@@ -211,7 +268,7 @@ def test_6_every_render_has_no_untranslated_text(region):
         _html_text(user_mode_ui("um", XX)),
         headline_for(assessment, XX)[1],
         data_source_banner(_artifact_choice(), assessment.context, XX),
-        render_report(assessment, _artifact_choice(), today=date(2026, 9, 28), tr=XX),
+        _report(render_report(assessment, _artifact_choice(), today=date(2026, 9, 28), tr=XX)),
         # The catalogue panel's two tables: `ui.output_ui`-served, so the whole-page
         # scan below never sees them (I§5.2 names the species table's yes/no and the
         # month words as exactly what this test exists to find).
@@ -228,18 +285,20 @@ def test_6_every_render_has_no_untranslated_text(region):
     skip = ("position", "colour", "region", "provenance")
     for marker in site_markers(XX):
         rendered.append(" ".join(str(v) for k, v in marker.items() if k not in skip))
-    # The JSON download (report.py, `to_dict(render=tr.render)`, spec I§8.6): only the
-    # values under "text" keys are prose a user reads; see `_text_values`.
-    payload = json.loads(json.dumps(assessment.to_dict(render=XX.render), default=str))
+    # The JSON download itself - `export_json`, the bytes the Report panel serves (spec
+    # I§8.6) - so a download that stops rendering in the session's language fails here,
+    # not only a bare `to_dict` call (I-b final review). Only the values under "text"
+    # keys are prose a user reads; see `_text_values`, which never visits the two
+    # top-level markers - checked here instead, to name the session's language.
+    payload = json.loads(export_json(assessment, XX))
+    assert payload["language"] == "xx" and payload["draft"] is True
     rendered.extend(_text_values(payload))
-    # The scenario really took the unlabelled-run path and reached the renders; a
-    # scan that never sees the EUTROPY note would pass while proving nothing about it.
-    assert any("⟦adapters.eutropy.unlabelled_run⟧" in text for text in rendered)
-    leaks = [leak for text in rendered for leak in _leaks(text)]
-    assert not leaks, "\n".join(leaks)
+    return rendered
 
 
-def test_6_the_empty_and_unassessable_states_have_no_untranslated_text():
+def _empty_and_unassessable_renders() -> list[str]:
+    """Every render `test_6_the_empty_and_unassessable_states_have_no_untranslated_text`
+    scans: no assessment at all, and a site whose coverage blocks one."""
     from seagarden_dst.api import assess_site
     from seagarden_dst.forcing import Aggregation, Coverage, SiteReading
 
@@ -248,16 +307,61 @@ def test_6_the_empty_and_unassessable_states_have_no_untranslated_text():
         aggregation=Aggregation.CONTAINING_CELL, nearest_valid_km=1.1, from_artifact=True,
     )
     unassessable = assess_site(SiteContext.from_reading(blocked, label="Off-grid"))
-    texts = [
+    return [
         _html_text(render_ranking(None, XX)), _html_text(render_excluded(None, XX)),
         _html_text(render_pressure(None, XX)),
-        render_report(None, today=date(2026, 9, 28), tr=XX),
+        _report(render_report(None, today=date(2026, 9, 28), tr=XX)),
         _html_text(render_ranking(unassessable, XX)),
         headline_for(unassessable, XX)[1],
-        render_report(unassessable, _artifact_choice(), today=date(2026, 9, 28), tr=XX),
+        _report(render_report(unassessable, _artifact_choice(), today=date(2026, 9, 28), tr=XX)),
     ]
-    leaks = [leak for text in texts for leak in _leaks(text)]
+
+
+def _all_renders() -> list[str]:
+    """Every render the leak tests below perform, in one list: the whole page, every
+    per-region render, and the empty and unassessable states - built from the same
+    helpers those tests call, so `test_every_allowlist_entry_is_needed` sees exactly
+    what they see."""
+    out = [_whole_page()]
+    for region in sorted(PLACEHOLDER_SITES):
+        out.extend(_region_renders(region))
+    out.extend(_empty_and_unassessable_renders())
+    return out
+
+
+def test_6_the_whole_page_has_no_untranslated_text():
+    leaks = _leaks(_whole_page())
     assert not leaks, "\n".join(leaks)
+
+
+@pytest.mark.parametrize("region", sorted(PLACEHOLDER_SITES))
+def test_6_every_render_has_no_untranslated_text(region):
+    rendered = _region_renders(region)
+    # The scenario really took the unlabelled-run path and reached the renders; a
+    # scan that never sees the EUTROPY note would pass while proving nothing about it.
+    assert any("⟦adapters.eutropy.unlabelled_run⟧" in text for text in rendered)
+    leaks = [leak for text in rendered for leak in _leaks(text)]
+    assert not leaks, "\n".join(leaks)
+
+
+def test_6_the_empty_and_unassessable_states_have_no_untranslated_text():
+    leaks = [leak for text in _empty_and_unassessable_renders() for leak in _leaks(text)]
+    assert not leaks, "\n".join(leaks)
+
+
+def test_every_allowlist_entry_is_needed(monkeypatch):
+    """Measured with `shiny_deckgl` hidden, the same install CI has (`app/tests/
+    test_app_smoke.py::test_the_site_panel_renders_without_shiny_deckgl`): an allowlist
+    entry nothing ever matches is dead weight that hides a real leak behind a false
+    sense of coverage (inherited item 7)."""
+    import sys
+
+    monkeypatch.setitem(sys.modules, "shiny_deckgl", None)
+    _MATCHED_TOKENS.clear()
+    for text in _all_renders():
+        _leaks(text)
+    dead = ALLOWED_TOKENS - _MATCHED_TOKENS
+    assert not dead, f"unused allowlist entries: {sorted(dead)}"
 
 
 def test_the_placeholder_reason_is_the_only_english_in_the_placeholder_banner():
@@ -281,3 +385,99 @@ def test_8_a_draft_language_is_hidden_unless_the_deployment_shows_drafts():
     assert language_for("?lang=de", "de", hidden) == "en"
     shown = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"}, status=status)
     assert "de" in shown and language_for("?lang=de", None, shown) == "de"
+
+
+#: Test 8 below runs for every language but English (first in `LANGUAGES`), whatever
+#: its catalogues say on disk (I-b final review): the pull request that flips a language
+#: to `reviewed` must pass it unchanged, so a banner is asserted present exactly when
+#: the language is a draft - never assumed because every language is a draft today.
+_TRANSLATED_LANGUAGES = LANGUAGES[1:]
+
+#: App-owned strings the page shows at load, each as a text node of its own: the
+#: sidebar's hidden title and its heading, the Assess button, the four panel tabs.
+_PAGE_APP_KEYS = (
+    "app.shell.title", "app.shell.setup", "app.shell.assess",
+    "app.nav.site", "app.nav.catalogue", "app.nav.results", "app.nav.report",
+)
+
+
+def _text_nodes(tag) -> list[str]:
+    """Every text node of a render (and the readable attributes `_Text` collects),
+    stripped. Test 8 matches a translated string against a WHOLE node, never as a
+    substring: German "Bewerten" (the Assess button) also sits inside the sidebar's
+    workflow sentence, and Swedish "Bedöm" inside "Bedömningsrapport"."""
+    parser = _Text()
+    parser.feed(str(tag))
+    return [chunk.strip() for chunk in parser.chunks if chunk.strip()]
+
+
+def _first_translated(pairs) -> str:
+    """The first `(translation, English)` pair whose sides differ: proof that an owner's
+    catalogue was read, not fallen back to English. Picked per language from everything
+    the render shows, so one value that happens to read as in English (a loan word, a
+    brand) cannot break the test for that language."""
+    for translated, source in pairs:
+        if translated != source:
+            return translated
+    raise AssertionError("every candidate renders exactly as its English source")
+
+
+@pytest.mark.parametrize("language", _TRANSLATED_LANGUAGES)
+def test_8_each_language_renders_under_the_switch_bannered_iff_a_draft(language):
+    """Spec I§8 test 8, for each language: with the switch set, the language is enabled
+    and its page renders in it - the app's chrome, the core's region names (the Site
+    panel's menu) and the sidecar's species names (the Catalogue panel's checkboxes) -
+    and the bilingual draft banner is on the page, once, exactly when the language is
+    still a draft. Reviewed, the same page must carry no banner at all."""
+    from app.app import build_ui
+    from app.i18n import english, language_for
+
+    shown = enabled_languages(env={"SEAGARDEN_SHOW_DRAFT_LANGUAGES": "1"})
+    assert language in shown and language_for(f"?lang={language}", None, shown) == language
+    tr, en = Translator.for_language(language), english()
+    page = build_ui(language, enabled=shown)
+    assert f'lang="{language}"' in str(page)
+    nodes = _text_nodes(page)
+    owned = {
+        "app": _first_translated((tr(key), en(key)) for key in _PAGE_APP_KEYS),
+        "core": _first_translated((tr.render(name), en.render(name)) for name in REGIONS.values()),
+        "params": _first_translated(
+            (tr.species_name(key), en.species_name(key)) for key in PARAMS.species
+        ),
+    }
+    for owner, text in owned.items():
+        assert text in nodes, f"{owner}-owned {text!r} is not a text node of the page"
+    for half in (tr("app.shell.draft_banner"), ENGLISH_DRAFT_BANNER):
+        assert nodes.count(half) == (1 if tr.is_draft else 0), (half, tr.status)
+
+
+@pytest.mark.parametrize("language", _TRANSLATED_LANGUAGES)
+def test_8_each_languages_report_opens_with_the_draft_line_iff_a_draft(language):
+    """The same for the report a user downloads, at a placeholder site: its first line is
+    the bilingual draft line exactly when the language is a draft (the report's own
+    heading otherwise); the core's legal sentence and a sidecar species name appear
+    translated; and it ends on the translated footer."""
+    from app.i18n import english
+    from seagarden_dst.api import assess_site
+    from seagarden_dst.i18n import msg
+
+    tr, en = Translator.for_language(language), english()
+    assessment = assess_site(SiteContext.from_region("DE-coastal", label="Rostock"))
+    text = render_report(assessment, today=date(2026, 9, 28), tr=tr)
+    lines = text.splitlines()
+    if tr.is_draft:
+        assert lines[0] == f"{tr('app.shell.draft_banner')} {ENGLISH_DRAFT_BANNER}"
+        assert lines[1] == tr("app.report.heading")
+    else:
+        assert lines[0] == tr("app.report.heading")
+    assert text.count(ENGLISH_DRAFT_BANNER) == (1 if tr.is_draft else 0), tr.status
+    assert tr("app.report.source.placeholder_bare") in text  # a placeholder site
+    legal = msg("suitability.legal.no_record")
+    assert tr.render(legal) != en.render(legal) and tr.render(legal) in text
+    species = _first_translated(
+        (tr.species_name(o.species_key), en.species_name(o.species_key))
+        for o in assessment.ranked
+    )
+    assert species in text
+    footer = tr("app.report.footer")
+    assert footer != en("app.report.footer") and text.endswith(footer)

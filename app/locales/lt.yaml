@@ -1,0 +1,259 @@
+# app/locales/lt.yaml
+# The Lithuanian catalogue for the app's own chrome (design I§4.3): a machine draft, not yet
+# reviewed. It carries exactly the keys of en.yaml, the reference. Placeholder NAMES only,
+# never format specs.
+language: lt
+status: machine-draft
+translated_by: "machine draft (Claude), 2026-09-29"
+reviewed_by: null
+reviewed_on: null
+messages:
+  # --- navbar and shell (shell.py, app.py) ------------------------------------
+  app.nav.site: "Vieta"
+  app.nav.catalogue: "Katalogas"
+  app.nav.results: "Rezultatai"
+  app.nav.report: "Ataskaita"
+  app.shell.about: "Apie įrankį"
+  app.shell.help: "Pagalba"
+  app.shell.feedback: "Atsiliepimai"
+  app.shell.language: "Kalba"
+  app.shell.title: "SeaGarden sprendimų paramos įrankis"
+  app.shell.window_title: "SeaGarden DST"
+  app.shell.setup: "Nustatymai"
+  app.shell.workflow: "Darbo eiga: 1) pasirinkite vietą · 2) skirtuke „Katalogas“ pasirinkite rūšis, metodą ir mastą · 3) spustelėkite „Vertinti“ · 4) peržiūrėkite skirtukus „Rezultatai“ ir „Ataskaita“."
+  app.shell.assess: "Vertinti"
+  app.shell.close: "Uždaryti"
+  app.shell.funding_alt: "SeaGarden - Interreg South Baltic, bendrai finansuojamas Europos Sąjungos"
+  app.shell.draft_banner: "Mašininis vertimas, dar nepatikrintas."
+  app.shell.about.title: "Apie SeaGarden DST"
+  app.shell.about.body: |
+    **SeaGarden sprendimų paramos įrankis** (Decision Support Tool, DST) padeda planuoti bendruomenių inicijuojamus regeneracinius jūrinius ūkius Pietų Baltijoje. Pasirinkite vietą, nuspręskite, ką ir kokiu mastu auginti, o įrankis pateiks vietos tinkamumo klasę, tikėtiną derlių ir azoto, fosforo bei anglies kiekius, kuriuos šis derlius pašalina iš vandens.
+
+    **Ką gaunate**
+
+    - Vietos tinkamumo klasę, apskaičiuotą kaip ribojimų klasių **minimumą**, nurodant lemiamą ribojimą. Tai ne svertinis indeksas: vieta, kuriai taikomas besąlygiškas teisinis draudimas, negali būti įvertinta kaip „vidutinė“ vien todėl, kad vanduo geras.
+    - **Kalibravimo lygmenį** prie kiekvieno skaičiaus - kalibruota vietos duomenimis, ekstrapoliuota iš kito regiono, literatūrinė vertė arba kontraindikuotina. Kol nėra WP3 bandomųjų vietų duomenų, beveik kiekvienas Pietų Baltijos skaičius yra literatūrinė vertė, ir įrankis tai nurodo prie paties skaičiaus.
+    - **Eutrofikacijos pavojų** pagal MARBEFES bow-tie modelį ir pasirinktinai **maistinių medžiagų įvesties duomenis** iš EUTROPY dėžinio modelio - abu pateikiami šalia reitingo ir niekada į jį neįtraukiami.
+
+    - **Programa** - Interreg South Baltic 2021-2027 · **SeaGarden** (STHB.02.02-IP.01-0006/25)
+    - **Darbų paketas / veikla** - WP2 / A2.3 · Produktas **D2.2**
+    - **Vadovaujantis partneris** - Klaipėdos universitetas, Jūros tyrimų institutas
+    - **Būsena** - prototipas · modelio branduolys `v{version}`
+
+    Pirminis kodas ir pranešimai apie klaidas: [{repo_name}]({repo_url})
+
+    Visomis kalbomis skaičiuose naudojamas dešimtainis taškas, o datos rašomos formatu metai-mėnuo-diena.
+
+    *Prototipas. Rezultatai yra orientaciniai ir nėra pagrindas leidimui ar sutikimui. Bendrai finansuoja Europos Sąjunga; išreikštos nuomonės yra tik autorių.*
+  app.shell.help.title: "Kaip naudotis SeaGarden DST"
+  app.shell.help.body: |
+    **Darbo eiga**
+
+    1. **Vieta** - pasirinkite subregioną. Galutiniame įrankyje nubrėšite daugiakampį; prototipe kiekvienam subregionui naudojamos pakaitinės sąlygos.
+    2. **Katalogas** - pasirinkite rūšis, auginimo metodą ir mastą.
+    3. **Vertinti** - mygtukas šoninėje juostoje. Skirtukai „Rezultatai“ ir „Ataskaita“ lieka tušti, kol jo nepaspausite, ir vėl išvalomi, vos tik pakeičiate vietą.
+    4. **Rezultatai** - variantų reitingas, kiekvieno varianto lemiamas ribojimas ir maistinių medžiagų šalinimas su kalibravimo lygmeniu.
+    5. **Ataskaita** - vertinimas tekstu, kartu su išlygomis.
+
+    **Kaip skaityti kalibravimo lygmenis**
+
+    | Lygmuo | Reikšmė | Kaip rodoma |
+    |---|---|---|
+    | A | Pritaikyta pagal SeaGarden bandomųjų vietų duomenis | vertė su intervalu |
+    | B | Pritaikyta pagal duomenis iš kitos Baltijos jūros vietos | vertė kaip diapazonas |
+    | C | Literatūrinė vertė, be validavimo vietos duomenimis | dydžio eilės intervalas |
+    | D | Kontraindikuotina - vietos tyrimais nustatytas faktas prieštarauja modeliui | nustatytas faktas, vietoj skaičiaus |
+
+    D lygmens atvejis, kurį verta žinoti: cukrinė laminarija, kai druskingumas mažesnis nei apie 16 psu. Druskingumo koeficientas duoda nedidelį teigiamą derlių; OLAMUR bandomojoje vietoje esant 5.5-6.5 psu auginimas visiškai nepavyko. Įrankis rodo šį nustatytą faktą.
+  app.shell.feedback.title: "Siųsti atsiliepimą"
+  app.shell.feedback.body: |
+    Tai bendrai kuriamas WP2 A2.3 prototipas. Naudingiausi yra konkretūs atsiliepimai - kuris skydelis, kuri vieta, ko tikėjotės.
+
+    - **Praneškite apie problemą** - [{repo_url}/issues/new]({repo_url}/issues/new)
+    - **El. paštas** - [{email}](mailto:{email}?subject=SeaGarden%20DST%20feedback)
+  # --- sidebar status (app.py, _widgets.py) -----------------------------------
+  app.status.no_site: "Vieta nepasirinkta. Atidarykite skirtuką „Vieta“ ir pasirinkite vietą."
+  app.status.site_ready: "Vieta paruošta: {label}. Pasirinkta rūšių: {n}. Mastas: {scale}. Spustelėkite „Vertinti“."
+  app.headline.unassessed: "Vieta neįvertinta: {reason}"
+  app.headline.none: "Šioje vietoje nepavyko įvertinti nė vienos rūšies."
+  app.headline.nothing_reportable: "Čia nėra ką pateikti - visi variantai kontraindikuotini."
+  app.headline.none_suitable: "Šiuo metu nė vienas variantas nėra tinkamas; ribojimai nurodyti skirtuke „Rezultatai“."
+  app.headline.best: "Geriausias variantas: {species}, tinkamumas: {verdict}{suffix}."
+  app.headline.priors_suffix: " (literatūrinės vertės)"
+  app.headline.no_suffix: ""
+  app.unassessable.cell_invalid: "šioje gardelėje duomenų nėra.{distance}"
+  app.unassessable.nearest: " Artimiausia gardelė su duomenimis yra už {km} km."
+  app.unassessable.no_distance: ""
+  app.unassessable.year_absent: "duomenų rinkinyje nėra prašomų metų."
+  app.unassessable.no_conditions: "duomenų sluoksnis negalėjo pateikti sąlygų."
+  app.source.artifact: "gardelinis įvesties duomenų rinkinys, {year} m. sąlygos, sukūrimo data {built}"
+  app.source.unknown_date: "nežinoma"
+  app.banner.artifact: "Duomenų šaltinis: {source}."
+  app.banner.placeholder: "Duomenų šaltinis: pakaitinės sąlygos — tikėtinos dydžio eilės vertės, o ne matavimai ({reason})."
+  app.banner.this_site: " Ši vieta: {note}."
+  # --- widgets ------------------------------------------------------------------
+  app.tier.badge_title: "{label} - {presentation}"
+  app.quantity.none: "-"
+  app.quantity.range: "{low}-{high} {unit}"
+  app.quantity.value: "{value} {unit}"
+  app.quantity.range_tiered: "{low}-{high} {unit} [{tier}]"
+  app.quantity.value_tiered: "{value} {unit} [{tier}]"
+  app.quantity.not_applicable: "netaikoma - {caveat}"
+  app.legend.title: "Kalibravimo lygmenys"
+  app.legend.A: " pritaikyta pagal SeaGarden bandomųjų vietų duomenis"
+  app.legend.B: " pritaikyta pagal duomenis iš kitos Baltijos jūros vietos"
+  app.legend.C: " literatūrinė vertė, be validavimo vietos duomenimis"
+  app.legend.D: " kontraindikuotina - nustatytas faktas prieštarauja modeliui"
+  app.legend.note: "Kol nėra WP3 bandomųjų vietų duomenų (M12-30), beveik kiekvienas Pietų Baltijos rezultatas priskiriamas C lygmeniui. Juos vertinkite kaip orientacinius intervalus, o ne kaip įverčius."
+  app.month.1: "saus."
+  app.month.2: "vas."
+  app.month.3: "kov."
+  app.month.4: "bal."
+  app.month.5: "geg."
+  app.month.6: "birž."
+  app.month.7: "liep."
+  app.month.8: "rugp."
+  app.month.9: "rugs."
+  app.month.10: "spal."
+  app.month.11: "lapkr."
+  app.month.12: "gruod."
+  app.window.span: "{start}–{end}"
+  app.window.over_winter: "{span} (per žiemą)"
+  # --- user mode ----------------------------------------------------------------
+  app.mode.label: "Mano tikslas"
+  app.mode.choice: "{title} - {audience}"
+  app.mode.plan.title: "Planuoti"
+  app.mode.plan.audience: "Institucijos, teritorijų planuotojai"
+  app.mode.plan.question: "Kur čia būtų galima plėtoti regeneracinę akvakultūrą ir ką tai duotų?"
+  app.mode.farm.title: "Ūkininkauti"
+  app.mode.farm.audience: "Augintojai, MVĮ, operatoriai"
+  app.mode.farm.question: "Ar galiu ūkininkauti šioje vietoje, ką turėčiau auginti ir ką gausiu?"
+  app.mode.start.title: "Pradėti"
+  app.mode.start.audience: "Bendruomenės, NVO, piliečių mokslas"
+  app.mode.start.question: "Ar galėtume čia įkurti nedidelį jūros sodą ir ko tam reikėtų?"
+  app.mode.explore.title: "Tyrinėti"
+  app.mode.explore.audience: "Tyrėjai, studentai, konsultantai"
+  app.mode.explore.question: "Ką rodo modeliai ir kiek jie patikimi?"
+  # --- site panel ---------------------------------------------------------------
+  app.site.region: "Subregionas"
+  app.site.help: "Spustelėkite žymeklį žemėlapyje arba pasirinkite čia. "
+  app.site.help_absent_single: "Subregionas {regions} dar neturi patvirtintos padėties, todėl jį galima pasirinkti tik čia."
+  app.site.help_absent_list: "Subregionai {regions} dar neturi patvirtintų padėčių, todėl juos galima pasirinkti tik čia."
+  app.site.and: " ir "
+  app.site.label: "Vietos pavadinimas (neprivaloma)"
+  app.site.label_placeholder: "pvz., Melnragės bandomoji vieta"
+  app.site.use: "Naudoti šią vietą"
+  app.site.where: "Padėtis"
+  app.site.no_map: |
+    *Žemėlapiui reikalingas paketas `shiny_deckgl`, kuris platinamas per conda kanalą, o ne per PyPI, ir čia neįdiegtas:*
+
+        micromamba install -n shiny -c razinka shiny-deckgl
+
+    *Subregiono pasirinkimas šoninėje juostoje veikia bet kuriuo atveju.*
+  app.site.tooltip_depth: "Modelio gylis"
+  app.site.depth_unknown: "nežinomas"
+  app.site.no_position: "Subregionas {region} neturi patvirtintos padėties. Jo sąlygos yra subregiono suvestinė, todėl čia pateikti duomenys nesusiję su jokia konkrečia gardele."
+  app.site.position: "{lat}, {lon} - {provenance}. Čia pateikiamas {presentation}."
+  app.site.provenance_inline.sited: "tikroji vieta"
+  app.site.provenance_inline.snapped: "perkelta į artimiausią modelio gardelę"
+  app.site.provenance_inline.indicative: "orientacinė vandens telkinio vieta"
+  app.site.conditions: "Vietos sąlygos"
+  app.site.cond.salinity: "Druskingumas"
+  app.site.cond.mean_temp: "Vidutinė temperatūra"
+  app.site.cond.summer_winter: "Vasaros / žiemos temperatūra"
+  app.site.cond.din: "Ištirpęs neorganinis azotas"
+  app.site.cond.dip: "Ištirpęs neorganinis fosforas"
+  app.site.cond.depth: "Gylis"
+  app.site.cond.wave: "Reikšminis bangų aukštis"
+  app.site.cond.par: "PAR auginimo gylyje"
+  app.site.confidence_line: "Duomenų patikimumas: {confidence} (pakaitinės sąlygos). Kalibravimo sritis: {region}."
+  app.site.provenance_card: "Iš kur šie skaičiai"
+  app.site.provenance_body: |
+    Žemėlapyje parodyta, **kur** yra subregionas. Toliau pateikti skaičiai yra **pakaitinės sąlygos**, po vieną rinkinį kiekvienam subregionui: tikėtinos dydžio eilės vertės, o ne matavimai, ir jos nenuskaitomos pagal padėtį. Kiekvienas iš jų gautas rezultatas yra literatūrinė vertė.
+
+    Galutiniame įrankyje nubrėšite daugiakampį, o sąlygos bus nuskaitomos iš kuruojamų duomenų sluoksnių - druskingumas, temperatūra ir maistinės medžiagos iš Copernicus Marine reanalizės, batimetrija ir žmogaus veikla iš EMODnet, saugomos teritorijos iš HELCOM. Sąsaja tarp šio skydelio ir modelio branduolio nesikeičia.
+  # --- catalogue panel ----------------------------------------------------------
+  app.catalogue.species: "Rūšys"
+  app.catalogue.scale: "Mastas"
+  app.catalogue.only_af: "Pažymėti tik projekto paraiškoje nurodytas rūšis"
+  app.catalogue.methods: "Auginimo metodai"
+  app.catalogue.col.species: "Rūšis"
+  app.catalogue.col.scientific: "Mokslinis pavadinimas"
+  app.catalogue.col.group: "Grupė"
+  app.catalogue.col.in_af: "Paraiškoje"
+  app.catalogue.col.window: "Auginimo laikotarpis"
+  app.catalogue.yes: "taip"
+  app.catalogue.no: "ne"
+  app.catalogue.species_note: "Projekto paraiškoje nurodytos tik Ulva ir valgomoji midija. Fucus atveju turima OLAMUR įrodymų apie auginimą esant mažam druskingumui, Chorda yra rūšis, kurią KU iš tikrųjų augins Lietuvoje (sprendimas D1), o cukrinė laminarija įtraukta dėl Danijos vietos ir kaip išnagrinėtas kontraindikacijos pavyzdys."
+  app.catalogue.col.method: "Metodas"
+  app.catalogue.col.anchoring: "Inkaravimas"
+  app.catalogue.col.cultivation: "Auginimas"
+  app.catalogue.col.depth: "Gylis"
+  app.catalogue.col.max_wave: "Didž. bangų aukštis"
+  app.catalogue.col.unit_area: "Vieneto plotas"
+  app.catalogue.methods_note: "Išlaidų ir darbo sąnaudų laukai sąmoningai palikti tušti. Jie bus užpildyti pagal faktinius WP3 pirkimų dokumentus - ekonominio gyvybingumo skaičiai pagrindžiami tik tada, jei koeficientai atitinka tai, ką projektas iš tikrųjų sumokėjo."
+  # --- results panel ------------------------------------------------------------
+  app.results.ranked: "Variantų reitingas"
+  app.results.excluded: "Atmesta"
+  app.results.pressure: "Pavojaus kontekstas"
+  app.results.pick_site: "Pasirinkite vietą, tada spustelėkite „Vertinti“."
+  app.results.unassessed: "Ši vieta neįvertinta, nes duomenų sluoksnis negalėjo pateikti sąlygų. Duomenų aprėpties trūkumo priežastis nurodyta ataskaitoje."
+  app.results.none: "Šioje vietoje nepavyko įvertinti nė vienos rūšies."
+  app.results.col.option: "Variantas"
+  app.results.col.verdict: "Tinkamumas"
+  app.results.col.harvest: "Derlius"
+  app.results.col.nitrogen: "Azotas"
+  app.results.col.phosphorus: "Fosforas"
+  app.results.col.carbon: "Anglis"
+  app.results.constraint_line: "{name}: {verdict} - {reason}"
+  app.results.caveats: "Išlygos"
+  app.results.caveat_line: "{label}: {text}"
+  app.results.dash: "-"
+  app.results.nothing_excluded: "Šioje vietoje nieko neatmesta."
+  app.results.no_bowtie: "Bow-tie modelio išvados nepateiktos. Maistinių medžiagų šalinimas pateikiamas atskirai."
+  app.results.p_top: "P(viršūninis įvykis {state}) = {p}"
+  # --- report panel -------------------------------------------------------------
+  app.report.title: "Vertinimo ataskaita"
+  app.report.download_txt: "Atsisiųsti ataskaitą (.txt)"
+  app.report.download_json: "Atsisiųsti duomenis (.json)"
+  app.report.none: "Vertinimas dar neatliktas. Pasirinkite vietą ir spustelėkite „Vertinti“."
+  app.report.heading: "SEAGARDEN SPRENDIMŲ PARAMA - VIETOS VERTINIMAS"
+  app.report.site: "Vieta:       {site}"
+  app.report.subregion: "Subregionas: {region}"
+  app.report.conditions_unavailable: "Sąlygos:     nepasiekiamos — duomenų sluoksnis negalėjo įvertinti šios vietos"
+  app.report.conditions: "Sąlygos:     druskingumas {salinity} psu, DIN {din} umol/L, gylis {depth} m"
+  app.report.confidence: "Duomenų patikimumas: {confidence}"
+  app.report.generated: "Sugeneruota: {date} - modelio branduolys v{version}"
+  app.report.ranked: "VARIANTŲ REITINGAS"
+  app.report.unassessed: "NEĮVERTINTA: {reason}"
+  app.report.none_assessed: "Šioje vietoje nepavyko įvertinti nė vienos rūšies."
+  app.report.option: "{species} - {method} ({ha} ha)"
+  app.report.verdict: "  Tinkamumas: {verdict}"
+  app.report.binding: "  Lemiamas:   {binding}"
+  app.report.harvest: "  Derlius:    {harvest}"
+  app.report.nitrogen: "  Azotas:     {value}"
+  app.report.phosphorus: "  Fosforas:   {value}"
+  app.report.carbon: "  Anglis:     {value}"
+  app.report.calibration: "  Kalibravimas: {label} - {presentation}"
+  app.report.excluded: "ATMESTA"
+  app.report.excluded_line: "- {key}: {reason}"
+  app.report.pressure: "PAVOJAUS KONTEKSTAS"
+  app.report.p_top: "- P(viršūninis įvykis {state}) = {p}"
+  app.report.pressure_note: "  {note}"
+  app.report.caveats: "IŠLYGOS"
+  app.report.caveat_line: "- {label}: {text}"
+  app.report.carbon_caveat: "- Anglis nurodoma tik kaip anglis surinktoje biomasėje. Sekvestracija nenurodoma: kalcifikacijos metu išsiskiria CO2, todėl teiginys apie sekvestraciją priklausytų nuo to, ar kriauklės bus pašalintos iš vandens ir laikomos už jo ribų."
+  app.report.legal_caveat: "- Teisinis leistinumas lieka neįvertintas, kol neatsiras teisinio reguliavimo duomenų (A2.2, M12). Nežinomas teisinis statusas tinkamumo klasę blokuoja, o ne praleidžia."
+  app.report.footer: "Prototipo rezultatas. Tik orientacinis; nėra pagrindas leidimui ar sutikimui."
+  app.report.unassessed.cell_invalid_near: "šioje gardelėje duomenų nėra; artimiausia gardelė su duomenimis yra už {km} km."
+  app.report.unassessed.cell_invalid: "šioje gardelėje duomenų nėra."
+  app.report.unassessed.year_absent: "duomenų rinkinyje nėra prašomų metų."
+  app.report.unassessed.no_conditions: "duomenų sluoksnis negalėjo pateikti sąlygų."
+  app.report.source.artifact: "Duomenų šaltinis: {source}"
+  app.report.source.placeholder_reason: "Duomenų šaltinis: pakaitinės sąlygos ({reason})"
+  app.report.source.artifact_bare: "Duomenų šaltinis: gardelinis įvesties duomenų rinkinys"
+  app.report.source.placeholder_bare: "Duomenų šaltinis: pakaitinės sąlygos"
+  app.report.source.this_site: " — ši vieta: {note}"
+  app.report.caveat.artifact: "- Vietos sąlygos paimtos iš gardelinio įvesties duomenų rinkinio."
+  app.report.caveat.placeholder: "- Šiame prototipe vietos sąlygos yra pakaitinės vertės, o ne matavimai."
+  app.report.caveat.this_site: " Ši vieta: {note}."
